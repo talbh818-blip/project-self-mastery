@@ -12,8 +12,17 @@ import {
   relativeWeekLabel,
   toDateString,
 } from '../features/habits/week';
-import { SLOT_INDEXES, type SlotView } from '../features/habits/types';
+import {
+  SLOT_INDEXES,
+  type LogStatus,
+  type SlotIndex,
+  type SlotView,
+} from '../features/habits/types';
 import { HabitIcon } from '../features/habits/HabitIcon';
+import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
+import { nextMarkInCycle, setHabitLog } from '../features/habits/mutations';
+import { useUserStats } from '../features/habits/useUserStats';
+import { scoreForRange, type UserStats } from '../features/habits/scoring';
 
 export function Habits() {
   const { user } = useAuth();
@@ -32,10 +41,35 @@ export function Habits() {
   const canGoNext =
     toDateString(getWeekRange(addWeeks(anchor, 1)).start) <= toDateString(maxWeekStart);
 
-  const week = useWeekView(user?.id ?? null, range);
+  // refreshKey bumps when an assignment changes, forcing both queries to refetch.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const week = useWeekView(user?.id ?? null, range, refreshKey);
+  const userStats = useUserStats(user?.id ?? null, refreshKey);
 
-  // TODO(scoring): wire up real TOTAL SCORE once logs/scoring are implemented.
-  const totalScorePlaceholder = 0;
+  // Picker state — which slot is currently being edited.
+  const [pickerSlot, setPickerSlot] = useState<SlotIndex | null>(null);
+
+  // Mutation error (cell save). Shown as a toast under the table.
+  const [mutationError, setMutationError] = useState<string | null>(null);
+
+  const handleCellClick = async (
+    habitId: string,
+    date: string,
+    current: LogStatus | undefined,
+  ) => {
+    if (!user) return;
+    const next = nextMarkInCycle(current);
+    try {
+      await setHabitLog({ userId: user.id, habitId, date, newStatus: next });
+      setMutationError(null);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'שגיאה בשמירה';
+      setMutationError(msg);
+    }
+  };
+
+  const totalScore = userStats.status === 'ready' ? userStats.stats.totalScore : 0;
 
   return (
     <section className="text-forest-700">
@@ -75,7 +109,7 @@ export function Habits() {
               TOTAL SCORE
             </div>
             <div className="text-4xl font-bold text-forest-700 leading-none mt-1">
-              {totalScorePlaceholder}
+              {totalScore}
             </div>
           </div>
         </div>
@@ -93,7 +127,32 @@ export function Habits() {
       )}
 
       {week.status === 'ready' && (
-        <WeekTable slots={week.slots} days={range.days} today={today} />
+        <WeekTable
+          slots={week.slots}
+          days={range.days}
+          today={today}
+          rangeStart={range.start}
+          rangeEnd={range.end}
+          stats={userStats.status === 'ready' ? userStats.stats : null}
+          onPickSlot={(s) => setPickerSlot(s)}
+          onMarkCell={handleCellClick}
+        />
+      )}
+
+      {mutationError && (
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50/60 text-red-700 text-sm px-4 py-2">
+          {mutationError}
+        </div>
+      )}
+
+      {user && (
+        <HabitPickerSheet
+          open={pickerSlot !== null}
+          slotIndex={pickerSlot}
+          userId={user.id}
+          onClose={() => setPickerSlot(null)}
+          onAssigned={() => setRefreshKey((k) => k + 1)}
+        />
       )}
     </section>
   );
@@ -103,11 +162,35 @@ function WeekTable({
   slots,
   days,
   today,
+  rangeStart,
+  rangeEnd,
+  stats,
+  onPickSlot,
+  onMarkCell,
 }: {
   slots: SlotView[];
   days: Date[];
   today: Date;
+  rangeStart: Date;
+  rangeEnd: Date;
+  stats: UserStats | null;
+  onPickSlot: (slot: SlotIndex) => void;
+  onMarkCell: (habitId: string, date: string, current: LogStatus | undefined) => void;
 }) {
+  // For each slot, prefer the "effective" status from scoring (which includes
+  // virtual auto_x for past blank days). Fall back to raw marks if stats not loaded.
+  const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
+    const r = stats?.byHabit.get(habitId);
+    if (!r) return undefined;
+    const s = r.effectiveByDate.get(dateStr);
+    if (s === 'blank' || s === undefined) return undefined;
+    return s;
+  };
+  const weekScoreFor = (habitId: string): number => {
+    const r = stats?.byHabit.get(habitId);
+    if (!r) return 0;
+    return scoreForRange(r, rangeStart, rangeEnd);
+  };
   return (
     <div className="rounded-2xl border border-forest-100 bg-white overflow-hidden shadow-sm">
       <table className="w-full table-fixed text-sm">
@@ -123,7 +206,7 @@ function WeekTable({
                   key={s}
                   className="py-2 px-1 font-normal align-bottom"
                 >
-                  <SlotHeader slot={slot} />
+                  <SlotHeader slot={slot} onClick={() => onPickSlot(s)} />
                 </th>
               );
             })}
@@ -156,31 +239,72 @@ function WeekTable({
                 </td>
                 {SLOT_INDEXES.map((s) => {
                   const slot = slots.find((x) => x.slot_index === s);
-                  const mark = slot?.marks[toDateString(d)];
+                  const dateStr = toDateString(d);
+                  // Use effective (scoring) status when available so virtual
+                  // auto_x renders properly; fall back to raw mark otherwise.
+                  const effective = slot?.habit
+                    ? effectiveFor(slot.habit.id, dateStr)
+                    : undefined;
+                  const mark = effective ?? slot?.marks[dateStr];
+                  const clickable = !future && !!slot?.habit;
                   return (
                     <td
                       key={s}
-                      className={`text-center py-3 align-middle ${
+                      className={`text-center py-1 align-middle ${
                         future ? 'opacity-30' : ''
                       }`}
                     >
-                      <MarkCell mark={mark} hasHabit={!!slot?.habit} />
+                      {clickable ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            slot?.habit &&
+                            onMarkCell(slot.habit.id, dateStr, mark)
+                          }
+                          className="w-9 h-9 rounded-lg hover:bg-forest-50 transition-colors flex items-center justify-center mx-auto"
+                          aria-label="סמן יום"
+                        >
+                          <MarkCell mark={mark} hasHabit={true} />
+                        </button>
+                      ) : (
+                        <span className="inline-flex w-9 h-9 items-center justify-center">
+                          <MarkCell mark={mark} hasHabit={!!slot?.habit} />
+                        </span>
+                      )}
                     </td>
                   );
                 })}
               </tr>
             );
           })}
-          {/* Per-habit score row (placeholder until scoring is wired) */}
+          {/* Per-habit weekly score */}
           <tr className="border-t-2 border-forest-100 bg-forest-50/40">
             <td className="text-center py-2 text-[10px] text-forest-700/50 uppercase tracking-wider">
               נקודות
             </td>
-            {SLOT_INDEXES.map((s) => (
-              <td key={s} className="text-center py-2 text-sm text-forest-700/70">
-                —
-              </td>
-            ))}
+            {SLOT_INDEXES.map((s) => {
+              const slot = slots.find((x) => x.slot_index === s);
+              const score = slot?.habit ? weekScoreFor(slot.habit.id) : null;
+              return (
+                <td key={s} className="text-center py-2 text-sm font-medium">
+                  {score === null ? (
+                    <span className="text-forest-700/30">—</span>
+                  ) : (
+                    <span
+                      className={
+                        score > 0
+                          ? 'text-forest-500'
+                          : score < 0
+                          ? 'text-red-500'
+                          : 'text-forest-700/50'
+                      }
+                    >
+                      {score > 0 ? `+${score}` : score}
+                    </span>
+                  )}
+                </td>
+              );
+            })}
           </tr>
         </tbody>
       </table>
@@ -188,14 +312,20 @@ function WeekTable({
   );
 }
 
-function SlotHeader({ slot }: { slot: SlotView | undefined }) {
+function SlotHeader({
+  slot,
+  onClick,
+}: {
+  slot: SlotView | undefined;
+  onClick: () => void;
+}) {
   if (!slot?.habit) {
     return (
       <button
         type="button"
+        onClick={onClick}
         className="w-full flex flex-col items-center gap-1 text-forest-700/40 hover:text-forest-700 transition-colors"
         aria-label="בחר הרגל"
-        // TODO(habit-picker): open picker
       >
         <span className="w-9 h-9 rounded-full border border-dashed border-forest-700/30 flex items-center justify-center">
           <Plus size={16} strokeWidth={1.7} />
@@ -207,8 +337,8 @@ function SlotHeader({ slot }: { slot: SlotView | undefined }) {
   return (
     <button
       type="button"
-      className="w-full flex flex-col items-center gap-1 text-forest-700"
-      // TODO(habit-picker): open picker to swap habit
+      onClick={onClick}
+      className="w-full flex flex-col items-center gap-1 text-forest-700 hover:opacity-80 transition-opacity"
     >
       <span className="w-9 h-9 rounded-full bg-forest-50 flex items-center justify-center">
         <HabitIcon name={slot.habit.icon} size={18} strokeWidth={1.8} />

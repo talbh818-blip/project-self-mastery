@@ -11,6 +11,30 @@ import { SLOT_INDEXES } from './types';
 import { toDateString, type WeekRange } from './week';
 
 // ----------------------------------------------------------------------------
+// All-user dataset for scoring. Returns the user's habits, all assignments
+// (including closed ones), and all logs. Used by useUserStats.
+// ----------------------------------------------------------------------------
+export async function fetchAllUserData(userId: string): Promise<{
+  habits: Habit[];
+  assignments: SlotAssignment[];
+  logs: HabitLog[];
+}> {
+  const [habitsRes, assignmentsRes, logsRes] = await Promise.all([
+    supabase.from('habits').select('*').eq('user_id', userId),
+    supabase.from('habit_slot_assignments').select('*').eq('user_id', userId),
+    supabase.from('habit_logs').select('*').eq('user_id', userId),
+  ]);
+  if (habitsRes.error) throw habitsRes.error;
+  if (assignmentsRes.error) throw assignmentsRes.error;
+  if (logsRes.error) throw logsRes.error;
+  return {
+    habits: (habitsRes.data ?? []) as Habit[],
+    assignments: (assignmentsRes.data ?? []) as SlotAssignment[],
+    logs: (logsRes.data ?? []) as HabitLog[],
+  };
+}
+
+// ----------------------------------------------------------------------------
 // Catalog
 // ----------------------------------------------------------------------------
 export async function fetchCatalog(): Promise<CatalogItem[]> {

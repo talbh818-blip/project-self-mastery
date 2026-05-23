@@ -8,14 +8,18 @@ type State =
   | { status: 'ready'; slots: SlotView[]; error: null }
   | { status: 'error'; slots: null; error: string };
 
-export function useWeekView(userId: string | null, range: WeekRange): State {
+export function useWeekView(
+  userId: string | null,
+  range: WeekRange,
+  refreshKey: number = 0,
+): State {
   const [state, setState] = useState<State>({
     status: 'loading',
     slots: null,
     error: null,
   });
 
-  // Re-fetch when user or week range changes.
+  // Re-fetch when user, week range, or refreshKey changes.
   const rangeKey = `${range.start.toISOString()}_${range.end.toISOString()}`;
 
   useEffect(() => {
@@ -35,7 +39,7 @@ export function useWeekView(userId: string | null, range: WeekRange): State {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, rangeKey]);
+  }, [userId, rangeKey, refreshKey]);
 
   return state;
 }

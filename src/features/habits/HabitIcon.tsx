@@ -28,6 +28,9 @@ const ICONS: Record<string, LucideIcon> = {
   Clock,
 };
 
+// Icons offered when creating a custom ("other") habit.
+export const CUSTOM_HABIT_ICONS: readonly string[] = Object.keys(ICONS);
+
 type Props = {
   name: string;
   size?: number;
