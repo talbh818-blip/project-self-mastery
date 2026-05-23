@@ -1,0 +1,23 @@
+node_modules
+dist
+dist-ssr
+.env
+.env.local
+.env.*.local
+*.local
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+dev-dist
+
+# Claude Code
+.claude/settings.local.json
+
+# TypeScript incremental build cache
+*.tsbuildinfo
