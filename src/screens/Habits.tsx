@@ -569,8 +569,8 @@ function binaryCellBg(mark: LogStatus | undefined, isToday: boolean): string {
   if (mark === 'X') return 'bg-red-500/20 border border-red-500/50';
   if (mark === 'auto_x') return 'bg-red-500/10 border border-red-500/30';
   return isToday
-    ? 'bg-surface-raised border border-ink-300/40'
-    : 'bg-surface-raised/60 border border-surface-border';
+    ? 'bg-ink-300/20 border border-ink-300/50'
+    : 'bg-ink-300/10 border border-ink-300/25';
 }
 
 function MarkGlyph({ mark }: { mark: LogStatus | undefined }) {
