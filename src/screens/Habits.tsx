@@ -73,49 +73,51 @@ export function Habits() {
 
   return (
     <section className="text-ink-100">
-      {/* Header */}
-      <header className="mb-5">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setAnchor(addWeeks(anchor, -1))}
-            className="p-2 -mr-2 text-ink-300 hover:text-ink-100"
-            aria-label="שבוע קודם"
-          >
-            <ChevronRight size={22} />
-          </button>
-          <div className="text-center leading-tight">
-            <div className="text-lg font-semibold">
-              {relativeWeekLabel(anchor, today)}
-            </div>
-            <div className="text-xs text-ink-300 mt-0.5">
-              {formatRangeShort(range)}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => canGoNext && setAnchor(addWeeks(anchor, 1))}
-            disabled={!canGoNext}
-            className="p-2 -ml-2 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            aria-label="שבוע הבא"
-          >
-            <ChevronLeft size={22} />
-          </button>
-        </div>
-
-        <div className="mt-4 flex items-end justify-between">
+      {/* TOTAL SCORE box */}
+      <div className="mb-4 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl leading-none">🔥</span>
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-ink-500">
+            <div className="text-[10px] uppercase tracking-wider text-ink-500">
               TOTAL SCORE
             </div>
-            <div className="text-4xl font-bold text-ink-100 leading-none mt-1">
+            <div className="text-2xl font-bold text-ink-100 leading-none mt-1">
               {totalScore}
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Week nav */}
+      <header className="mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => setAnchor(addWeeks(anchor, -1))}
+          className="p-2 -mr-2 text-ink-300 hover:text-ink-100"
+          aria-label="שבוע קודם"
+        >
+          <ChevronRight size={20} />
+        </button>
+        <div className="text-center leading-tight">
+          <div className="text-base font-semibold">
+            {relativeWeekLabel(anchor, today)}
+          </div>
+          <div className="text-[11px] text-ink-300 mt-0.5">
+            {formatRangeShort(range)}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => canGoNext && setAnchor(addWeeks(anchor, 1))}
+          disabled={!canGoNext}
+          className="p-2 -ml-2 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label="שבוע הבא"
+        >
+          <ChevronLeft size={20} />
+        </button>
       </header>
 
-      {/* Table */}
+      {/* Habits list */}
       {week.status === 'error' && (
         <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
           שגיאה: {week.error}
@@ -127,7 +129,7 @@ export function Habits() {
       )}
 
       {week.status === 'ready' && (
-        <WeekTable
+        <HabitsList
           slots={week.slots}
           days={range.days}
           today={today}
@@ -158,7 +160,7 @@ export function Habits() {
   );
 }
 
-function WeekTable({
+function HabitsList({
   slots,
   days,
   today,
@@ -177,8 +179,6 @@ function WeekTable({
   onPickSlot: (slot: SlotIndex) => void;
   onMarkCell: (habitId: string, date: string, current: LogStatus | undefined) => void;
 }) {
-  // For each slot, prefer the "effective" status from scoring (which includes
-  // virtual auto_x for past blank days). Fall back to raw marks if stats not loaded.
   const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
     const r = stats?.byHabit.get(habitId);
     if (!r) return undefined;
@@ -191,184 +191,166 @@ function WeekTable({
     if (!r) return 0;
     return scoreForRange(r, rangeStart, rangeEnd);
   };
+
   return (
-    <div className="rounded-2xl border border-surface-border bg-surface-card overflow-hidden shadow-sm">
-      <table className="w-full table-fixed text-sm">
-        <thead>
-          <tr className="bg-surface-raised/40">
-            <th className="w-12 py-2 text-center font-normal text-ink-500 text-[11px]">
-              יום
-            </th>
-            {SLOT_INDEXES.map((s) => {
-              const slot = slots.find((x) => x.slot_index === s);
-              return (
-                <th
-                  key={s}
-                  className="py-2 px-1 font-normal align-bottom"
-                >
-                  <SlotHeader slot={slot} onClick={() => onPickSlot(s)} />
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        <tbody>
-          {days.map((d, idx) => {
-            const isToday = isSameDay(d, today);
-            const future = isFuture(d, today);
-            return (
-              <tr
-                key={idx}
-                className={`border-t border-surface-border/50 ${
-                  isToday ? 'bg-surface-raised/30' : ''
-                }`}
-              >
-                <td className="text-center py-3 text-ink-300">
-                  <div className="flex flex-col items-center leading-tight">
-                    <span
-                      className={`text-[13px] ${
-                        isToday ? 'font-bold text-ink-100' : ''
-                      }`}
-                    >
-                      {hebrewDayShort(d)}
-                    </span>
-                    <span className="text-[10px] text-ink-500">
-                      {d.getDate()}
-                    </span>
-                  </div>
-                </td>
-                {SLOT_INDEXES.map((s) => {
-                  const slot = slots.find((x) => x.slot_index === s);
-                  const dateStr = toDateString(d);
-                  // Use effective (scoring) status when available so virtual
-                  // auto_x renders properly; fall back to raw mark otherwise.
-                  const effective = slot?.habit
-                    ? effectiveFor(slot.habit.id, dateStr)
-                    : undefined;
-                  const mark = effective ?? slot?.marks[dateStr];
-                  const clickable = !future && !!slot?.habit;
-                  return (
-                    <td
-                      key={s}
-                      className={`text-center py-1 align-middle ${
-                        future ? 'opacity-30' : ''
-                      }`}
-                    >
-                      {clickable ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            slot?.habit &&
-                            onMarkCell(slot.habit.id, dateStr, mark)
-                          }
-                          className="w-9 h-9 rounded-lg hover:bg-surface-raised transition-colors flex items-center justify-center mx-auto"
-                          aria-label="סמן יום"
-                        >
-                          <MarkCell mark={mark} hasHabit={true} />
-                        </button>
-                      ) : (
-                        <span className="inline-flex w-9 h-9 items-center justify-center">
-                          <MarkCell mark={mark} hasHabit={!!slot?.habit} />
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
-          {/* Per-habit weekly score */}
-          <tr className="border-t-2 border-surface-border bg-surface-raised/30">
-            <td className="text-center py-2 text-[10px] text-ink-500 uppercase tracking-wider">
-              נקודות
-            </td>
-            {SLOT_INDEXES.map((s) => {
-              const slot = slots.find((x) => x.slot_index === s);
-              const score = slot?.habit ? weekScoreFor(slot.habit.id) : null;
-              return (
-                <td key={s} className="text-center py-2 text-sm font-medium">
-                  {score === null ? (
-                    <span className="text-ink-500/50">—</span>
-                  ) : (
-                    <span
-                      className={
-                        score > 0
-                          ? 'text-forest-500'
-                          : score < 0
-                          ? 'text-red-500'
-                          : 'text-ink-500'
-                      }
-                    >
-                      {score > 0 ? `+${score}` : score}
-                    </span>
-                  )}
-                </td>
-              );
-            })}
-          </tr>
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-2.5">
+      {SLOT_INDEXES.map((s) => {
+        const slot = slots.find((x) => x.slot_index === s);
+        if (!slot?.habit) {
+          return <EmptySlotRow key={s} onClick={() => onPickSlot(s)} />;
+        }
+        return (
+          <HabitRow
+            key={s}
+            slot={slot}
+            days={days}
+            today={today}
+            score={weekScoreFor(slot.habit.id)}
+            effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
+            onPickSlot={() => onPickSlot(s)}
+            onMarkCell={onMarkCell}
+          />
+        );
+      })}
     </div>
   );
 }
 
-function SlotHeader({
+function HabitRow({
   slot,
-  onClick,
+  days,
+  today,
+  score,
+  effectiveFor,
+  onPickSlot,
+  onMarkCell,
 }: {
-  slot: SlotView | undefined;
-  onClick: () => void;
+  slot: SlotView;
+  days: Date[];
+  today: Date;
+  score: number;
+  effectiveFor: (dateStr: string) => LogStatus | undefined;
+  onPickSlot: () => void;
+  onMarkCell: (habitId: string, date: string, current: LogStatus | undefined) => void;
 }) {
-  if (!slot?.habit) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="w-full flex flex-col items-center gap-1 text-ink-300/50 hover:text-ink-100 transition-colors"
-        aria-label="בחר הרגל"
-      >
-        <span className="w-9 h-9 rounded-full border border-dashed border-ink-300/30 flex items-center justify-center">
-          <Plus size={16} strokeWidth={1.7} />
+  const habit = slot.habit!;
+  const scoreColor =
+    score > 0 ? 'text-forest-500' : score < 0 ? 'text-red-500' : 'text-ink-500';
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-3">
+      <div className="flex items-center justify-between mb-2.5">
+        <button
+          type="button"
+          onClick={onPickSlot}
+          className="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity"
+          aria-label="ערוך הרגל"
+        >
+          <span className="w-9 h-9 rounded-full bg-surface-raised flex items-center justify-center shrink-0">
+            <HabitIcon name={habit.icon} size={18} strokeWidth={1.8} />
+          </span>
+          <span className="text-sm font-medium text-ink-100 truncate">
+            {habit.name}
+          </span>
+        </button>
+        <span className={`text-sm font-semibold shrink-0 ms-2 ${scoreColor}`}>
+          {score > 0 ? `+${score}` : score}
         </span>
-        <span className="text-[10px]">סלוט</span>
-      </button>
-    );
-  }
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((d, idx) => {
+          const isToday = isSameDay(d, today);
+          const future = isFuture(d, today);
+          const dateStr = toDateString(d);
+          const effective = effectiveFor(dateStr);
+          const mark = effective ?? slot.marks[dateStr];
+          return (
+            <DayCell
+              key={idx}
+              day={d}
+              mark={mark}
+              isToday={isToday}
+              disabled={future}
+              onClick={() => onMarkCell(habit.id, dateStr, mark)}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EmptySlotRow({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex flex-col items-center gap-1 text-ink-100 hover:opacity-80 transition-opacity"
+      className="w-full rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-3 py-4 flex items-center justify-center gap-2 text-ink-300 hover:text-ink-100 hover:bg-surface-card/70 transition-colors"
+      aria-label="בחר הרגל"
     >
-      <span className="w-9 h-9 rounded-full bg-surface-raised flex items-center justify-center">
-        <HabitIcon name={slot.habit.icon} size={18} strokeWidth={1.8} />
+      <Plus size={16} strokeWidth={1.8} />
+      <span className="text-sm">הוסף הרגל</span>
+    </button>
+  );
+}
+
+function DayCell({
+  day,
+  mark,
+  isToday,
+  disabled,
+  onClick,
+}: {
+  day: Date;
+  mark: LogStatus | undefined;
+  isToday: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const label = hebrewDayShort(day);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex flex-col items-center gap-1 ${
+        disabled ? 'opacity-30 cursor-not-allowed' : ''
+      }`}
+      aria-label={`סמן ${label}`}
+    >
+      <span
+        className={`text-[10px] ${
+          isToday ? 'text-ink-100 font-bold' : 'text-ink-500'
+        }`}
+      >
+        {label}
       </span>
-      <span className="text-[10px] truncate max-w-[64px]" title={slot.habit.name}>
-        {slot.habit.name}
+      <span
+        className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${cellBg(
+          mark,
+          isToday,
+        )} ${!disabled ? 'hover:brightness-110' : ''}`}
+      >
+        <MarkGlyph mark={mark} />
       </span>
     </button>
   );
 }
 
-function MarkCell({
-  mark,
-  hasHabit,
-}: {
-  mark: 'V' | 'X' | 'auto_x' | undefined;
-  hasHabit: boolean;
-}) {
-  if (!hasHabit) return <span className="text-ink-500/50">·</span>;
+function cellBg(mark: LogStatus | undefined, isToday: boolean): string {
+  if (mark === 'V') return 'bg-forest-500/20 border border-forest-500/40';
+  if (mark === 'X') return 'bg-red-500/15 border border-red-500/40';
+  if (mark === 'auto_x') return 'bg-red-500/10 border border-red-500/30';
+  return isToday
+    ? 'bg-surface-raised border border-ink-300/30'
+    : 'bg-surface-raised/60 border border-surface-border';
+}
+
+function MarkGlyph({ mark }: { mark: LogStatus | undefined }) {
   if (mark === 'V')
-    return <span className="text-forest-500 font-bold text-lg leading-none">✓</span>;
-  if (mark === 'X' || mark === 'auto_x')
-    return (
-      <span
-        className={`font-bold text-lg leading-none ${
-          mark === 'auto_x' ? 'text-red-400' : 'text-red-500'
-        }`}
-      >
-        ✕
-      </span>
-    );
-  return <span className="text-ink-500/50 text-base">–</span>;
+    return <span className="text-forest-500 font-bold text-base leading-none">✓</span>;
+  if (mark === 'X')
+    return <span className="text-red-500 font-bold text-base leading-none">✕</span>;
+  if (mark === 'auto_x')
+    return <span className="text-red-400 font-bold text-base leading-none">✕</span>;
+  return <span className="text-ink-500/40 text-xs leading-none">–</span>;
 }
