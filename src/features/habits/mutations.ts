@@ -1,76 +1,61 @@
 import { supabase } from '../../lib/supabase';
-import type { CatalogItem, Habit, HabitType, LogStatus, SlotIndex } from './types';
+import type {
+  FrequencyPeriod,
+  Habit,
+  HabitType,
+  LogStatus,
+  SlotIndex,
+} from './types';
 import { toDateString } from './week';
 
 // ----------------------------------------------------------------------------
-// Assign a habit (from catalog or custom) to a slot, starting today.
-// Closes any currently active assignment for that slot.
+// Create a fully-custom habit (no catalog template) and assign it to a slot.
+// Closes any currently active assignment for that slot, starting today.
 // ----------------------------------------------------------------------------
-export type CatalogChoice = { kind: 'catalog'; item: CatalogItem };
-export type CustomChoice = {
-  kind: 'custom';
+export type CreateHabitInput = {
   name: string;
+  description: string | null;
   icon: string;
   type: HabitType;
+  color: string; // hex
+  frequency_period: FrequencyPeriod;
+  frequency_target: number;
+  is_quantitative: boolean;
+  quantitative_target: number | null;
+  quantitative_unit: string | null;
 };
-export type HabitChoice = CatalogChoice | CustomChoice;
 
-export async function assignHabitToSlot(params: {
+export async function createHabitInSlot(params: {
   userId: string;
   slotIndex: SlotIndex;
-  choice: HabitChoice;
-}): Promise<void> {
-  const { userId, slotIndex, choice } = params;
+  input: CreateHabitInput;
+}): Promise<Habit> {
+  const { userId, slotIndex, input } = params;
   const today = toDateString(new Date());
 
-  // 1. Find or create the habit row.
-  let habit: Habit | null = null;
-
-  if (choice.kind === 'catalog') {
-    // Reuse an existing habit row for this catalog item if the user already has one.
-    const { data: existing, error: findErr } = await supabase
-      .from('habits')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('catalog_id', choice.item.id)
-      .limit(1)
-      .maybeSingle();
-    if (findErr) throw findErr;
-    if (existing) {
-      habit = existing as Habit;
-    } else {
-      const { data: created, error: insErr } = await supabase
-        .from('habits')
-        .insert({
-          user_id: userId,
-          catalog_id: choice.item.id,
-          name: choice.item.name,
-          icon: choice.item.icon,
-          type: choice.item.type,
-        })
-        .select('*')
-        .single();
-      if (insErr) throw insErr;
-      habit = created as Habit;
-    }
-  } else {
-    // Custom — always create a fresh row.
-    const { data: created, error: insErr } = await supabase
-      .from('habits')
-      .insert({
-        user_id: userId,
-        catalog_id: null,
-        name: choice.name.trim(),
-        icon: choice.icon,
-        type: choice.type,
-      })
-      .select('*')
-      .single();
-    if (insErr) throw insErr;
-    habit = created as Habit;
-  }
-
-  if (!habit) throw new Error('Failed to resolve habit');
+  // 1. Insert the habit row.
+  const { data: created, error: insErr } = await supabase
+    .from('habits')
+    .insert({
+      user_id: userId,
+      catalog_id: null,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      icon: input.icon,
+      type: input.type,
+      color: input.color,
+      frequency_period: input.frequency_period,
+      frequency_target: input.frequency_target,
+      is_quantitative: input.is_quantitative,
+      quantitative_target: input.is_quantitative ? input.quantitative_target : null,
+      quantitative_unit: input.is_quantitative
+        ? input.quantitative_unit?.trim() || null
+        : null,
+    })
+    .select('*')
+    .single();
+  if (insErr) throw insErr;
+  const habit = created as Habit;
 
   // 2. Close any currently active assignment for this slot.
   const { error: closeErr } = await supabase
@@ -82,14 +67,18 @@ export async function assignHabitToSlot(params: {
   if (closeErr) throw closeErr;
 
   // 3. Create the new assignment.
-  const { error: assignErr } = await supabase.from('habit_slot_assignments').insert({
-    user_id: userId,
-    slot_index: slotIndex,
-    habit_id: habit.id,
-    start_date: today,
-    end_date: null,
-  });
+  const { error: assignErr } = await supabase
+    .from('habit_slot_assignments')
+    .insert({
+      user_id: userId,
+      slot_index: slotIndex,
+      habit_id: habit.id,
+      start_date: today,
+      end_date: null,
+    });
   if (assignErr) throw assignErr;
+
+  return habit;
 }
 
 // ----------------------------------------------------------------------------

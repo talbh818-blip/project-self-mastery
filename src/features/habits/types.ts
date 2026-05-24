@@ -1,8 +1,26 @@
 export type HabitType = 'positive' | 'negative';
 export type LogStatus = 'V' | 'X' | 'auto_x';
 export type SlotIndex = 1 | 2 | 3 | 4 | 5;
+export type FrequencyPeriod = 'daily' | 'weekly' | 'monthly';
 
 export const SLOT_INDEXES: readonly SlotIndex[] = [1, 2, 3, 4, 5] as const;
+
+// Curated palette offered when picking a habit color.
+// Names are descriptive; values are concrete hex codes stored on the habit row.
+export type HabitColor = { name: string; hex: string };
+export const HABIT_COLORS: readonly HabitColor[] = [
+  { name: 'אדום',   hex: '#e57373' },
+  { name: 'כתום',   hex: '#f0a05a' },
+  { name: 'צהוב',   hex: '#e8c44d' },
+  { name: 'ליים',   hex: '#a6c553' },
+  { name: 'ירוק',   hex: '#56aa70' },
+  { name: 'טורקיז', hex: '#4ec3a8' },
+  { name: 'תכלת',   hex: '#62b6dc' },
+  { name: 'כחול',   hex: '#5b8cd9' },
+  { name: 'סגול',   hex: '#9b7bd4' },
+  { name: 'ורוד',   hex: '#e58aba' },
+  { name: 'אפור',   hex: '#9aa3ab' },
+] as const;
 
 export type CatalogItem = {
   id: string;
@@ -19,6 +37,13 @@ export type Habit = {
   name: string;
   icon: string;
   type: HabitType;
+  description: string | null;
+  color: string; // hex
+  frequency_period: FrequencyPeriod;
+  frequency_target: number; // > 0
+  is_quantitative: boolean;
+  quantitative_target: number | null;
+  quantitative_unit: string | null;
 };
 
 export type SlotAssignment = {
