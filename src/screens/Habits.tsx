@@ -72,14 +72,14 @@ export function Habits() {
   const totalScore = userStats.status === 'ready' ? userStats.stats.totalScore : 0;
 
   return (
-    <section className="text-forest-700">
+    <section className="text-ink-100">
       {/* Header */}
       <header className="mb-5">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => setAnchor(addWeeks(anchor, -1))}
-            className="p-2 -mr-2 text-forest-700/70 hover:text-forest-700"
+            className="p-2 -mr-2 text-ink-300 hover:text-ink-100"
             aria-label="שבוע קודם"
           >
             <ChevronRight size={22} />
@@ -88,7 +88,7 @@ export function Habits() {
             <div className="text-lg font-semibold">
               {relativeWeekLabel(anchor, today)}
             </div>
-            <div className="text-xs text-forest-700/60 mt-0.5">
+            <div className="text-xs text-ink-300 mt-0.5">
               {formatRangeShort(range)}
             </div>
           </div>
@@ -96,7 +96,7 @@ export function Habits() {
             type="button"
             onClick={() => canGoNext && setAnchor(addWeeks(anchor, 1))}
             disabled={!canGoNext}
-            className="p-2 -ml-2 text-forest-700/70 hover:text-forest-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-2 -ml-2 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
             aria-label="שבוע הבא"
           >
             <ChevronLeft size={22} />
@@ -105,10 +105,10 @@ export function Habits() {
 
         <div className="mt-4 flex items-end justify-between">
           <div>
-            <div className="text-[11px] uppercase tracking-wider text-forest-700/50">
+            <div className="text-[11px] uppercase tracking-wider text-ink-500">
               TOTAL SCORE
             </div>
-            <div className="text-4xl font-bold text-forest-700 leading-none mt-1">
+            <div className="text-4xl font-bold text-ink-100 leading-none mt-1">
               {totalScore}
             </div>
           </div>
@@ -117,13 +117,13 @@ export function Habits() {
 
       {/* Table */}
       {week.status === 'error' && (
-        <div className="rounded-xl border border-red-200 bg-red-50/60 text-red-700 text-sm px-4 py-3">
+        <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
           שגיאה: {week.error}
         </div>
       )}
 
       {week.status === 'loading' && (
-        <div className="text-sm text-forest-700/50 py-8 text-center">טוען…</div>
+        <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
       )}
 
       {week.status === 'ready' && (
@@ -140,7 +140,7 @@ export function Habits() {
       )}
 
       {mutationError && (
-        <div className="mt-3 rounded-xl border border-red-200 bg-red-50/60 text-red-700 text-sm px-4 py-2">
+        <div className="mt-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-2">
           {mutationError}
         </div>
       )}
@@ -192,11 +192,11 @@ function WeekTable({
     return scoreForRange(r, rangeStart, rangeEnd);
   };
   return (
-    <div className="rounded-2xl border border-forest-100 bg-white overflow-hidden shadow-sm">
+    <div className="rounded-2xl border border-surface-border bg-surface-card overflow-hidden shadow-sm">
       <table className="w-full table-fixed text-sm">
         <thead>
-          <tr className="bg-forest-50/60">
-            <th className="w-12 py-2 text-center font-normal text-forest-700/50 text-[11px]">
+          <tr className="bg-surface-raised/40">
+            <th className="w-12 py-2 text-center font-normal text-ink-500 text-[11px]">
               יום
             </th>
             {SLOT_INDEXES.map((s) => {
@@ -219,20 +219,20 @@ function WeekTable({
             return (
               <tr
                 key={idx}
-                className={`border-t border-forest-100/70 ${
-                  isToday ? 'bg-forest-50/40' : ''
+                className={`border-t border-surface-border/50 ${
+                  isToday ? 'bg-surface-raised/30' : ''
                 }`}
               >
-                <td className="text-center py-3 text-forest-700/70">
+                <td className="text-center py-3 text-ink-300">
                   <div className="flex flex-col items-center leading-tight">
                     <span
                       className={`text-[13px] ${
-                        isToday ? 'font-bold text-forest-700' : ''
+                        isToday ? 'font-bold text-ink-100' : ''
                       }`}
                     >
                       {hebrewDayShort(d)}
                     </span>
-                    <span className="text-[10px] text-forest-700/50">
+                    <span className="text-[10px] text-ink-500">
                       {d.getDate()}
                     </span>
                   </div>
@@ -261,7 +261,7 @@ function WeekTable({
                             slot?.habit &&
                             onMarkCell(slot.habit.id, dateStr, mark)
                           }
-                          className="w-9 h-9 rounded-lg hover:bg-forest-50 transition-colors flex items-center justify-center mx-auto"
+                          className="w-9 h-9 rounded-lg hover:bg-surface-raised transition-colors flex items-center justify-center mx-auto"
                           aria-label="סמן יום"
                         >
                           <MarkCell mark={mark} hasHabit={true} />
@@ -278,8 +278,8 @@ function WeekTable({
             );
           })}
           {/* Per-habit weekly score */}
-          <tr className="border-t-2 border-forest-100 bg-forest-50/40">
-            <td className="text-center py-2 text-[10px] text-forest-700/50 uppercase tracking-wider">
+          <tr className="border-t-2 border-surface-border bg-surface-raised/30">
+            <td className="text-center py-2 text-[10px] text-ink-500 uppercase tracking-wider">
               נקודות
             </td>
             {SLOT_INDEXES.map((s) => {
@@ -288,7 +288,7 @@ function WeekTable({
               return (
                 <td key={s} className="text-center py-2 text-sm font-medium">
                   {score === null ? (
-                    <span className="text-forest-700/30">—</span>
+                    <span className="text-ink-500/50">—</span>
                   ) : (
                     <span
                       className={
@@ -296,7 +296,7 @@ function WeekTable({
                           ? 'text-forest-500'
                           : score < 0
                           ? 'text-red-500'
-                          : 'text-forest-700/50'
+                          : 'text-ink-500'
                       }
                     >
                       {score > 0 ? `+${score}` : score}
@@ -324,10 +324,10 @@ function SlotHeader({
       <button
         type="button"
         onClick={onClick}
-        className="w-full flex flex-col items-center gap-1 text-forest-700/40 hover:text-forest-700 transition-colors"
+        className="w-full flex flex-col items-center gap-1 text-ink-300/50 hover:text-ink-100 transition-colors"
         aria-label="בחר הרגל"
       >
-        <span className="w-9 h-9 rounded-full border border-dashed border-forest-700/30 flex items-center justify-center">
+        <span className="w-9 h-9 rounded-full border border-dashed border-ink-300/30 flex items-center justify-center">
           <Plus size={16} strokeWidth={1.7} />
         </span>
         <span className="text-[10px]">סלוט</span>
@@ -338,9 +338,9 @@ function SlotHeader({
     <button
       type="button"
       onClick={onClick}
-      className="w-full flex flex-col items-center gap-1 text-forest-700 hover:opacity-80 transition-opacity"
+      className="w-full flex flex-col items-center gap-1 text-ink-100 hover:opacity-80 transition-opacity"
     >
-      <span className="w-9 h-9 rounded-full bg-forest-50 flex items-center justify-center">
+      <span className="w-9 h-9 rounded-full bg-surface-raised flex items-center justify-center">
         <HabitIcon name={slot.habit.icon} size={18} strokeWidth={1.8} />
       </span>
       <span className="text-[10px] truncate max-w-[64px]" title={slot.habit.name}>
@@ -357,7 +357,7 @@ function MarkCell({
   mark: 'V' | 'X' | 'auto_x' | undefined;
   hasHabit: boolean;
 }) {
-  if (!hasHabit) return <span className="text-forest-700/20">·</span>;
+  if (!hasHabit) return <span className="text-ink-500/50">·</span>;
   if (mark === 'V')
     return <span className="text-forest-500 font-bold text-lg leading-none">✓</span>;
   if (mark === 'X' || mark === 'auto_x')
@@ -370,5 +370,5 @@ function MarkCell({
         ✕
       </span>
     );
-  return <span className="text-forest-700/30 text-base">–</span>;
+  return <span className="text-ink-500/50 text-base">–</span>;
 }

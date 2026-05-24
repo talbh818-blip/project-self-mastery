@@ -7,7 +7,7 @@ export function Login() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-cream-50 text-forest-700">
+      <div className="min-h-screen flex items-center justify-center bg-surface-base text-ink-100">
         טוען…
       </div>
     );
@@ -15,12 +15,12 @@ export function Login() {
   if (session) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen bg-cream-50 flex flex-col items-center justify-center px-6 text-center">
-      <Compass size={64} className="text-forest-700 mb-6" strokeWidth={1.5} />
-      <h1 className="text-3xl font-semibold text-forest-700 mb-3">
+    <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center px-6 text-center">
+      <Compass size={64} className="text-ink-100 mb-6" strokeWidth={1.5} />
+      <h1 className="text-3xl font-semibold text-ink-100 mb-3">
         פרויקט מחויבות לעצמי
       </h1>
-      <p className="text-forest-700/70 mb-10 max-w-sm leading-relaxed">
+      <p className="text-ink-300 mb-10 max-w-sm leading-relaxed">
         בנה הרגלים חיוביים. השמד התמכרויות. צעד אחד בכל יום.
       </p>
       <button

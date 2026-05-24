@@ -27,7 +27,7 @@ const items: NavItem[] = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-20 bg-cream-50/95 backdrop-blur border-t border-forest-100 pb-safe">
+    <nav className="fixed bottom-0 inset-x-0 z-20 bg-surface-card/95 backdrop-blur border-t border-surface-border pb-safe">
       <ul className="flex items-stretch justify-around max-w-2xl mx-auto">
         {items.map(({ to, label, icon: Icon, end }) => (
           <li key={to} className="flex-1">
@@ -36,7 +36,7 @@ export function BottomNav() {
               end={end}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-2 px-1 text-[11px] transition-colors ${
-                  isActive ? 'text-forest-700' : 'text-forest-700/50'
+                  isActive ? 'text-forest-500' : 'text-ink-300'
                 }`
               }
             >

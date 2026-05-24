@@ -1,19 +1,30 @@
 @import "tailwindcss";
 
 @theme {
-  --color-forest-50: #F0F7F2;
-  --color-forest-100: #D9EAE0;
-  --color-forest-200: #B7DAC4;
-  --color-forest-400: #52B788;
-  --color-forest-500: #2D6A4F;
-  --color-forest-600: #1F5036;
-  --color-forest-700: #1B4332;
-  --color-forest-800: #142E22;
-  --color-forest-900: #0F2419;
+  /* Dark backgrounds — very dark, blue-tinted gray */
+  --color-surface-base: #0d1319;
+  --color-surface-card: #131d28;
+  --color-surface-raised: #19263a;
+  --color-surface-border: #1f2f42;
 
-  --color-cream-50: #FAF7EE;
-  --color-cream-100: #F5EFD9;
-  --color-cream-200: #EDE3C0;
+  /* Text — light with greenish tint */
+  --color-ink-100: #d4e8da;
+  --color-ink-300: #7aa086;
+  --color-ink-500: #4a6655;
+
+  /* Green accents — muted, not neon */
+  --color-forest-50: #0f1f16;
+  --color-forest-100: #162a1e;
+  --color-forest-200: #1e3828;
+  --color-forest-400: #4a9962;
+  --color-forest-500: #55b570;
+  --color-forest-600: #4d9e68;
+  --color-forest-700: #56aa70;
+  --color-forest-800: #3d7a52;
+  --color-forest-900: #285238;
+
+  /* Cream — text on green buttons, stays light */
+  --color-cream-50: #e8f2eb;
 
   --font-sans: "Heebo", ui-sans-serif, system-ui, sans-serif;
 }
@@ -25,8 +36,8 @@ body,
 }
 
 body {
-  background-color: var(--color-cream-50);
-  color: var(--color-forest-900);
+  background-color: var(--color-surface-base);
+  color: var(--color-ink-100);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
