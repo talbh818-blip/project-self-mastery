@@ -32,7 +32,13 @@ export function useWeekView(
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        const msg = e instanceof Error ? e.message : 'שגיאה בטעינת השבוע';
+        console.error('[useWeekView] fetchWeek error:', e);
+        let msg = 'שגיאה בטעינת השבוע';
+        if (e instanceof Error) {
+          msg = e.message;
+        } else if (e && typeof e === 'object' && 'message' in e) {
+          msg = String((e as { message: unknown }).message);
+        }
         setState({ status: 'error', slots: null, error: msg });
       });
     return () => {

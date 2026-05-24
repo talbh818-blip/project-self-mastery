@@ -33,7 +33,13 @@ export function useUserStats(userId: string | null, refreshKey: number = 0): Sta
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        const msg = e instanceof Error ? e.message : 'שגיאה בחישוב הניקוד';
+        console.error('[useUserStats] fetchAllUserData error:', e);
+        let msg = 'שגיאה בחישוב הניקוד';
+        if (e instanceof Error) {
+          msg = e.message;
+        } else if (e && typeof e === 'object' && 'message' in e) {
+          msg = String((e as { message: unknown }).message);
+        }
         setState({ status: 'error', stats: null, error: msg });
       });
     return () => {
