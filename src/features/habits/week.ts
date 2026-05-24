@@ -99,3 +99,47 @@ export function relativeWeekLabel(anchor: Date, today: Date): string {
   if (diffWeeks < 0) return `לפני ${-diffWeeks} שבועות`;
   return `בעוד ${diffWeeks} שבועות`;
 }
+
+// ---------------------------------------------------------------------------
+// Month math — for the monthly heatmap view.
+// ---------------------------------------------------------------------------
+export type MonthRange = {
+  start: Date; // first day of month
+  end: Date;   // last day of month
+  days: Date[]; // all days of the month, in order
+};
+
+const HEB_MONTHS_FULL = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
+];
+
+export function getMonthRange(anchor: Date): MonthRange {
+  const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const lastDay = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+  const days: Date[] = [];
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    days.push(new Date(anchor.getFullYear(), anchor.getMonth(), d));
+  }
+  return { start, end: lastDay, days };
+}
+
+export function addMonths(d: Date, n: number): Date {
+  return new Date(d.getFullYear(), d.getMonth() + n, 1);
+}
+
+export function formatMonthLong(d: Date): string {
+  return `${HEB_MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// "החודש", "החודש שעבר", "לפני X חודשים", etc.
+export function relativeMonthLabel(anchor: Date, today: Date): string {
+  const a = anchor.getFullYear() * 12 + anchor.getMonth();
+  const t = today.getFullYear() * 12 + today.getMonth();
+  const diff = a - t;
+  if (diff === 0) return 'החודש';
+  if (diff === -1) return 'החודש שעבר';
+  if (diff === 1) return 'החודש הבא';
+  if (diff < 0) return `לפני ${-diff} חודשים`;
+  return `בעוד ${diff} חודשים`;
+}

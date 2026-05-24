@@ -3,12 +3,16 @@ import { ChevronRight, ChevronLeft, Plus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useWeekView } from '../features/habits/useWeekView';
 import {
+  addMonths,
   addWeeks,
+  formatMonthLong,
   formatRangeShort,
+  getMonthRange,
   getWeekRange,
   hebrewDayShort,
   isFuture,
   isSameDay,
+  relativeMonthLabel,
   relativeWeekLabel,
   toDateString,
 } from '../features/habits/week';
@@ -27,7 +31,13 @@ import {
   setHabitLog,
 } from '../features/habits/mutations';
 import { useUserStats } from '../features/habits/useUserStats';
-import { scoreForRange, type UserStats } from '../features/habits/scoring';
+import {
+  scoreForRange,
+  type HabitScoreResult,
+  type UserStats,
+} from '../features/habits/scoring';
+
+type ViewMode = 'week' | 'month';
 
 export function Habits() {
   const { user } = useAuth();
@@ -39,14 +49,28 @@ export function Habits() {
   }, [today]);
   const maxWeekStart = useMemo(() => getWeekRange(tomorrow).start, [tomorrow]);
 
-  const [anchor, setAnchor] = useState<Date>(today);
-  const range = useMemo(() => getWeekRange(anchor), [anchor]);
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
+  const [weekAnchor, setWeekAnchor] = useState<Date>(today);
+  const [monthAnchor, setMonthAnchor] = useState<Date>(today);
 
-  const canGoNext =
-    toDateString(getWeekRange(addWeeks(anchor, 1)).start) <= toDateString(maxWeekStart);
+  const weekRange = useMemo(() => getWeekRange(weekAnchor), [weekAnchor]);
+  const monthRange = useMemo(() => getMonthRange(monthAnchor), [monthAnchor]);
+
+  const canGoNextWeek =
+    toDateString(getWeekRange(addWeeks(weekAnchor, 1)).start) <= toDateString(maxWeekStart);
+  const canGoNextMonth =
+    monthAnchor.getFullYear() * 12 + monthAnchor.getMonth() <
+    today.getFullYear() * 12 + today.getMonth();
 
   const [refreshKey, setRefreshKey] = useState(0);
-  const week = useWeekView(user?.id ?? null, range, refreshKey);
+  const week = useWeekView(user?.id ?? null, weekRange, refreshKey);
+  // For the monthly heatmap we always show the user's CURRENT 5 habits, so we
+  // also load today's slots regardless of the visible week. (Cheap query.)
+  const todayWeek = useWeekView(
+    user?.id ?? null,
+    useMemo(() => getWeekRange(today), [today]),
+    refreshKey,
+  );
   const userStats = useUserStats(user?.id ?? null, refreshKey);
 
   const [pickerSlot, setPickerSlot] = useState<SlotIndex | null>(null);
@@ -91,93 +115,133 @@ export function Habits() {
   const totalScore = userStats.status === 'ready' ? userStats.stats.totalScore : 0;
 
   const nextEmptySlot: SlotIndex | null = useMemo(() => {
-    if (week.status !== 'ready') return null;
+    if (todayWeek.status !== 'ready') return null;
     for (const i of SLOT_INDEXES) {
-      const slot = week.slots.find((s) => s.slot_index === i);
+      const slot = todayWeek.slots.find((s) => s.slot_index === i);
       if (!slot?.habit) return i;
     }
     return null;
-  }, [week]);
+  }, [todayWeek]);
 
   return (
     <section className="text-ink-100">
-      {/* TOTAL SCORE */}
+      {/* Score */}
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="text-2xl leading-none">🔥</span>
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-ink-500">
-              TOTAL SCORE
+            <div className="text-[11px] tracking-wide text-ink-500">
+              ניקוד כולל
             </div>
             <div className="text-2xl font-bold text-ink-100 leading-none mt-1">
               {totalScore}
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Week nav + add habit */}
-      <div className="mb-4 flex items-stretch gap-2">
-        <div className="flex-1 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 py-1.5">
+        {/* View mode toggle */}
+        <div className="flex gap-1 bg-surface-raised rounded-full p-0.5">
           <button
             type="button"
-            onClick={() => setAnchor(addWeeks(anchor, -1))}
-            className="p-1.5 text-ink-300 hover:text-ink-100"
-            aria-label="שבוע קודם"
+            onClick={() => setViewMode('week')}
+            className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
+              viewMode === 'week'
+                ? 'bg-forest-700 text-cream-50'
+                : 'text-ink-300 hover:text-ink-100'
+            }`}
           >
-            <ChevronRight size={18} />
+            שבועי
           </button>
-          <div className="text-center leading-tight">
-            <div className="text-sm font-semibold">
-              {relativeWeekLabel(anchor, today)}
-            </div>
-            <div className="text-[10px] text-ink-300 mt-0.5">
-              {formatRangeShort(range)}
-            </div>
-          </div>
           <button
             type="button"
-            onClick={() => canGoNext && setAnchor(addWeeks(anchor, 1))}
-            disabled={!canGoNext}
-            className="p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            aria-label="שבוע הבא"
+            onClick={() => setViewMode('month')}
+            className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
+              viewMode === 'month'
+                ? 'bg-forest-700 text-cream-50'
+                : 'text-ink-300 hover:text-ink-100'
+            }`}
           >
-            <ChevronLeft size={18} />
+            חודשי
           </button>
         </div>
+      </div>
+
+      {/* Add habit + range nav */}
+      <div className="mb-4 flex items-stretch gap-2">
         <button
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="rounded-2xl border border-surface-border bg-surface-card px-3 flex items-center gap-1 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-w-[110px] rounded-2xl border border-surface-border bg-surface-card px-4 flex items-center justify-center gap-1.5 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
         >
           <Plus size={16} strokeWidth={2} />
           <span className="text-sm font-medium">הרגל</span>
         </button>
+        {viewMode === 'week' ? (
+          <NavBar
+            onPrev={() => setWeekAnchor(addWeeks(weekAnchor, -1))}
+            onNext={() => canGoNextWeek && setWeekAnchor(addWeeks(weekAnchor, 1))}
+            canNext={canGoNextWeek}
+            mainLabel={relativeWeekLabel(weekAnchor, today)}
+            subLabel={formatRangeShort(weekRange)}
+            prevAriaLabel="שבוע קודם"
+            nextAriaLabel="שבוע הבא"
+          />
+        ) : (
+          <NavBar
+            onPrev={() => setMonthAnchor(addMonths(monthAnchor, -1))}
+            onNext={() =>
+              canGoNextMonth && setMonthAnchor(addMonths(monthAnchor, 1))
+            }
+            canNext={canGoNextMonth}
+            mainLabel={relativeMonthLabel(monthAnchor, today)}
+            subLabel={formatMonthLong(monthAnchor)}
+            prevAriaLabel="חודש קודם"
+            nextAriaLabel="חודש הבא"
+          />
+        )}
       </div>
 
-      {/* Habits */}
-      {week.status === 'error' && (
-        <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
-          שגיאה: {week.error}
-        </div>
-      )}
-
-      {week.status === 'loading' && (
-        <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
-      )}
-
-      {week.status === 'ready' && (
-        <HabitsList
-          slots={week.slots}
-          days={range.days}
+      {/* Body */}
+      {viewMode === 'week' ? (
+        <>
+          {week.status === 'error' && (
+            <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+              שגיאה: {week.error}
+            </div>
+          )}
+          {week.status === 'loading' && (
+            <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
+          )}
+          {week.status === 'ready' && (
+            <HabitsList
+              slots={week.slots}
+              days={weekRange.days}
+              today={today}
+              rangeStart={weekRange.start}
+              rangeEnd={weekRange.end}
+              stats={userStats.status === 'ready' ? userStats.stats : null}
+              onPickSlot={(s) => setPickerSlot(s)}
+              onMarkCell={handleCellClick}
+            />
+          )}
+        </>
+      ) : (
+        <MonthHeatmap
+          slots={todayWeek.status === 'ready' ? todayWeek.slots : []}
+          days={monthRange.days}
           today={today}
-          rangeStart={range.start}
-          rangeEnd={range.end}
           stats={userStats.status === 'ready' ? userStats.stats : null}
           onPickSlot={(s) => setPickerSlot(s)}
           onMarkCell={handleCellClick}
+          loading={todayWeek.status === 'loading' || userStats.status === 'loading'}
+          error={
+            todayWeek.status === 'error'
+              ? todayWeek.error
+              : userStats.status === 'error'
+              ? userStats.error
+              : null
+          }
         />
       )}
 
@@ -201,7 +265,54 @@ export function Habits() {
 }
 
 // ----------------------------------------------------------------------------
-// HabitsList — header row of day labels + one row per filled slot.
+// NavBar — generic left/right nav with a label, used for week and month views.
+// ----------------------------------------------------------------------------
+function NavBar({
+  onPrev,
+  onNext,
+  canNext,
+  mainLabel,
+  subLabel,
+  prevAriaLabel,
+  nextAriaLabel,
+}: {
+  onPrev: () => void;
+  onNext: () => void;
+  canNext: boolean;
+  mainLabel: string;
+  subLabel: string;
+  prevAriaLabel: string;
+  nextAriaLabel: string;
+}) {
+  return (
+    <div className="flex-1 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 py-1.5">
+      <button
+        type="button"
+        onClick={onPrev}
+        className="p-1.5 text-ink-300 hover:text-ink-100"
+        aria-label={prevAriaLabel}
+      >
+        <ChevronRight size={18} />
+      </button>
+      <div className="text-center leading-tight">
+        <div className="text-sm font-semibold">{mainLabel}</div>
+        <div className="text-[10px] text-ink-300 mt-0.5">{subLabel}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => canNext && onNext()}
+        disabled={!canNext}
+        className="p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label={nextAriaLabel}
+      >
+        <ChevronLeft size={18} />
+      </button>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// HabitsList — header row of day labels + one row per filled slot. (Week view)
 // ----------------------------------------------------------------------------
 function HabitsList({
   slots,
@@ -293,9 +404,7 @@ function DayHeader({ day, isToday }: { day: Date; isToday: boolean }) {
 }
 
 // ----------------------------------------------------------------------------
-// HabitRow — a single habit's row (icon + name + score + 7 day cells).
-// Weekly habits get a light-green tint on the entire row once the weekly
-// completion target is met.
+// HabitRow — one habit (week view). Tinted green when weekly target hit.
 // ----------------------------------------------------------------------------
 function HabitRow({
   slot,
@@ -325,8 +434,6 @@ function HabitRow({
   const scoreColor =
     score > 0 ? 'text-forest-500' : score < 0 ? 'text-red-500' : 'text-ink-500';
 
-  // Weekly-goal tint: count V-days for this habit within the visible week.
-  // If the user hits frequency_target, the row is tinted light green.
   const weeklyCompletions = days.reduce((acc, d) => {
     const dateStr = toDateString(d);
     const m = effectiveFor(dateStr) ?? slot.marks[dateStr];
@@ -399,12 +506,6 @@ function HabitRow({
   );
 }
 
-// ----------------------------------------------------------------------------
-// DayCell — a single day square.
-// Binary habits show ✓ / ✕ / · with green/red tinting.
-// Quantitative habits show the logged number (or · when blank), tinted with
-// the habit's chosen color and bolder once the target amount is reached.
-// ----------------------------------------------------------------------------
 function DayCell({
   habit,
   mark,
@@ -423,8 +524,6 @@ function DayCell({
   const isQuant = habit.is_quantitative;
   const target = habit.quantitative_target ?? 0;
 
-  // Build background style for quantitative cells — translucent habit color,
-  // bolder when target reached, lightest when partial.
   let style: React.CSSProperties | undefined;
   let extraClass = '';
   if (isQuant && amount && amount > 0) {
@@ -482,6 +581,204 @@ function MarkGlyph({ mark }: { mark: LogStatus | undefined }) {
   if (mark === 'auto_x')
     return <span className="text-red-400 font-bold text-sm leading-none">✕</span>;
   return <span className="text-ink-500/40 text-xs leading-none">·</span>;
+}
+
+// ----------------------------------------------------------------------------
+// MonthHeatmap — month view. One compact strip of cells per active habit.
+// Cells are 8px squares colored by status / amount.
+// ----------------------------------------------------------------------------
+function MonthHeatmap({
+  slots,
+  days,
+  today,
+  stats,
+  onPickSlot,
+  onMarkCell,
+  loading,
+  error,
+}: {
+  slots: SlotView[];
+  days: Date[];
+  today: Date;
+  stats: UserStats | null;
+  onPickSlot: (slot: SlotIndex) => void;
+  onMarkCell: (
+    habit: Habit,
+    date: string,
+    currentMark: LogStatus | undefined,
+    currentAmount: number | null | undefined,
+  ) => void;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+        שגיאה: {error}
+      </div>
+    );
+  }
+  if (loading) {
+    return <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>;
+  }
+  const filledSlots = SLOT_INDEXES.map((i) =>
+    slots.find((s) => s.slot_index === i),
+  ).filter((s): s is SlotView => !!s?.habit);
+
+  if (filledSlots.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
+        עוד אין הרגלים. לחץ על "+ הרגל" למעלה כדי להתחיל.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {filledSlots.map((slot) => (
+        <MonthHabitRow
+          key={slot.slot_index}
+          slot={slot}
+          days={days}
+          today={today}
+          habitStats={stats?.byHabit.get(slot.habit!.id) ?? null}
+          onPickSlot={() => onPickSlot(slot.slot_index)}
+          onMarkCell={onMarkCell}
+        />
+      ))}
+    </div>
+  );
+}
+
+function MonthHabitRow({
+  slot,
+  days,
+  today,
+  habitStats,
+  onPickSlot,
+  onMarkCell,
+}: {
+  slot: SlotView;
+  days: Date[];
+  today: Date;
+  habitStats: HabitScoreResult | null;
+  onPickSlot: () => void;
+  onMarkCell: (
+    habit: Habit,
+    date: string,
+    currentMark: LogStatus | undefined,
+    currentAmount: number | null | undefined,
+  ) => void;
+}) {
+  const habit = slot.habit!;
+  const iconBg =
+    habit.type === 'positive' ? 'bg-forest-500/15' : 'bg-red-500/15';
+
+  // Count Vs in the visible month.
+  const monthCompletions = days.reduce((acc, d) => {
+    const dateStr = toDateString(d);
+    const s = habitStats?.effectiveByDate.get(dateStr);
+    return s === 'V' ? acc + 1 : acc;
+  }, 0);
+
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
+      <button
+        type="button"
+        onClick={onPickSlot}
+        className="w-full flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
+        aria-label="ערוך הרגל"
+      >
+        <span
+          className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}
+          style={{ color: habit.color }}
+        >
+          <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-ink-100 truncate">
+            {habit.name}
+          </div>
+          <div className="text-[10px] text-ink-500">
+            {monthCompletions}/{days.length} ימים
+          </div>
+        </div>
+      </button>
+
+      <div
+        className="grid gap-[2px]"
+        style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
+      >
+        {days.map((d, i) => {
+          const future = isFuture(d, today);
+          const isToday = isSameDay(d, today);
+          const dateStr = toDateString(d);
+          const sFromStats = habitStats?.effectiveByDate.get(dateStr);
+          const mark: LogStatus | undefined =
+            sFromStats && sFromStats !== 'blank' ? sFromStats : undefined;
+          const amount = slot.amounts[dateStr] ?? null;
+          return (
+            <MonthCell
+              key={i}
+              habit={habit}
+              mark={mark}
+              amount={amount}
+              isToday={isToday}
+              future={future}
+              onClick={() =>
+                !future && onMarkCell(habit, dateStr, mark, amount)
+              }
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MonthCell({
+  habit,
+  mark,
+  amount,
+  isToday,
+  future,
+  onClick,
+}: {
+  habit: Habit;
+  mark: LogStatus | undefined;
+  amount: number | null;
+  isToday: boolean;
+  future: boolean;
+  onClick: () => void;
+}) {
+  let bg = 'rgba(255,255,255,0.04)';
+  let border = isToday ? 'rgba(212,232,218,0.4)' : 'transparent';
+  if (habit.is_quantitative && amount && amount > 0) {
+    const target = habit.quantitative_target ?? 10;
+    const intensity = Math.min(1, amount / target);
+    bg = hexWithAlpha(habit.color, 0.25 + intensity * 0.6);
+  } else if (mark === 'V') {
+    bg = hexWithAlpha(habit.color, 0.85);
+  } else if (mark === 'X') {
+    bg = 'rgba(239,68,68,0.55)';
+  } else if (mark === 'auto_x') {
+    bg = 'rgba(239,68,68,0.25)';
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={future}
+      className={`aspect-square rounded-[2px] transition-opacity ${
+        future ? 'opacity-25 cursor-not-allowed' : 'hover:brightness-125'
+      }`}
+      style={{
+        backgroundColor: bg,
+        border: `1px solid ${border}`,
+      }}
+      aria-label="יום"
+    />
+  );
 }
 
 // Mix a hex color with an alpha to produce an `rgba(...)` string usable by
