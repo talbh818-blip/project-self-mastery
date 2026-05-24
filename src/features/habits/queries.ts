@@ -123,11 +123,15 @@ export async function fetchWeek(
     const a = bySlot.get(slot);
     const habit = a ? habitsById.get(a.habit_id) ?? null : null;
     const marks: SlotView['marks'] = {};
+    const amounts: SlotView['amounts'] = {};
     if (habit) {
       for (const log of logs) {
-        if (log.habit_id === habit.id) marks[log.date] = log.status;
+        if (log.habit_id === habit.id) {
+          marks[log.date] = log.status;
+          amounts[log.date] = log.amount;
+        }
       }
     }
-    return { slot_index: slot, habit, marks };
+    return { slot_index: slot, habit, marks, amounts };
   });
 }

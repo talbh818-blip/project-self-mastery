@@ -61,6 +61,7 @@ export type HabitLog = {
   habit_id: string;
   date: string; // YYYY-MM-DD
   status: LogStatus;
+  amount: number | null; // populated for quantitative habits, null otherwise
 };
 
 // What renders inside a single slot column for a given week.
@@ -68,4 +69,5 @@ export type SlotView = {
   slot_index: SlotIndex;
   habit: Habit | null; // null = empty slot (no habit chosen yet for this week)
   marks: Record<string, LogStatus | undefined>; // date string → status
+  amounts: Record<string, number | null | undefined>; // date string → amount
 };

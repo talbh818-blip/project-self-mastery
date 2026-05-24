@@ -14,13 +14,18 @@ import {
 } from '../features/habits/week';
 import {
   SLOT_INDEXES,
+  type Habit,
   type LogStatus,
   type SlotIndex,
   type SlotView,
 } from '../features/habits/types';
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
-import { nextMarkInCycle, setHabitLog } from '../features/habits/mutations';
+import {
+  nextAmountInCycle,
+  nextMarkInCycle,
+  setHabitLog,
+} from '../features/habits/mutations';
 import { useUserStats } from '../features/habits/useUserStats';
 import { scoreForRange, type UserStats } from '../features/habits/scoring';
 
@@ -48,14 +53,33 @@ export function Habits() {
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const handleCellClick = async (
-    habitId: string,
+    habit: Habit,
     date: string,
-    current: LogStatus | undefined,
+    currentMark: LogStatus | undefined,
+    currentAmount: number | null | undefined,
   ) => {
     if (!user) return;
-    const next = nextMarkInCycle(current);
     try {
-      await setHabitLog({ userId: user.id, habitId, date, newStatus: next });
+      if (habit.is_quantitative) {
+        const target = habit.quantitative_target ?? 10;
+        const nextAmount = nextAmountInCycle(currentAmount, target);
+        await setHabitLog({
+          userId: user.id,
+          habitId: habit.id,
+          date,
+          newStatus: nextAmount === null ? null : 'V',
+          newAmount: nextAmount,
+        });
+      } else {
+        const next = nextMarkInCycle(currentMark);
+        await setHabitLog({
+          userId: user.id,
+          habitId: habit.id,
+          date,
+          newStatus: next,
+          newAmount: null,
+        });
+      }
       setMutationError(null);
       setRefreshKey((k) => k + 1);
     } catch (e) {
@@ -176,6 +200,9 @@ export function Habits() {
   );
 }
 
+// ----------------------------------------------------------------------------
+// HabitsList — header row of day labels + one row per filled slot.
+// ----------------------------------------------------------------------------
 function HabitsList({
   slots,
   days,
@@ -193,7 +220,12 @@ function HabitsList({
   rangeEnd: Date;
   stats: UserStats | null;
   onPickSlot: (slot: SlotIndex) => void;
-  onMarkCell: (habitId: string, date: string, current: LogStatus | undefined) => void;
+  onMarkCell: (
+    habit: Habit,
+    date: string,
+    currentMark: LogStatus | undefined,
+    currentAmount: number | null | undefined,
+  ) => void;
 }) {
   const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
     const r = stats?.byHabit.get(habitId);
@@ -260,6 +292,11 @@ function DayHeader({ day, isToday }: { day: Date; isToday: boolean }) {
   );
 }
 
+// ----------------------------------------------------------------------------
+// HabitRow — a single habit's row (icon + name + score + 7 day cells).
+// Weekly habits get a light-green tint on the entire row once the weekly
+// completion target is met.
+// ----------------------------------------------------------------------------
 function HabitRow({
   slot,
   days,
@@ -275,15 +312,37 @@ function HabitRow({
   score: number;
   effectiveFor: (dateStr: string) => LogStatus | undefined;
   onPickSlot: () => void;
-  onMarkCell: (habitId: string, date: string, current: LogStatus | undefined) => void;
+  onMarkCell: (
+    habit: Habit,
+    date: string,
+    currentMark: LogStatus | undefined,
+    currentAmount: number | null | undefined,
+  ) => void;
 }) {
   const habit = slot.habit!;
   const iconBg =
     habit.type === 'positive' ? 'bg-forest-500/15' : 'bg-red-500/15';
   const scoreColor =
     score > 0 ? 'text-forest-500' : score < 0 ? 'text-red-500' : 'text-ink-500';
+
+  // Weekly-goal tint: count V-days for this habit within the visible week.
+  // If the user hits frequency_target, the row is tinted light green.
+  const weeklyCompletions = days.reduce((acc, d) => {
+    const dateStr = toDateString(d);
+    const m = effectiveFor(dateStr) ?? slot.marks[dateStr];
+    return m === 'V' ? acc + 1 : acc;
+  }, 0);
+  const isWeekly = habit.frequency_period === 'weekly';
+  const weekGoalHit = isWeekly && weeklyCompletions >= habit.frequency_target;
+
+  const rowClasses = weekGoalHit
+    ? 'bg-forest-500/10 border-forest-500/30'
+    : 'bg-surface-card border-surface-border';
+
   return (
-    <div className="rounded-2xl border border-surface-border bg-surface-card grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5">
+    <div
+      className={`rounded-2xl border grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5 transition-colors ${rowClasses}`}
+    >
       <button
         type="button"
         onClick={onPickSlot}
@@ -292,15 +351,27 @@ function HabitRow({
       >
         <span
           className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}
+          style={{ color: habit.color }}
         >
-          <HabitIcon name={habit.icon} size={18} strokeWidth={1.8} />
+          <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
         </span>
         <div className="min-w-0">
           <div className="text-sm font-medium text-ink-100 truncate">
             {habit.name}
           </div>
-          <div className={`text-[10px] leading-tight ${scoreColor}`}>
-            {score > 0 ? `+${score}` : score}
+          <div className="flex items-center gap-1.5 text-[10px] leading-tight">
+            <span className={scoreColor}>
+              {score > 0 ? `+${score}` : score}
+            </span>
+            {isWeekly && (
+              <span
+                className={`text-[10px] ${
+                  weekGoalHit ? 'text-forest-500' : 'text-ink-500'
+                }`}
+              >
+                · {weeklyCompletions}/{habit.frequency_target} השבוע
+              </span>
+            )}
           </div>
         </div>
       </button>
@@ -311,13 +382,16 @@ function HabitRow({
         const dateStr = toDateString(d);
         const effective = effectiveFor(dateStr);
         const mark = effective ?? slot.marks[dateStr];
+        const amount = slot.amounts[dateStr] ?? null;
         return (
           <DayCell
             key={i}
+            habit={habit}
             mark={mark}
+            amount={amount}
             isToday={isToday}
             disabled={future}
-            onClick={() => onMarkCell(habit.id, dateStr, mark)}
+            onClick={() => onMarkCell(habit, dateStr, mark, amount)}
           />
         );
       })}
@@ -325,34 +399,73 @@ function HabitRow({
   );
 }
 
+// ----------------------------------------------------------------------------
+// DayCell — a single day square.
+// Binary habits show ✓ / ✕ / · with green/red tinting.
+// Quantitative habits show the logged number (or · when blank), tinted with
+// the habit's chosen color and bolder once the target amount is reached.
+// ----------------------------------------------------------------------------
 function DayCell({
+  habit,
   mark,
+  amount,
   isToday,
   disabled,
   onClick,
 }: {
+  habit: Habit;
   mark: LogStatus | undefined;
+  amount: number | null;
   isToday: boolean;
   disabled: boolean;
   onClick: () => void;
 }) {
+  const isQuant = habit.is_quantitative;
+  const target = habit.quantitative_target ?? 0;
+
+  // Build background style for quantitative cells — translucent habit color,
+  // bolder when target reached, lightest when partial.
+  let style: React.CSSProperties | undefined;
+  let extraClass = '';
+  if (isQuant && amount && amount > 0) {
+    const reached = amount >= target;
+    style = {
+      backgroundColor: hexWithAlpha(habit.color, reached ? 0.35 : 0.18),
+      borderColor: hexWithAlpha(habit.color, reached ? 0.7 : 0.4),
+      color: habit.color,
+    };
+    extraClass = 'border';
+  }
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${cellBg(
-        mark,
-        isToday,
-      )} ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:brightness-110'}`}
+      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${
+        isQuant && amount && amount > 0
+          ? extraClass
+          : binaryCellBg(mark, isToday)
+      } ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:brightness-110'}`}
+      style={style}
       aria-label="סמן יום"
     >
-      <MarkGlyph mark={mark} />
+      {isQuant && amount && amount > 0 ? (
+        <span
+          className={`text-[11px] leading-none ${
+            amount >= target ? 'font-bold' : 'font-medium'
+          }`}
+        >
+          {amount}
+        </span>
+      ) : (
+        <MarkGlyph mark={mark} />
+      )}
     </button>
   );
 }
 
-function cellBg(mark: LogStatus | undefined, isToday: boolean): string {
+function binaryCellBg(mark: LogStatus | undefined, isToday: boolean): string {
   if (mark === 'V') return 'bg-forest-500/25 border border-forest-500/50';
   if (mark === 'X') return 'bg-red-500/20 border border-red-500/50';
   if (mark === 'auto_x') return 'bg-red-500/10 border border-red-500/30';
@@ -369,4 +482,16 @@ function MarkGlyph({ mark }: { mark: LogStatus | undefined }) {
   if (mark === 'auto_x')
     return <span className="text-red-400 font-bold text-sm leading-none">✕</span>;
   return <span className="text-ink-500/40 text-xs leading-none">·</span>;
+}
+
+// Mix a hex color with an alpha to produce an `rgba(...)` string usable by
+// inline styles. Accepts "#rrggbb"; ignores any other format.
+function hexWithAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
 }

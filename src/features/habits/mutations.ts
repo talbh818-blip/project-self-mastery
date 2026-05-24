@@ -82,16 +82,18 @@ export async function createHabitInSlot(params: {
 }
 
 // ----------------------------------------------------------------------------
-// Mark a day for a habit. Cycles through: blank → V → X → blank.
+// Write or clear a log entry for a habit-day.
 // Passing newStatus=null deletes the log row (= blank / "–").
+// For quantitative habits, pass status='V' along with newAmount.
 // ----------------------------------------------------------------------------
 export async function setHabitLog(params: {
   userId: string;
   habitId: string;
   date: string; // YYYY-MM-DD
   newStatus: LogStatus | null;
+  newAmount?: number | null;
 }): Promise<void> {
-  const { userId, habitId, date, newStatus } = params;
+  const { userId, habitId, date, newStatus, newAmount = null } = params;
 
   if (newStatus === null) {
     const { error } = await supabase
@@ -113,17 +115,32 @@ export async function setHabitLog(params: {
         habit_id: habitId,
         date,
         status: newStatus,
+        amount: newAmount,
       },
       { onConflict: 'habit_id,date' },
     );
   if (error) throw error;
 }
 
-// Cycle the mark for a single day. Auto-X behaves like X for cycling
-// (i.e. clicking an auto-X cell turns it into a blank).
+// Cycle the mark for a single day on a *binary* habit.
+// blank → V → X → blank. Auto-X is treated like X.
 export function nextMarkInCycle(current: LogStatus | undefined): LogStatus | null {
   if (current === undefined) return 'V';
   if (current === 'V') return 'X';
   // 'X' or 'auto_x' → blank
   return null;
+}
+
+// Cycle the amount for a *quantitative* habit.
+// blank → 1 → 2 → ... → target → blank. (Wraps back to empty.)
+export function nextAmountInCycle(
+  currentAmount: number | null | undefined,
+  target: number,
+): number | null {
+  const safeTarget = Math.max(1, Math.floor(target));
+  if (currentAmount === null || currentAmount === undefined || currentAmount <= 0) {
+    return 1;
+  }
+  if (currentAmount >= safeTarget) return null; // cycle back to blank
+  return currentAmount + 1;
 }
