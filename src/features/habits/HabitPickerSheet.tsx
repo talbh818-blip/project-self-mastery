@@ -111,7 +111,7 @@ export function HabitPickerSheet({ open, slotIndex, userId, onClose, onAssigned 
                 </div>
               )}
               {catalog.status === 'error' && (
-                <div className="text-red-700 text-sm py-3 px-3">
+                <div className="text-red-400 text-sm py-3 px-3">
                   שגיאה: {catalog.error}
                 </div>
               )}
@@ -187,7 +187,7 @@ function CatalogRow({
         className={`text-[10px] px-2 py-0.5 rounded-full ${
           item.type === 'positive'
             ? 'bg-forest-700/20 text-forest-400'
-            : 'bg-red-50 text-red-700'
+            : 'bg-red-950/30 text-red-400'
         }`}
       >
         {item.type === 'positive' ? 'לבנות' : 'להשמיד'}
