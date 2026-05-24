@@ -85,8 +85,8 @@ export function HabitPickerSheet({ open, slotIndex, userId, onClose, onAssigned 
               {(
                 [
                   { key: 'all', label: 'הכל' },
-                  { key: 'positive', label: 'לבנות' },
-                  { key: 'negative', label: 'להשמיד' },
+                  { key: 'positive', label: 'בניית הרגל' },
+                  { key: 'negative', label: 'השמדת התמכרות' },
                 ] as { key: Tab; label: string }[]
               ).map((t) => (
                 <button
@@ -104,7 +104,7 @@ export function HabitPickerSheet({ open, slotIndex, userId, onClose, onAssigned 
             </div>
 
             {/* List */}
-            <div className="flex-1 overflow-y-auto px-3 py-3">
+            <div className="flex-1 overflow-y-auto px-3 py-3 themed-scroll">
               {catalog.status === 'loading' && (
                 <div className="text-center text-ink-300 text-sm py-8">
                   טוען מאגר…
@@ -212,7 +212,7 @@ function CustomForm({
   const canSubmit = name.trim().length > 0 && !submitting;
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4">
+    <div className="flex-1 overflow-y-auto px-5 py-4 themed-scroll">
       <button
         onClick={onBack}
         disabled={submitting}

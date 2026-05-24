@@ -28,7 +28,7 @@ const items: NavItem[] = [
 export function BottomNav() {
   return (
     <nav className="fixed bottom-0 inset-x-0 z-20 bg-surface-card/95 backdrop-blur border-t border-surface-border pb-safe">
-      <ul className="flex items-stretch justify-around max-w-2xl mx-auto">
+      <ul className="flex items-stretch justify-around max-w-md mx-auto">
         {items.map(({ to, label, icon: Icon, end }) => (
           <li key={to} className="flex-1">
             <NavLink
