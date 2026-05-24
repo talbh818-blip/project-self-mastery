@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronUp, Sparkles, Flame } from 'lucide-react';
 import { createHabitInSlot, type CreateHabitInput } from './mutations';
-import { HabitIcon, HABIT_ICONS } from './HabitIcon';
+import { HabitIcon, HABIT_ICONS, HABIT_EMOJIS } from './HabitIcon';
 import {
   HABIT_COLORS,
   type FrequencyPeriod,
@@ -41,6 +41,7 @@ export function HabitPickerSheet({
   // Form state
   const [type, setType] = useState<HabitType>(DEFAULTS.type);
   const [icon, setIcon] = useState<string>(DEFAULTS.icon);
+  const [iconMode, setIconMode] = useState<'icons' | 'emojis'>('icons');
   const [name, setName] = useState<string>(DEFAULTS.name);
   const [description, setDescription] = useState<string>(DEFAULTS.description);
   const [color, setColor] = useState<string>(DEFAULTS.color);
@@ -69,6 +70,7 @@ export function HabitPickerSheet({
     if (open) {
       setType(DEFAULTS.type);
       setIcon(DEFAULTS.icon);
+      setIconMode('icons');
       setName(DEFAULTS.name);
       setDescription(DEFAULTS.description);
       setColor(DEFAULTS.color);
@@ -164,10 +166,47 @@ export function HabitPickerSheet({
               </div>
             </section>
 
-            {/* Step 2 — icon */}
+            {/* Step 2 — icon or emoji */}
             <section>
-              <SectionTitle>אייקון</SectionTitle>
-              <IconGrid value={icon} onChange={setIcon} accentColor={color} />
+              <div className="flex items-center justify-between mb-2">
+                <SectionTitle>אייקון</SectionTitle>
+                <div className="flex gap-1 bg-surface-raised rounded-full p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIconMode('icons');
+                      if (!HABIT_ICONS.includes(icon)) setIcon(HABIT_ICONS[0]);
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
+                      iconMode === 'icons'
+                        ? 'bg-forest-700 text-cream-50'
+                        : 'text-ink-300 hover:text-ink-100'
+                    }`}
+                  >
+                    אייקונים
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIconMode('emojis');
+                      if (!HABIT_EMOJIS.includes(icon)) setIcon(HABIT_EMOJIS[0]);
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
+                      iconMode === 'emojis'
+                        ? 'bg-forest-700 text-cream-50'
+                        : 'text-ink-300 hover:text-ink-100'
+                    }`}
+                  >
+                    אימוג'ים
+                  </button>
+                </div>
+              </div>
+              <IconGrid
+                items={iconMode === 'icons' ? HABIT_ICONS : HABIT_EMOJIS}
+                value={icon}
+                onChange={setIcon}
+                accentColor={color}
+              />
             </section>
 
             {/* Step 3 — name + description */}
@@ -187,14 +226,14 @@ export function HabitPickerSheet({
             </section>
 
             <section>
-              <SectionTitle>תיאור (לא חובה)</SectionTitle>
-              <textarea
+              <SectionTitle>תיאור קצר</SectionTitle>
+              <input
+                type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="למה זה חשוב לך?"
-                maxLength={200}
-                rows={2}
-                className="w-full px-3 py-2.5 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500 resize-none"
+                maxLength={120}
+                className="w-full px-3 py-2.5 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500"
               />
             </section>
 
@@ -403,17 +442,19 @@ function TypeCard({
 }
 
 function IconGrid({
+  items,
   value,
   onChange,
   accentColor,
 }: {
+  items: readonly string[];
   value: string;
   onChange: (name: string) => void;
   accentColor: string;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-2 max-h-44 overflow-y-auto themed-scroll p-1">
-      {HABIT_ICONS.map((name) => {
+    <div className="grid grid-cols-7 gap-2 max-h-56 overflow-y-auto themed-scroll p-1">
+      {items.map((name) => {
         const selected = value === name;
         return (
           <button
@@ -428,7 +469,7 @@ function IconGrid({
             style={selected ? { backgroundColor: accentColor } : undefined}
             aria-label={name}
           >
-            <HabitIcon name={name} size={18} strokeWidth={1.8} />
+            <HabitIcon name={name} size={28} strokeWidth={1.7} />
           </button>
         );
       })}
