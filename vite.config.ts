@@ -10,6 +10,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['compass.svg'],
+      // Make new SW activate immediately and take control of all open tabs,
+      // so a single Ctrl+Shift+R after a deploy is enough to pick up new code.
+      // Combined with the controllerchange listener in main.tsx, the app will
+      // also auto-reload once the new SW takes over.
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+      },
       manifest: {
         name: 'פרויקט מחויבות לעצמי',
         short_name: 'מחויבות',
