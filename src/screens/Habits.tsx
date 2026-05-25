@@ -25,7 +25,6 @@ import {
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
 import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
-import { EvolutionAvatar } from '../features/habits/EvolutionAvatar';
 import {
   nextAmountInCycle,
   nextMarkInCycle,
@@ -117,7 +116,6 @@ export function Habits() {
   };
 
   const totalScore = data.stats?.totalScore ?? 0;
-  const totalVCount = data.stats?.totalVCount ?? 0;
 
   const nextEmptySlot: SlotIndex | null = useMemo(() => {
     if (data.status !== 'ready') return null;
@@ -246,9 +244,6 @@ export function Habits() {
           {mutationError}
         </div>
       )}
-
-      {/* Evolution avatar — gamification piece that grows with each V mark. */}
-      <EvolutionAvatar vCount={totalVCount} />
 
       {user && (
         <HabitPickerSheet

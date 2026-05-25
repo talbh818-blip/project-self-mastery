@@ -116,7 +116,7 @@ export type HabitScoreResult = {
   bonusesEarned: { threshold: StreakThreshold; earnedOn: string }[];
   currentStreak: number;
   longestStreak: number;
-  // Total V days for this habit over its lifetime — drives the evolution sprite.
+  // Total V days for this habit over its lifetime.
   vCount: number;
 };
 
@@ -185,10 +185,6 @@ export function scoreHabit(params: {
 // ----------------------------------------------------------------------------
 export type UserStats = {
   totalScore: number;
-  // Total V days across ALL of the user's habits — drives the evolution sprite
-  // on the Habits screen. Counts every individual V (not unique days), so a day
-  // with 5 V marks across 5 habits advances the character by 5 levels.
-  totalVCount: number;
   byHabit: Map<string, HabitScoreResult>;
 };
 
@@ -201,7 +197,6 @@ export function computeUserStats(params: {
   const { habits, assignments, logs, today } = params;
   const byHabit = new Map<string, HabitScoreResult>();
   let totalScore = 0;
-  let totalVCount = 0;
   for (const habit of habits) {
     const result = scoreHabit({
       habit,
@@ -211,9 +206,8 @@ export function computeUserStats(params: {
     });
     byHabit.set(habit.id, result);
     totalScore += result.totalPoints;
-    totalVCount += result.vCount;
   }
-  return { totalScore, totalVCount, byHabit };
+  return { totalScore, byHabit };
 }
 
 // ----------------------------------------------------------------------------
