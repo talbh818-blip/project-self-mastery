@@ -82,13 +82,17 @@ def find_content_bands(mask_1d: np.ndarray) -> list[tuple[int, int]]:
 
 
 def content_ratio(im: Image.Image) -> float:
-    """Fraction of pixels with alpha > 0. Used to detect rembg failures."""
+    """Fraction of pixels that are clearly opaque (alpha > 180). Pixels
+    with low/medium alpha indicate the bg remover is uncertain — typically
+    a sign it has eaten parts of the character (e.g. white cloaks). Using
+    a high threshold catches these "washy" failures, not just total wipeouts.
+    """
     if im.mode != "RGBA":
         return 1.0
     alpha = np.array(im)[:, :, 3]
     if alpha.size == 0:
         return 0.0
-    return float((alpha > 16).sum()) / float(alpha.size)
+    return float((alpha > 180).sum()) / float(alpha.size)
 
 
 def chroma_key_remove(cell_rgb: Image.Image) -> Image.Image:

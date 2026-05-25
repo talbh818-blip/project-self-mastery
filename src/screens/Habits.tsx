@@ -25,6 +25,7 @@ import {
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
 import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
+import { EvolutionAvatar } from '../features/habits/EvolutionAvatar';
 import {
   nextAmountInCycle,
   nextMarkInCycle,
@@ -116,6 +117,7 @@ export function Habits() {
   };
 
   const totalScore = data.stats?.totalScore ?? 0;
+  const totalVCount = data.stats?.totalVCount ?? 0;
 
   const nextEmptySlot: SlotIndex | null = useMemo(() => {
     if (data.status !== 'ready') return null;
@@ -245,14 +247,47 @@ export function Habits() {
         </div>
       )}
 
+      {/* Evolution avatar — gamification piece that grows with each V mark. */}
+      <EvolutionAvatar vCount={totalVCount} />
+
       {user && (
         <HabitPickerSheet
-          open={pickerSlot !== null}
+          open={pickerSlot !== null || editingHabit !== null}
           slotIndex={pickerSlot}
-          onClose={() => setPickerSlot(null)}
+          editingHabit={editingHabit}
+          onClose={() => {
+            setPickerSlot(null);
+            setEditingHabit(null);
+          }}
           onSubmit={async (input) => {
-            if (pickerSlot === null) return;
-            await data.createHabit({ slotIndex: pickerSlot, input });
+            if (editingHabit) {
+              await data.updateHabit({ habitId: editingHabit.id, input });
+            } else if (pickerSlot !== null) {
+              await data.createHabit({ slotIndex: pickerSlot, input });
+            }
+          }}
+        />
+      )}
+
+      {user && (
+        <HabitDetailSheet
+          open={detailHabit !== null}
+          habit={detailHabit}
+          stats={
+            detailHabit && data.stats
+              ? data.stats.byHabit.get(detailHabit.id) ?? null
+              : null
+          }
+          onClose={() => setDetailHabit(null)}
+          onEdit={() => {
+            if (!detailHabit) return;
+            const h = detailHabit;
+            setDetailHabit(null);
+            setEditingHabit(h);
+          }}
+          onArchive={async () => {
+            if (!detailHabit) return;
+            await data.archiveHabit(detailHabit.id);
           }}
         />
       )}
@@ -317,7 +352,7 @@ function HabitsList({
   rangeStart,
   rangeEnd,
   stats,
-  onPickSlot,
+  onShowDetail,
   onMarkCell,
 }: {
   slots: SlotView[];
@@ -326,7 +361,7 @@ function HabitsList({
   rangeStart: Date;
   rangeEnd: Date;
   stats: UserStats | null;
-  onPickSlot: (slot: SlotIndex) => void;
+  onShowDetail: (habit: Habit) => void;
   onMarkCell: (
     habit: Habit,
     date: string,
@@ -378,7 +413,7 @@ function HabitsList({
           today={today}
           score={weekScoreFor(slot.habit!.id)}
           effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
-          onPickSlot={() => onPickSlot(slot.slot_index)}
+          onShowDetail={() => onShowDetail(slot.habit!)}
           onMarkCell={onMarkCell}
         />
       ))}
@@ -408,7 +443,7 @@ function HabitRow({
   today,
   score,
   effectiveFor,
-  onPickSlot,
+  onShowDetail,
   onMarkCell,
 }: {
   slot: SlotView;
@@ -416,7 +451,7 @@ function HabitRow({
   today: Date;
   score: number;
   effectiveFor: (dateStr: string) => LogStatus | undefined;
-  onPickSlot: () => void;
+  onShowDetail: () => void;
   onMarkCell: (
     habit: Habit,
     date: string,
@@ -448,9 +483,9 @@ function HabitRow({
     >
       <button
         type="button"
-        onClick={onPickSlot}
+        onClick={onShowDetail}
         className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity text-right"
-        aria-label="ערוך הרגל"
+        aria-label="פרטי הרגל"
       >
         <span
           className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}
@@ -588,7 +623,7 @@ function MonthHeatmap({
   days,
   today,
   stats,
-  onPickSlot,
+  onShowDetail,
   onMarkCell,
   loading,
   error,
@@ -597,7 +632,7 @@ function MonthHeatmap({
   days: Date[];
   today: Date;
   stats: UserStats | null;
-  onPickSlot: (slot: SlotIndex) => void;
+  onShowDetail: (habit: Habit) => void;
   onMarkCell: (
     habit: Habit,
     date: string,
@@ -638,7 +673,7 @@ function MonthHeatmap({
           days={days}
           today={today}
           habitStats={stats?.byHabit.get(slot.habit!.id) ?? null}
-          onPickSlot={() => onPickSlot(slot.slot_index)}
+          onShowDetail={() => onShowDetail(slot.habit!)}
           onMarkCell={onMarkCell}
         />
       ))}
@@ -651,14 +686,14 @@ function MonthHabitRow({
   days,
   today,
   habitStats,
-  onPickSlot,
+  onShowDetail,
   onMarkCell,
 }: {
   slot: SlotView;
   days: Date[];
   today: Date;
   habitStats: HabitScoreResult | null;
-  onPickSlot: () => void;
+  onShowDetail: () => void;
   onMarkCell: (
     habit: Habit,
     date: string,
@@ -681,9 +716,9 @@ function MonthHabitRow({
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
       <button
         type="button"
-        onClick={onPickSlot}
+        onClick={onShowDetail}
         className="w-full flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
-        aria-label="ערוך הרגל"
+        aria-label="פרטי הרגל"
       >
         <span
           className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}
