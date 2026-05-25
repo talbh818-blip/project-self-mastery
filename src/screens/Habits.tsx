@@ -455,8 +455,12 @@ function HabitRow({
   ) => void;
 }) {
   const habit = slot.habit!;
-  const iconBg =
-    habit.type === 'positive' ? 'bg-forest-500/15' : 'bg-red-500/15';
+  // Icon tile tinted with the habit's own color, plus a slightly stronger
+  // border so it reads as a "framed chip" even when the row bg is dark.
+  const iconTileStyle: React.CSSProperties = {
+    backgroundColor: hexWithAlpha(habit.color, 0.18),
+    border: `1px solid ${hexWithAlpha(habit.color, 0.45)}`,
+  };
   const scoreColor =
     score > 0 ? 'text-forest-500' : score < 0 ? 'text-red-500' : 'text-ink-500';
 
@@ -474,7 +478,7 @@ function HabitRow({
 
   return (
     <div
-      className={`rounded-2xl border grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5 transition-colors ${rowClasses}`}
+      className={`relative rounded-2xl border grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5 transition-colors ${rowClasses}`}
     >
       <button
         type="button"
@@ -483,8 +487,8 @@ function HabitRow({
         aria-label="פרטי הרגל"
       >
         <span
-          className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}
-          style={{ color: habit.color }}
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-cream-50"
+          style={iconTileStyle}
         >
           <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
         </span>
@@ -528,6 +532,19 @@ function HabitRow({
           />
         );
       })}
+
+      {/* Tiny habit-type indicator (✓ for build, ✕ for break) anchored
+          at the bottom-right corner of the row, near the name. */}
+      <span
+        aria-hidden="true"
+        className={`absolute bottom-1 right-2 text-[10px] leading-none ${
+          habit.type === 'positive'
+            ? 'text-forest-500/70'
+            : 'text-red-500/70'
+        }`}
+      >
+        {habit.type === 'positive' ? '✓' : '✕'}
+      </span>
     </div>
   );
 }
@@ -550,16 +567,43 @@ function DayCell({
   const isQuant = habit.is_quantitative;
   const target = habit.quantitative_target ?? 0;
 
-  let style: React.CSSProperties | undefined;
-  let extraClass = '';
+  // All cells get inline styles so V tints with the habit's own color.
+  let style: React.CSSProperties;
+  let textCls = 'text-cream-50';
   if (isQuant && amount && amount > 0) {
     const reached = amount >= target;
     style = {
-      backgroundColor: hexWithAlpha(habit.color, reached ? 0.35 : 0.18),
-      borderColor: hexWithAlpha(habit.color, reached ? 0.7 : 0.4),
-      color: habit.color,
+      backgroundColor: hexWithAlpha(habit.color, reached ? 0.5 : 0.25),
+      border: `1px solid ${hexWithAlpha(habit.color, reached ? 0.8 : 0.45)}`,
     };
-    extraClass = 'border';
+  } else if (mark === 'V') {
+    style = {
+      backgroundColor: hexWithAlpha(habit.color, 0.4),
+      border: `1px solid ${hexWithAlpha(habit.color, 0.7)}`,
+    };
+  } else if (mark === 'X') {
+    style = {
+      backgroundColor: 'rgba(239,68,68,0.22)',
+      border: '1px solid rgba(239,68,68,0.55)',
+    };
+  } else if (mark === 'auto_x') {
+    style = {
+      backgroundColor: 'rgba(239,68,68,0.10)',
+      border: '1px solid rgba(239,68,68,0.30)',
+    };
+    textCls = 'text-red-300';
+  } else {
+    // Blank — keep the existing neutral tile look.
+    style = isToday
+      ? {
+          backgroundColor: 'rgba(122,160,134,0.20)',
+          border: '1px solid rgba(122,160,134,0.50)',
+        }
+      : {
+          backgroundColor: 'rgba(122,160,134,0.10)',
+          border: '1px solid rgba(122,160,134,0.25)',
+        };
+    textCls = 'text-ink-500';
   }
 
   return (
@@ -567,11 +611,9 @@ function DayCell({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${
-        isQuant && amount && amount > 0
-          ? extraClass
-          : binaryCellBg(mark, isToday)
-      } ${disabled ? 'opacity-30 cursor-not-allowed' : 'hover:brightness-110'}`}
+      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${textCls} ${
+        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:brightness-110'
+      }`}
       style={style}
       aria-label="סמן יום"
     >
@@ -590,23 +632,14 @@ function DayCell({
   );
 }
 
-function binaryCellBg(mark: LogStatus | undefined, isToday: boolean): string {
-  if (mark === 'V') return 'bg-forest-500/25 border border-forest-500/50';
-  if (mark === 'X') return 'bg-red-500/20 border border-red-500/50';
-  if (mark === 'auto_x') return 'bg-red-500/10 border border-red-500/30';
-  return isToday
-    ? 'bg-ink-300/20 border border-ink-300/50'
-    : 'bg-ink-300/10 border border-ink-300/25';
-}
-
 function MarkGlyph({ mark }: { mark: LogStatus | undefined }) {
   if (mark === 'V')
-    return <span className="text-forest-500 font-bold text-sm leading-none">✓</span>;
+    return <span className="font-bold text-sm leading-none">✓</span>;
   if (mark === 'X')
-    return <span className="text-red-500 font-bold text-sm leading-none">✕</span>;
+    return <span className="font-bold text-sm leading-none">✕</span>;
   if (mark === 'auto_x')
-    return <span className="text-red-400 font-bold text-sm leading-none">✕</span>;
-  return <span className="text-ink-500/40 text-xs leading-none">·</span>;
+    return <span className="font-bold text-sm leading-none">✕</span>;
+  return <span className="opacity-50 text-xs leading-none">·</span>;
 }
 
 // ----------------------------------------------------------------------------
