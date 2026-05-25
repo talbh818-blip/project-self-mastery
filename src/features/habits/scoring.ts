@@ -110,8 +110,13 @@ export type HabitScoreResult = {
   basePoints: number;
   bonusPoints: number;
   totalPoints: number;
-  // Map<dateStr, EffectiveStatus> for all active dates (for UI display).
+  // Map<dateStr, EffectiveStatus> for every date that either has a log or
+  // falls inside an active assignment window. Logged dates win; assignment-
+  // only dates can become auto_x after the grace period.
   effectiveByDate: Map<string, EffectiveStatus>;
+  // Map<dateStr, number> — only populated for dates the user logged a
+  // quantitative amount on. Used by the cell renderer in week / month views.
+  amountByDate: Map<string, number>;
   // Bonus thresholds earned, with the date earned.
   bonusesEarned: { threshold: StreakThreshold; earnedOn: string }[];
   currentStreak: number;
@@ -129,9 +134,23 @@ export function scoreHabit(params: {
   const { habit, habitAssignments, habitLogs, today } = params;
 
   const logsByDate = new Map<string, LogStatus>();
-  for (const log of habitLogs) logsByDate.set(log.date, log.status);
+  const amountsByDate = new Map<string, number>();
+  for (const log of habitLogs) {
+    logsByDate.set(log.date, log.status);
+    if (log.amount !== null && log.amount !== undefined) {
+      amountsByDate.set(log.date, log.amount);
+    }
+  }
 
-  const dates = activeDatesForHabit(habit.id, habitAssignments, today);
+  // Union of assignment-active dates AND any dates the user actually logged.
+  // Logged dates may fall outside the active assignment window (the user can
+  // now mark V on past weeks even if the habit was created later), and those
+  // marks must still drive the visualization and score.
+  const assignmentDates = activeDatesForHabit(habit.id, habitAssignments, today);
+  const assignmentDateStrs = new Set(assignmentDates.map(toDateString));
+  const allDateStrs = new Set<string>(assignmentDateStrs);
+  for (const log of habitLogs) allDateStrs.add(log.date);
+  const sortedDates = Array.from(allDateStrs).sort();
 
   let basePoints = 0;
   let bonusPoints = 0;
@@ -142,9 +161,20 @@ export function scoreHabit(params: {
   const bonusesEarned: HabitScoreResult['bonusesEarned'] = [];
   const effectiveByDate = new Map<string, EffectiveStatus>();
 
-  for (const d of dates) {
-    const s = effectiveStatus(d, today, logsByDate);
-    effectiveByDate.set(toDateString(d), s);
+  for (const dStr of sortedDates) {
+    let s: EffectiveStatus;
+    const explicit = logsByDate.get(dStr);
+    if (explicit) {
+      s = explicit;
+    } else if (assignmentDateStrs.has(dStr)) {
+      // Within assignment window, no log → may become auto_x after grace.
+      const d = dateFromString(dStr);
+      s = effectiveStatus(d, today, logsByDate);
+    } else {
+      // Outside both assignment and logs — shouldn't happen given our union.
+      s = 'blank';
+    }
+    effectiveByDate.set(dStr, s);
     basePoints += pointsForStatus(s);
 
     if (s === 'V') {
@@ -157,14 +187,14 @@ export function scoreHabit(params: {
           bonusPoints += t.bonus;
           bonusesEarned.push({
             threshold: { days: t.days, bonus: t.bonus },
-            earnedOn: toDateString(d),
+            earnedOn: dStr,
           });
         }
       }
     } else if (s === 'X' || s === 'auto_x') {
       streak = 0;
     }
-    // 'blank' (today/grace) — leave streak unchanged. It won't extend, won't reset.
+    // 'blank' (today/grace) — leave streak unchanged.
   }
 
   return {
@@ -173,6 +203,7 @@ export function scoreHabit(params: {
     bonusPoints,
     totalPoints: basePoints + bonusPoints,
     effectiveByDate,
+    amountByDate: amountsByDate,
     bonusesEarned,
     currentStreak: streak,
     longestStreak,

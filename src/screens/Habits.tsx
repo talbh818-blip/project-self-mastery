@@ -742,7 +742,9 @@ function MonthHabitRow({
           const sFromStats = habitStats?.effectiveByDate.get(dateStr);
           const mark: LogStatus | undefined =
             sFromStats && sFromStats !== 'blank' ? sFromStats : undefined;
-          const amount = slot.amounts[dateStr] ?? null;
+          // Pull amount from scoring stats — it covers ALL of the user's
+          // logs (not just the current week, which is what slot.amounts has).
+          const amount = habitStats?.amountByDate.get(dateStr) ?? null;
           return (
             <MonthCell
               key={i}
