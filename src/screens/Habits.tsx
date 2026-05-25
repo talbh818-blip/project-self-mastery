@@ -731,34 +731,55 @@ function MonthHabitRow({
         </div>
       </button>
 
-      <div
-        className="grid gap-[2px]"
-        style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
-      >
-        {days.map((d, i) => {
-          const future = isFuture(d, today);
-          const isToday = isSameDay(d, today);
-          const dateStr = toDateString(d);
-          const sFromStats = habitStats?.effectiveByDate.get(dateStr);
-          const mark: LogStatus | undefined =
-            sFromStats && sFromStats !== 'blank' ? sFromStats : undefined;
-          // Pull amount from scoring stats — it covers ALL of the user's
-          // logs (not just the current week, which is what slot.amounts has).
-          const amount = habitStats?.amountByDate.get(dateStr) ?? null;
-          return (
-            <MonthCell
-              key={i}
-              habit={habit}
-              mark={mark}
-              amount={amount}
-              isToday={isToday}
-              future={future}
-              onClick={() =>
-                !future && onMarkCell(habit, dateStr, mark, amount)
-              }
-            />
-          );
-        })}
+      {/* Calendar grid: 7 day-of-week columns (Sun→Sat in Hebrew RTL).
+          The first row is padded so day 1 lands on the correct weekday.
+          Larger row-gap visually separates one week from the next. */}
+      <div className="mt-1">
+        {/* Weekday header */}
+        <div
+          className="grid grid-cols-7 gap-x-1 mb-1.5 text-[9px] text-ink-500"
+          dir="rtl"
+        >
+          {['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'].map((label) => (
+            <div key={label} className="text-center">
+              {label}
+            </div>
+          ))}
+        </div>
+
+        <div
+          className="grid grid-cols-7 gap-x-1 gap-y-2.5"
+          dir="rtl"
+        >
+          {/* Empty leading cells so day 1 lands under the correct weekday */}
+          {Array.from({ length: days[0].getDay() }).map((_, i) => (
+            <div key={`pad-${i}`} />
+          ))}
+
+          {days.map((d, i) => {
+            const future = isFuture(d, today);
+            const isToday = isSameDay(d, today);
+            const dateStr = toDateString(d);
+            const sFromStats = habitStats?.effectiveByDate.get(dateStr);
+            const mark: LogStatus | undefined =
+              sFromStats && sFromStats !== 'blank' ? sFromStats : undefined;
+            const amount = habitStats?.amountByDate.get(dateStr) ?? null;
+            return (
+              <MonthCell
+                key={i}
+                habit={habit}
+                date={d}
+                mark={mark}
+                amount={amount}
+                isToday={isToday}
+                future={future}
+                onClick={() =>
+                  !future && onMarkCell(habit, dateStr, mark, amount)
+                }
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -766,6 +787,7 @@ function MonthHabitRow({
 
 function MonthCell({
   habit,
+  date,
   mark,
   amount,
   isToday,
@@ -773,39 +795,56 @@ function MonthCell({
   onClick,
 }: {
   habit: Habit;
+  date: Date;
   mark: LogStatus | undefined;
   amount: number | null;
   isToday: boolean;
   future: boolean;
   onClick: () => void;
 }) {
+  // Background tint + text color, depending on the mark / amount.
   let bg = 'rgba(255,255,255,0.04)';
-  let border = isToday ? 'rgba(212,232,218,0.4)' : 'transparent';
+  let textCls = 'text-ink-300';
+  let tinted = false;
   if (habit.is_quantitative && amount && amount > 0) {
     const target = habit.quantitative_target ?? 10;
     const intensity = Math.min(1, amount / target);
     bg = hexWithAlpha(habit.color, 0.25 + intensity * 0.6);
+    textCls = 'text-cream-50';
+    tinted = true;
   } else if (mark === 'V') {
     bg = hexWithAlpha(habit.color, 0.85);
+    textCls = 'text-cream-50';
+    tinted = true;
   } else if (mark === 'X') {
     bg = 'rgba(239,68,68,0.55)';
+    textCls = 'text-cream-50';
+    tinted = true;
   } else if (mark === 'auto_x') {
     bg = 'rgba(239,68,68,0.25)';
+    textCls = 'text-red-300';
+    tinted = true;
+  } else if (isToday) {
+    textCls = 'text-ink-100';
   }
+
+  const border = isToday
+    ? '1px solid rgba(212,232,218,0.55)'
+    : '1px solid transparent';
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={future}
-      className={`aspect-square rounded-[2px] transition-opacity ${
-        future ? 'opacity-25 cursor-not-allowed' : 'hover:brightness-125'
-      }`}
-      style={{
-        backgroundColor: bg,
-        border: `1px solid ${border}`,
-      }}
-      aria-label="יום"
-    />
+      className={`aspect-square rounded-md flex items-center justify-center transition-opacity ${textCls} ${
+        future ? 'opacity-25 cursor-not-allowed' : 'hover:brightness-110'
+      } ${tinted ? 'font-semibold' : ''}`}
+      style={{ backgroundColor: bg, border }}
+      aria-label={`יום ${date.getDate()}`}
+    >
+      <span className="text-[11px] leading-none">{date.getDate()}</span>
+    </button>
   );
 }
 
