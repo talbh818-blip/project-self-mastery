@@ -11,6 +11,7 @@ import {
 } from './HabitIcon';
 import {
   HABIT_COLORS,
+  type Difficulty,
   type FrequencyPeriod,
   type Habit,
   type HabitType,
@@ -44,6 +45,7 @@ const DEFAULTS = {
   name: '',
   description: '',
   color: HABIT_COLORS[4].hex, // green
+  difficulty: 'medium' as Difficulty,
   frequency_period: 'daily' as FrequencyPeriod,
   frequency_target: 1,
   is_quantitative: false,
@@ -66,6 +68,7 @@ export function HabitPickerSheet({
   const [name, setName] = useState<string>(DEFAULTS.name);
   const [description, setDescription] = useState<string>(DEFAULTS.description);
   const [color, setColor] = useState<string>(DEFAULTS.color);
+  const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULTS.difficulty);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [frequencyPeriod, setFrequencyPeriod] = useState<FrequencyPeriod>(
     DEFAULTS.frequency_period,
@@ -97,6 +100,7 @@ export function HabitPickerSheet({
       setName(editingHabit.name);
       setDescription(editingHabit.description ?? '');
       setColor(editingHabit.color);
+      setDifficulty(editingHabit.difficulty ?? DEFAULTS.difficulty);
       // Show advanced when any non-default value is set.
       setShowAdvanced(
         editingHabit.frequency_period !== 'daily' ||
@@ -115,6 +119,7 @@ export function HabitPickerSheet({
       setName(DEFAULTS.name);
       setDescription(DEFAULTS.description);
       setColor(DEFAULTS.color);
+      setDifficulty(DEFAULTS.difficulty);
       setShowAdvanced(false);
       setFrequencyPeriod(DEFAULTS.frequency_period);
       setFrequencyTarget(DEFAULTS.frequency_target);
@@ -163,6 +168,7 @@ export function HabitPickerSheet({
       icon,
       type,
       color,
+      difficulty,
       frequency_period: frequencyPeriod,
       frequency_target: frequencyTarget,
       is_quantitative: isQuantitative,
@@ -216,26 +222,25 @@ export function HabitPickerSheet({
                   selected={type === 'positive'}
                   accentClass="border-forest-500 bg-forest-700/20 text-forest-400"
                   onClick={() => handleTypeChange('positive')}
-                  icon={<BadgeEmoji emoji="✅" />}
+                  icon="✅"
                   title="הרגל חיובי"
-                  subtitle="הרגל חיובי שאתה רוצה לבנות"
                 />
                 <TypeCard
                   selected={type === 'negative'}
                   accentClass="border-red-500/70 bg-red-950/30 text-red-400"
                   onClick={() => handleTypeChange('negative')}
-                  icon={<BadgeEmoji emoji="❌" />}
-                  title="שבירת התמכרות שלילית"
-                  subtitle="הרגל שלילי שאתה רוצה להשמיד"
+                  icon="❌"
+                  title="התמכרות שלילית"
                 />
               </div>
             </section>
 
-            {/* Step 2 — icon or emoji. List is filtered by type so only
+            {/* Step 2 — icon or emoji. Toggle sits on the same row as the
+                section title. List is filtered by habit type so only
                 relevant glyphs show up. */}
             <section>
-              <SectionTitle>בחר סמל להרגל</SectionTitle>
-              <div className="flex justify-center my-2">
+              <div className="flex items-center justify-between mb-2">
+                <SectionTitle>בחר סמל להרגל</SectionTitle>
                 <div className="flex gap-1 bg-surface-raised rounded-full p-0.5">
                   <button
                     type="button"
@@ -269,7 +274,7 @@ export function HabitPickerSheet({
               />
             </section>
 
-            {/* Step 3 — name + description */}
+            {/* Step 3 — name */}
             <section>
               <SectionTitle>שם</SectionTitle>
               <input
@@ -285,16 +290,36 @@ export function HabitPickerSheet({
               />
             </section>
 
+            {/* Step 4 — difficulty. Question phrasing depends on type. */}
             <section>
-              <SectionTitle>תיאור קצר</SectionTitle>
-              <input
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="למה זה חשוב לך?"
-                maxLength={120}
-                className="w-full px-3 py-2.5 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500"
-              />
+              <SectionTitle>
+                {type === 'positive'
+                  ? 'בכנות, כמה ההרגל הזה קשה לך?'
+                  : 'בכנות, כמה ההתמכרות הזאת קשה לך?'}
+              </SectionTitle>
+              <div className="grid grid-cols-3 gap-2">
+                <DifficultyButton
+                  level="easy"
+                  selected={difficulty === 'easy'}
+                  onClick={() => setDifficulty('easy')}
+                >
+                  קל
+                </DifficultyButton>
+                <DifficultyButton
+                  level="medium"
+                  selected={difficulty === 'medium'}
+                  onClick={() => setDifficulty('medium')}
+                >
+                  בינוני
+                </DifficultyButton>
+                <DifficultyButton
+                  level="hard"
+                  selected={difficulty === 'hard'}
+                  onClick={() => setDifficulty('hard')}
+                >
+                  קשה
+                </DifficultyButton>
+              </div>
             </section>
 
             {/* Step 4 — color */}
@@ -326,7 +351,7 @@ export function HabitPickerSheet({
                 onClick={() => setShowAdvanced((v) => !v)}
                 className="flex items-center justify-between w-full py-2 text-sm text-ink-300 hover:text-ink-100"
               >
-                <span>אופציות מתקדמות</span>
+                <span>אופציות נוספות</span>
                 {showAdvanced ? (
                   <ChevronUp size={16} />
                 ) : (
@@ -472,14 +497,12 @@ function TypeCard({
   onClick,
   icon,
   title,
-  subtitle,
   accentClass,
 }: {
   selected: boolean;
   onClick: () => void;
-  icon: React.ReactNode;
+  icon: string; // emoji
   title: string;
-  subtitle: string;
   accentClass: string;
 }) {
   return (
@@ -492,23 +515,45 @@ function TypeCard({
           : 'border-surface-border bg-surface-raised text-ink-300 hover:text-ink-100'
       }`}
     >
-      <div className="flex items-center gap-2 mb-1">
-        {icon}
+      <div className="flex items-center gap-2">
+        <span className="text-lg leading-none">{icon}</span>
         <span className="text-sm font-medium">{title}</span>
       </div>
-      <div className="text-[11px] opacity-75">{subtitle}</div>
     </button>
   );
 }
 
-// Small white square containing an emoji. Used in the type cards so the
-// ✅/❌ glyphs read as clear "do this / don't do this" badges regardless of
-// what background the system emoji font provides.
-function BadgeEmoji({ emoji }: { emoji: string }) {
+// Three-state difficulty selector — green/yellow/red pill that highlights
+// when selected.
+function DifficultyButton({
+  level,
+  selected,
+  onClick,
+  children,
+}: {
+  level: 'easy' | 'medium' | 'hard';
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const selectedClass =
+    level === 'easy'
+      ? 'border-forest-500 bg-forest-700/25 text-forest-400'
+      : level === 'medium'
+      ? 'border-yellow-500 bg-yellow-500/15 text-yellow-300'
+      : 'border-red-500/70 bg-red-950/35 text-red-400';
   return (
-    <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-white text-base leading-none">
-      {emoji}
-    </span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`py-2 rounded-xl text-sm font-medium border-2 transition-colors ${
+        selected
+          ? selectedClass
+          : 'border-surface-border bg-surface-raised text-ink-300 hover:text-ink-100'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

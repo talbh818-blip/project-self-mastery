@@ -1,5 +1,6 @@
 export type HabitType = 'positive' | 'negative';
 export type LogStatus = 'V' | 'X' | 'auto_x';
+export type Difficulty = 'easy' | 'medium' | 'hard';
 export type SlotIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type FrequencyPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -46,6 +47,7 @@ export type Habit = {
   is_quantitative: boolean;
   quantitative_target: number | null;
   quantitative_unit: string | null;
+  difficulty: Difficulty; // self-reported difficulty
   archived_at: string | null; // ISO timestamp; non-null = archived
 };
 

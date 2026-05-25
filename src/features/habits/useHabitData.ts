@@ -250,6 +250,7 @@ export function useHabitData(userId: string | null): UseHabitData {
         quantitative_unit: input.is_quantitative
           ? input.quantitative_unit?.trim() || null
           : null,
+        difficulty: input.difficulty,
       };
       const nextHabits = prevHabits.map((h) =>
         h.id === habitId ? { ...h, ...optimisticPatch } : h,

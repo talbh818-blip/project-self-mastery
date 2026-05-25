@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import type {
+  Difficulty,
   FrequencyPeriod,
   Habit,
   HabitType,
@@ -23,6 +24,7 @@ export type CreateHabitInput = {
   is_quantitative: boolean;
   quantitative_target: number | null;
   quantitative_unit: string | null;
+  difficulty: Difficulty;
 };
 
 export async function createHabitInSlot(params: {
@@ -51,6 +53,7 @@ export async function createHabitInSlot(params: {
       quantitative_unit: input.is_quantitative
         ? input.quantitative_unit?.trim() || null
         : null,
+      difficulty: input.difficulty,
     })
     .select('*')
     .single();
@@ -160,6 +163,7 @@ export type UpdateHabitInput = {
   is_quantitative: boolean;
   quantitative_target: number | null;
   quantitative_unit: string | null;
+  difficulty: Difficulty;
 };
 
 export async function updateHabit(
@@ -181,6 +185,7 @@ export async function updateHabit(
       quantitative_unit: input.is_quantitative
         ? input.quantitative_unit?.trim() || null
         : null,
+      difficulty: input.difficulty,
     })
     .eq('id', habitId)
     .select('*')
