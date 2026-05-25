@@ -20,8 +20,12 @@ import {
   Music, Guitar, Palette, Camera, Film,
   // Spiritual / reflective
   Star, Cross, Compass, HandHeart,
-  // Misc / fallback
+  // Misc positive
   CheckCircle2, Zap, Leaf, TreePine, Bird, PawPrint,
+  // Achievement / motivation (positive)
+  Trophy, Award, Medal, Rocket, ThumbsUp, Crown,
+  // Warnings / breaking habits (negative)
+  Skull, AlertTriangle, Ban, XCircle, ThumbsDown, Dices,
   HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -51,68 +55,124 @@ const ICONS: Record<string, LucideIcon> = {
   Music, Guitar, Palette, Camera, Film,
   // Spiritual
   Star, Cross, Compass, HandHeart,
-  // Misc
+  // Misc positive
   CheckCircle2, Zap, Leaf, TreePine, Bird, PawPrint,
+  // Achievement / motivation
+  Trophy, Award, Medal, Rocket, ThumbsUp, Crown,
+  // Warnings / breaking
+  Skull, AlertTriangle, Ban, XCircle, ThumbsDown, Dices,
 };
 
-// All icon names in the picker order they should appear (curated).
-// We group by theme so the picker reads naturally.
-export const HABIT_ICONS: readonly string[] = [
+// ----------------------------------------------------------------------------
+// Icons curated for POSITIVE habits — things to build.
+// ----------------------------------------------------------------------------
+export const POSITIVE_HABIT_ICONS: readonly string[] = [
   // Health & fitness
   'Dumbbell', 'Bike', 'Footprints', 'Activity', 'Heart', 'Apple',
-  // Mindfulness
-  'Sparkles', 'Sun', 'Sunrise', 'Sunset', 'Moon', 'Bed', 'Smile', 'Flame', 'Mountain', 'Wind',
+  // Mindfulness / wellness
+  'Sparkles', 'Sun', 'Sunrise', 'Sunset', 'Moon', 'Bed', 'Smile', 'Flame',
+  'Mountain', 'Wind',
   // Books / learning
   'BookOpen', 'Book', 'GraduationCap', 'Brain', 'Lightbulb', 'Pencil', 'PenTool',
   // Productivity
   'NotebookPen', 'Calendar', 'Clock', 'Timer', 'ListChecks', 'Target', 'Briefcase',
-  // Hydration & food
+  // Hydration & healthy food
   'Droplet', 'GlassWater', 'Coffee', 'Salad', 'Carrot',
-  // Bad habits / addictions
-  'Cigarette', 'Wine', 'Beer', 'Cookie', 'Pizza', 'Candy',
-  'Smartphone', 'Tv', 'Gamepad2', 'ShoppingCart', 'MousePointerClick',
   // Communication
   'Phone', 'MessageCircle', 'Users', 'Mail',
-  // Money
-  'DollarSign', 'PiggyBank', 'CreditCard', 'Wallet',
+  // Money (saving)
+  'DollarSign', 'PiggyBank', 'Wallet',
   // Creativity
   'Music', 'Guitar', 'Palette', 'Camera', 'Film',
   // Spiritual
   'Star', 'Cross', 'Compass', 'HandHeart',
-  // Misc
+  // Achievement / motivation
+  'Trophy', 'Award', 'Medal', 'Rocket', 'ThumbsUp', 'Crown',
+  // Nature / misc positive
   'CheckCircle2', 'Zap', 'Leaf', 'TreePine', 'Bird', 'PawPrint',
-] as const;
+];
 
-// Legacy alias for older callers that referenced CUSTOM_HABIT_ICONS.
+// ----------------------------------------------------------------------------
+// Icons curated for NEGATIVE habits — addictions to break.
+// ----------------------------------------------------------------------------
+export const NEGATIVE_HABIT_ICONS: readonly string[] = [
+  // Substances
+  'Cigarette', 'Wine', 'Beer',
+  // Junk food
+  'Cookie', 'Pizza', 'Candy',
+  // Screens / games
+  'Smartphone', 'Tv', 'Gamepad2', 'MousePointerClick',
+  // Shopping / spending
+  'ShoppingCart', 'CreditCard',
+  // Caffeine (sometimes a habit to cut)
+  'Coffee',
+  // Gambling
+  'Dices',
+  // Warnings / breaking
+  'Skull', 'AlertTriangle', 'Ban', 'XCircle', 'ThumbsDown', 'Flame',
+];
+
+// Combined list — kept for back-compat callers (e.g. emoji-mode detection
+// in HabitPickerSheet that needs to know "is this name an icon").
+export const HABIT_ICONS: readonly string[] = [
+  ...POSITIVE_HABIT_ICONS,
+  ...NEGATIVE_HABIT_ICONS.filter((n) => !POSITIVE_HABIT_ICONS.includes(n)),
+];
+
+// Legacy alias.
 export const CUSTOM_HABIT_ICONS = HABIT_ICONS;
 
-// Curated emojis that pair well with habit / addiction themes.
-// When a habit's `icon` value isn't found in ICONS, we treat it as an emoji
-// (or any other glyph) and render it as plain text.
-export const HABIT_EMOJIS: readonly string[] = [
+// ----------------------------------------------------------------------------
+// Emojis — split by habit type.
+// ----------------------------------------------------------------------------
+export const POSITIVE_HABIT_EMOJIS: readonly string[] = [
   // Fitness & body
-  '🏃', '🚴', '🏋️', '🧘', '🤸', '🥊', '⚽', '🏀', '🏊', '🚶',
-  // Food
+  '🏃', '🚴', '🏋️', '🧘', '🤸', '🥊', '⚽', '🏀', '🏊', '🚶', '💪',
+  // Healthy food
   '🍎', '🥗', '🥦', '🥕', '🍓', '🥑', '🍌', '🥚', '🍞', '🥛',
-  // Drinks
+  // Healthy drinks
   '💧', '☕', '🍵', '🧋', '🥤',
-  // Bad habits / addictions
-  '🚬', '🍺', '🍷', '🍕', '🍔', '🍟', '🍫', '🍩', '🍰', '🍭',
-  '📱', '📺', '🎮', '💸', '🛍️',
   // Sleep / wellness
   '😴', '🛏️', '🌙', '☀️', '🌅', '🧠', '💭', '🕯️', '🌿',
   // Books / learning
   '📚', '📖', '📝', '✏️', '🎓', '💡', '📊',
   // Productivity
   '💼', '📅', '⏰', '⏱️', '✅', '🎯', '🗒️',
-  // Money
-  '💰', '💵', '💳', '🏦',
+  // Money (saving)
+  '💰', '💵', '🏦',
   // Music & creative
   '🎵', '🎶', '🎸', '🎹', '🎨', '📷', '🎬',
+  // Achievement
+  '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🚀', '🌟', '🎉', '🌈',
   // Spiritual / mindset
   '⭐', '✨', '🔥', '❤️', '🙏', '💖', '🌸', '🦋',
   // Nature
   '🌳', '🌱', '🌻', '🌊', '🏔️', '🐦', '🐶',
+];
+
+export const NEGATIVE_HABIT_EMOJIS: readonly string[] = [
+  // Substances
+  '🚬', '🍺', '🍷', '🍸', '🥃', '🥂',
+  // Junk food
+  '🍕', '🍔', '🍟', '🌭', '🍿', '🍩', '🍰', '🍫', '🍭', '🍪',
+  // Screens / games
+  '📱', '📺', '🎮', '💻', '⌨️',
+  // Shopping / money waste
+  '💸', '🛍️', '💳',
+  // Gambling
+  '🎰', '🎲',
+  // Lazy / oversleeping
+  '🛋️',
+  // Negative emotions
+  '😡', '🤬', '😤',
+  // Generic warnings
+  '⛔', '🚫', '❌', '⚠️', '💀',
+];
+
+// Combined emoji list — for back-compat.
+export const HABIT_EMOJIS: readonly string[] = [
+  ...POSITIVE_HABIT_EMOJIS,
+  ...NEGATIVE_HABIT_EMOJIS.filter((e) => !POSITIVE_HABIT_EMOJIS.includes(e)),
 ];
 
 // True iff `name` is a known Lucide icon name in our ICONS whitelist.
