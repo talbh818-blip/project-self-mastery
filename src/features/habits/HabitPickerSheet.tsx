@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp, Sparkles, Flame } from 'lucide-react';
+import { X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
-import { HabitIcon, HABIT_ICONS, HABIT_EMOJIS } from './HabitIcon';
+import {
+  HabitIcon,
+  HABIT_ICONS,
+  POSITIVE_HABIT_ICONS,
+  NEGATIVE_HABIT_ICONS,
+  POSITIVE_HABIT_EMOJIS,
+  NEGATIVE_HABIT_EMOJIS,
+} from './HabitIcon';
 import {
   HABIT_COLORS,
   type FrequencyPeriod,
@@ -122,6 +129,28 @@ export function HabitPickerSheet({
   // The sheet is allowed to render in edit mode even when slotIndex is null.
   if (!open || (!isEditing && slotIndex === null)) return null;
 
+  // Icon/emoji lists filtered by habit type. When switching type or mode,
+  // we also fix up the selected icon if it's no longer valid.
+  const iconList = type === 'positive' ? POSITIVE_HABIT_ICONS : NEGATIVE_HABIT_ICONS;
+  const emojiList = type === 'positive' ? POSITIVE_HABIT_EMOJIS : NEGATIVE_HABIT_EMOJIS;
+  const currentIconList = iconMode === 'icons' ? iconList : emojiList;
+
+  const handleTypeChange = (next: HabitType) => {
+    setType(next);
+    // If current icon is no longer valid for the new type, switch to a sensible
+    // default in the same icon-mode.
+    const nextIcons = next === 'positive' ? POSITIVE_HABIT_ICONS : NEGATIVE_HABIT_ICONS;
+    const nextEmojis = next === 'positive' ? POSITIVE_HABIT_EMOJIS : NEGATIVE_HABIT_EMOJIS;
+    const nextList = iconMode === 'icons' ? nextIcons : nextEmojis;
+    if (!nextList.includes(icon)) setIcon(nextList[0]);
+  };
+
+  const handleIconModeChange = (mode: 'icons' | 'emojis') => {
+    setIconMode(mode);
+    const nextList = mode === 'icons' ? iconList : emojiList;
+    if (!nextList.includes(icon)) setIcon(nextList[0]);
+  };
+
   const canSubmit = name.trim().length > 0 && !submitting;
 
   const handleSubmit = async () => {
@@ -171,7 +200,7 @@ export function HabitPickerSheet({
             <X size={20} />
           </button>
           <h2 className="text-lg font-semibold text-ink-100">
-            {isEditing ? 'עריכת הרגל' : 'הרגל חדש'}
+            {isEditing ? 'עריכת הרגל' : 'הוספת הרגל חדש'}
           </h2>
           <div className="w-7" /> {/* spacer for symmetric header */}
         </header>
@@ -181,38 +210,36 @@ export function HabitPickerSheet({
           <div className="px-5 py-4 space-y-5">
             {/* Step 1 — type (positive / negative) */}
             <section>
-              <SectionTitle>סוג ההרגל</SectionTitle>
+              <SectionTitle>בחר סוג הרגל</SectionTitle>
               <div className="grid grid-cols-2 gap-3">
                 <TypeCard
                   selected={type === 'positive'}
                   accentClass="border-forest-500 bg-forest-700/20 text-forest-400"
-                  onClick={() => setType('positive')}
-                  icon={<Sparkles size={18} />}
-                  title="בניית הרגל"
+                  onClick={() => handleTypeChange('positive')}
+                  icon={<BadgeEmoji emoji="✅" />}
+                  title="הרגל חיובי"
                   subtitle="הרגל חיובי שאתה רוצה לבנות"
                 />
                 <TypeCard
                   selected={type === 'negative'}
                   accentClass="border-red-500/70 bg-red-950/30 text-red-400"
-                  onClick={() => setType('negative')}
-                  icon={<Flame size={18} />}
-                  title="שבירת התמכרות"
+                  onClick={() => handleTypeChange('negative')}
+                  icon={<BadgeEmoji emoji="❌" />}
+                  title="שבירת התמכרות שלילית"
                   subtitle="הרגל שלילי שאתה רוצה להשמיד"
                 />
               </div>
             </section>
 
-            {/* Step 2 — icon or emoji */}
+            {/* Step 2 — icon or emoji. List is filtered by type so only
+                relevant glyphs show up. */}
             <section>
-              <div className="flex items-center justify-between mb-2">
-                <SectionTitle>אייקון</SectionTitle>
+              <SectionTitle>בחר סמל להרגל</SectionTitle>
+              <div className="flex justify-center my-2">
                 <div className="flex gap-1 bg-surface-raised rounded-full p-0.5">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIconMode('icons');
-                      if (!HABIT_ICONS.includes(icon)) setIcon(HABIT_ICONS[0]);
-                    }}
+                    onClick={() => handleIconModeChange('icons')}
                     className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
                       iconMode === 'icons'
                         ? 'bg-forest-700 text-cream-50'
@@ -223,10 +250,7 @@ export function HabitPickerSheet({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setIconMode('emojis');
-                      if (!HABIT_EMOJIS.includes(icon)) setIcon(HABIT_EMOJIS[0]);
-                    }}
+                    onClick={() => handleIconModeChange('emojis')}
                     className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
                       iconMode === 'emojis'
                         ? 'bg-forest-700 text-cream-50'
@@ -238,7 +262,7 @@ export function HabitPickerSheet({
                 </div>
               </div>
               <IconGrid
-                items={iconMode === 'icons' ? HABIT_ICONS : HABIT_EMOJIS}
+                items={currentIconList}
                 value={icon}
                 onChange={setIcon}
                 accentColor={color}
@@ -477,6 +501,17 @@ function TypeCard({
   );
 }
 
+// Small white square containing an emoji. Used in the type cards so the
+// ✅/❌ glyphs read as clear "do this / don't do this" badges regardless of
+// what background the system emoji font provides.
+function BadgeEmoji({ emoji }: { emoji: string }) {
+  return (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-white text-base leading-none">
+      {emoji}
+    </span>
+  );
+}
+
 function IconGrid({
   items,
   value,
@@ -489,7 +524,7 @@ function IconGrid({
   accentColor: string;
 }) {
   return (
-    <div className="grid grid-cols-7 gap-2 max-h-56 overflow-y-auto themed-scroll p-1">
+    <div className="grid grid-cols-7 gap-2 max-h-[140px] overflow-y-auto themed-scroll p-1">
       {items.map((name) => {
         const selected = value === name;
         return (
