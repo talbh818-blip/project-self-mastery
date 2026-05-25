@@ -1,7 +1,12 @@
 // ============================================================================
-// Pure slot assembly — no I/O. Mirrors fetchWeek's logic but operates on
-// in-memory data so the UI can derive SlotView[] for any range without
-// hitting the server.
+// Pure slot assembly — no I/O. Operates on in-memory data so the UI can
+// derive SlotView[] for any range without hitting the server.
+//
+// Semantics: each slot always shows the habit that is CURRENTLY active in
+// it (the assignment with end_date IS NULL). The visible range only filters
+// the logs (marks/amounts), not the habit itself. This means a habit you
+// created today will also appear when you scroll back to past weeks — just
+// with no marks for those past days.
 // ============================================================================
 import type {
   Habit,
@@ -22,38 +27,22 @@ export function assembleSlots(
   const startStr = toDateString(range.start);
   const endStr = toDateString(range.end);
 
-  // 1. Assignments overlapping the range.
-  // Overlap: start_date <= rangeEnd AND (end_date IS NULL OR end_date > rangeStart)
-  const overlapping = assignments.filter(
-    (a) =>
-      a.start_date <= endStr &&
-      (a.end_date === null || a.end_date > startStr),
-  );
-
-  // 2. Pick the "primary" assignment per slot:
-  //   - prefer the active one (end_date null)
-  //   - else the one with the latest start_date
+  // 1. Pick the active assignment per slot (end_date IS NULL). If multiple
+  // are somehow active for the same slot (data races), prefer the latest
+  // start_date.
   const bySlot = new Map<SlotIndex, SlotAssignment>();
-  for (const a of overlapping) {
+  for (const a of assignments) {
+    if (a.end_date !== null) continue;
     const cur = bySlot.get(a.slot_index);
-    if (!cur) {
-      bySlot.set(a.slot_index, a);
-      continue;
-    }
-    const curActive = cur.end_date === null;
-    const aActive = a.end_date === null;
-    if (aActive && !curActive) {
-      bySlot.set(a.slot_index, a);
-    } else if (aActive === curActive && a.start_date > cur.start_date) {
+    if (!cur || a.start_date > cur.start_date) {
       bySlot.set(a.slot_index, a);
     }
   }
 
-  // 3. Habit lookup.
+  // 2. Habit lookup, hiding archived habits.
   const habitsById = new Map(habits.map((h) => [h.id, h]));
 
-  // 4. Build SlotView per slot. Archived habits are treated as if the slot is
-  // empty — the user can re-fill it with something new.
+  // 3. Build SlotView per slot. Logs are filtered to the visible range.
   return SLOT_INDEXES.map((slot) => {
     const a = bySlot.get(slot);
     const candidate = a ? habitsById.get(a.habit_id) ?? null : null;
