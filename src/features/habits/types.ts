@@ -1,9 +1,11 @@
 export type HabitType = 'positive' | 'negative';
 export type LogStatus = 'V' | 'X' | 'auto_x';
-export type SlotIndex = 1 | 2 | 3 | 4 | 5;
+export type SlotIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type FrequencyPeriod = 'daily' | 'weekly' | 'monthly';
 
-export const SLOT_INDEXES: readonly SlotIndex[] = [1, 2, 3, 4, 5] as const;
+export const SLOT_INDEXES: readonly SlotIndex[] = [
+  1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+] as const;
 
 // Curated palette offered when picking a habit color.
 // Names are descriptive; values are concrete hex codes stored on the habit row.
