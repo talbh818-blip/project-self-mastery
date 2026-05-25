@@ -44,6 +44,7 @@ export type Habit = {
   is_quantitative: boolean;
   quantitative_target: number | null;
   quantitative_unit: string | null;
+  archived_at: string | null; // ISO timestamp; non-null = archived
 };
 
 export type SlotAssignment = {

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ChevronRight, ChevronLeft, Plus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { useWeekView } from '../features/habits/useWeekView';
 import {
   addMonths,
   addWeeks,
@@ -25,12 +24,12 @@ import {
 } from '../features/habits/types';
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
+import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
 import {
   nextAmountInCycle,
   nextMarkInCycle,
-  setHabitLog,
 } from '../features/habits/mutations';
-import { useUserStats } from '../features/habits/useUserStats';
+import { useHabitData } from '../features/habits/useHabitData';
 import {
   scoreForRange,
   type HabitScoreResult,
@@ -62,18 +61,25 @@ export function Habits() {
     monthAnchor.getFullYear() * 12 + monthAnchor.getMonth() <
     today.getFullYear() * 12 + today.getMonth();
 
-  const [refreshKey, setRefreshKey] = useState(0);
-  const week = useWeekView(user?.id ?? null, weekRange, refreshKey);
-  // For the monthly heatmap we always show the user's CURRENT 5 habits, so we
-  // also load today's slots regardless of the visible week. (Cheap query.)
-  const todayWeek = useWeekView(
-    user?.id ?? null,
-    useMemo(() => getWeekRange(today), [today]),
-    refreshKey,
+  // Single source of truth for the user's habit data. Mutations are optimistic
+  // — UI updates immediately and persists in the background. No refetching.
+  const data = useHabitData(user?.id ?? null);
+
+  // Derive slots for the visible week and for today (used by + button +
+  // monthly heatmap which always shows the user's CURRENT habits).
+  const weekSlots = useMemo(
+    () => data.slotsForRange(weekRange),
+    [data, weekRange],
   );
-  const userStats = useUserStats(user?.id ?? null, refreshKey);
+  const todayWeekRange = useMemo(() => getWeekRange(today), [today]);
+  const todaySlots = useMemo(
+    () => data.slotsForRange(todayWeekRange),
+    [data, todayWeekRange],
+  );
 
   const [pickerSlot, setPickerSlot] = useState<SlotIndex | null>(null);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
+  const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const handleCellClick = async (
@@ -87,41 +93,38 @@ export function Habits() {
       if (habit.is_quantitative) {
         const target = habit.quantitative_target ?? 10;
         const nextAmount = nextAmountInCycle(currentAmount, target);
-        await setHabitLog({
-          userId: user.id,
+        await data.setLog({
           habitId: habit.id,
           date,
-          newStatus: nextAmount === null ? null : 'V',
-          newAmount: nextAmount,
+          status: nextAmount === null ? null : 'V',
+          amount: nextAmount,
         });
       } else {
         const next = nextMarkInCycle(currentMark);
-        await setHabitLog({
-          userId: user.id,
+        await data.setLog({
           habitId: habit.id,
           date,
-          newStatus: next,
-          newAmount: null,
+          status: next,
+          amount: null,
         });
       }
       setMutationError(null);
-      setRefreshKey((k) => k + 1);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'שגיאה בשמירה';
       setMutationError(msg);
     }
   };
 
-  const totalScore = userStats.status === 'ready' ? userStats.stats.totalScore : 0;
+  const totalScore = data.stats?.totalScore ?? 0;
 
   const nextEmptySlot: SlotIndex | null = useMemo(() => {
-    if (todayWeek.status !== 'ready') return null;
+    if (data.status !== 'ready') return null;
     for (const i of SLOT_INDEXES) {
-      const slot = todayWeek.slots.find((s) => s.slot_index === i);
+      const slot = todaySlots.find((s) => s.slot_index === i);
       if (!slot?.habit) return i;
     }
     return null;
-  }, [todayWeek]);
+  }, [data.status, todaySlots]);
 
   return (
     <section className="text-ink-100">
@@ -203,45 +206,36 @@ export function Habits() {
       </div>
 
       {/* Body */}
-      {viewMode === 'week' ? (
-        <>
-          {week.status === 'error' && (
-            <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
-              שגיאה: {week.error}
-            </div>
-          )}
-          {week.status === 'loading' && (
-            <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
-          )}
-          {week.status === 'ready' && (
-            <HabitsList
-              slots={week.slots}
-              days={weekRange.days}
-              today={today}
-              rangeStart={weekRange.start}
-              rangeEnd={weekRange.end}
-              stats={userStats.status === 'ready' ? userStats.stats : null}
-              onPickSlot={(s) => setPickerSlot(s)}
-              onMarkCell={handleCellClick}
-            />
-          )}
-        </>
-      ) : (
+      {data.status === 'error' && (
+        <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+          שגיאה: {data.error}
+        </div>
+      )}
+      {data.status === 'loading' && (
+        <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
+      )}
+      {data.status === 'ready' && viewMode === 'week' && (
+        <HabitsList
+          slots={weekSlots}
+          days={weekRange.days}
+          today={today}
+          rangeStart={weekRange.start}
+          rangeEnd={weekRange.end}
+          stats={data.stats}
+          onShowDetail={setDetailHabit}
+          onMarkCell={handleCellClick}
+        />
+      )}
+      {data.status === 'ready' && viewMode === 'month' && (
         <MonthHeatmap
-          slots={todayWeek.status === 'ready' ? todayWeek.slots : []}
+          slots={todaySlots}
           days={monthRange.days}
           today={today}
-          stats={userStats.status === 'ready' ? userStats.stats : null}
-          onPickSlot={(s) => setPickerSlot(s)}
+          stats={data.stats}
+          onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
-          loading={todayWeek.status === 'loading' || userStats.status === 'loading'}
-          error={
-            todayWeek.status === 'error'
-              ? todayWeek.error
-              : userStats.status === 'error'
-              ? userStats.error
-              : null
-          }
+          loading={false}
+          error={null}
         />
       )}
 
@@ -255,9 +249,11 @@ export function Habits() {
         <HabitPickerSheet
           open={pickerSlot !== null}
           slotIndex={pickerSlot}
-          userId={user.id}
           onClose={() => setPickerSlot(null)}
-          onAssigned={() => setRefreshKey((k) => k + 1)}
+          onSubmit={async (input) => {
+            if (pickerSlot === null) return;
+            await data.createHabit({ slotIndex: pickerSlot, input });
+          }}
         />
       )}
     </section>

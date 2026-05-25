@@ -1,20 +1,33 @@
 import { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronUp, Sparkles, Flame } from 'lucide-react';
-import { createHabitInSlot, type CreateHabitInput } from './mutations';
+import type { CreateHabitInput } from './mutations';
 import { HabitIcon, HABIT_ICONS, HABIT_EMOJIS } from './HabitIcon';
 import {
   HABIT_COLORS,
   type FrequencyPeriod,
+  type Habit,
   type HabitType,
   type SlotIndex,
 } from './types';
 
 type Props = {
   open: boolean;
+  /**
+   * Target slot when creating a new habit. Ignored when editing.
+   */
   slotIndex: SlotIndex | null;
-  userId: string;
+  /**
+   * When non-null the sheet opens in EDIT mode, pre-filled with this habit's
+   * current values. Saving calls onSubmit with the same CreateHabitInput
+   * shape — the parent decides whether to create or update.
+   */
+  editingHabit?: Habit | null;
   onClose: () => void;
-  onAssigned: () => void; // refresh week view
+  /**
+   * Persist the new habit (create or update — decided by parent based on
+   * whether editingHabit was provided).
+   */
+  onSubmit: (input: CreateHabitInput) => Promise<void>;
 };
 
 // Default selections for a brand-new habit form.
@@ -34,10 +47,11 @@ const DEFAULTS = {
 export function HabitPickerSheet({
   open,
   slotIndex,
-  userId,
+  editingHabit = null,
   onClose,
-  onAssigned,
+  onSubmit,
 }: Props) {
+  const isEditing = !!editingHabit;
   // Form state
   const [type, setType] = useState<HabitType>(DEFAULTS.type);
   const [icon, setIcon] = useState<string>(DEFAULTS.icon);
@@ -65,9 +79,29 @@ export function HabitPickerSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset form whenever the sheet opens for a new slot.
+  // Reset / seed form whenever the sheet opens. When editingHabit is provided
+  // pre-fill from its values; otherwise fall back to defaults.
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    if (editingHabit) {
+      setType(editingHabit.type);
+      setIcon(editingHabit.icon);
+      setIconMode(HABIT_ICONS.includes(editingHabit.icon) ? 'icons' : 'emojis');
+      setName(editingHabit.name);
+      setDescription(editingHabit.description ?? '');
+      setColor(editingHabit.color);
+      // Show advanced when any non-default value is set.
+      setShowAdvanced(
+        editingHabit.frequency_period !== 'daily' ||
+          editingHabit.frequency_target !== 1 ||
+          editingHabit.is_quantitative,
+      );
+      setFrequencyPeriod(editingHabit.frequency_period);
+      setFrequencyTarget(editingHabit.frequency_target);
+      setIsQuantitative(editingHabit.is_quantitative);
+      setQuantitativeTarget(editingHabit.quantitative_target ?? DEFAULTS.quantitative_target);
+      setQuantitativeUnit(editingHabit.quantitative_unit ?? '');
+    } else {
       setType(DEFAULTS.type);
       setIcon(DEFAULTS.icon);
       setIconMode('icons');
@@ -80,12 +114,13 @@ export function HabitPickerSheet({
       setIsQuantitative(DEFAULTS.is_quantitative);
       setQuantitativeTarget(DEFAULTS.quantitative_target);
       setQuantitativeUnit(DEFAULTS.quantitative_unit);
-      setSubmitting(false);
-      setError(null);
     }
-  }, [open, slotIndex]);
+    setSubmitting(false);
+    setError(null);
+  }, [open, slotIndex, editingHabit]);
 
-  if (!open || slotIndex === null) return null;
+  // The sheet is allowed to render in edit mode even when slotIndex is null.
+  if (!open || (!isEditing && slotIndex === null)) return null;
 
   const canSubmit = name.trim().length > 0 && !submitting;
 
@@ -106,8 +141,7 @@ export function HabitPickerSheet({
       quantitative_unit: isQuantitative ? quantitativeUnit.trim() || null : null,
     };
     try {
-      await createHabitInSlot({ userId, slotIndex, input });
-      onAssigned();
+      await onSubmit(input);
       onClose();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'שגיאה בשמירה';
@@ -136,7 +170,9 @@ export function HabitPickerSheet({
           >
             <X size={20} />
           </button>
-          <h2 className="text-lg font-semibold text-ink-100">הרגל חדש</h2>
+          <h2 className="text-lg font-semibold text-ink-100">
+            {isEditing ? 'עריכת הרגל' : 'הרגל חדש'}
+          </h2>
           <div className="w-7" /> {/* spacer for symmetric header */}
         </header>
 
@@ -387,7 +423,7 @@ export function HabitPickerSheet({
               backgroundColor: canSubmit ? color : 'var(--color-surface-raised)',
             }}
           >
-            {submitting ? 'שומר...' : 'שמור הרגל'}
+            {submitting ? 'שומר...' : isEditing ? 'שמור שינויים' : 'שמור הרגל'}
           </button>
         </div>
       </div>

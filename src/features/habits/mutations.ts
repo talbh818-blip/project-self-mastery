@@ -144,3 +144,76 @@ export function nextAmountInCycle(
   if (currentAmount >= safeTarget) return null; // cycle back to blank
   return currentAmount + 1;
 }
+
+// ----------------------------------------------------------------------------
+// Update an existing habit's metadata (name, description, icon, color, etc.).
+// Returns the updated row.
+// ----------------------------------------------------------------------------
+export type UpdateHabitInput = {
+  name: string;
+  description: string | null;
+  icon: string;
+  type: HabitType;
+  color: string;
+  frequency_period: FrequencyPeriod;
+  frequency_target: number;
+  is_quantitative: boolean;
+  quantitative_target: number | null;
+  quantitative_unit: string | null;
+};
+
+export async function updateHabit(
+  habitId: string,
+  input: UpdateHabitInput,
+): Promise<Habit> {
+  const { data, error } = await supabase
+    .from('habits')
+    .update({
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      icon: input.icon,
+      type: input.type,
+      color: input.color,
+      frequency_period: input.frequency_period,
+      frequency_target: input.frequency_target,
+      is_quantitative: input.is_quantitative,
+      quantitative_target: input.is_quantitative ? input.quantitative_target : null,
+      quantitative_unit: input.is_quantitative
+        ? input.quantitative_unit?.trim() || null
+        : null,
+    })
+    .eq('id', habitId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as Habit;
+}
+
+// ----------------------------------------------------------------------------
+// Archive a habit. Soft-delete: sets archived_at = now() AND closes any active
+// slot assignment so the slot frees up immediately. Logs are preserved.
+// ----------------------------------------------------------------------------
+export async function archiveHabit(params: {
+  userId: string;
+  habitId: string;
+}): Promise<{ archived_at: string }> {
+  const { userId, habitId } = params;
+  const today = toDateString(new Date());
+  const nowIso = new Date().toISOString();
+
+  const { error: updErr } = await supabase
+    .from('habits')
+    .update({ archived_at: nowIso })
+    .eq('id', habitId);
+  if (updErr) throw updErr;
+
+  const { error: closeErr } = await supabase
+    .from('habit_slot_assignments')
+    .update({ end_date: today })
+    .eq('user_id', userId)
+    .eq('habit_id', habitId)
+    .is('end_date', null);
+  if (closeErr) throw closeErr;
+
+  return { archived_at: nowIso };
+}

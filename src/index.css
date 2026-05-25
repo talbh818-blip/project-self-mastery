@@ -71,3 +71,44 @@ body {
 .themed-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--color-ink-500);
 }
+
+/* ----------------------------------------------------------------------------
+ * Evolution avatar animations — fired when the user gains a V and the sprite
+ * advances to the next stage. The sprite briefly scales up + glows; the
+ * "+רמה!" label floats up and fades out.
+ * --------------------------------------------------------------------------*/
+@keyframes evolution-pulse {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(85, 181, 112, 0));
+  }
+  35% {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 18px rgba(85, 181, 112, 0.85));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(85, 181, 112, 0));
+  }
+}
+.animate-evolution-pulse {
+  animation: evolution-pulse 900ms ease-out;
+}
+
+@keyframes fade-out {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px);
+  }
+}
+.animate-fade-out {
+  animation: fade-out 900ms ease-out;
+}
