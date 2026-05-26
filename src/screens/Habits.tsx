@@ -496,9 +496,9 @@ function HabitsList({
 
   return (
     <div className="space-y-2.5">
-      {/* Day labels header */}
-      <div className="grid grid-cols-[1fr_repeat(7,32px)] gap-1 px-3">
-        <div></div>
+      {/* Day labels header — full-width 7-column grid so it aligns with the
+          cell strip below each habit row. */}
+      <div className="grid grid-cols-7 gap-1 px-3">
         {days.map((d, i) => (
           <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
         ))}
@@ -682,7 +682,7 @@ function HabitRow({
             {habit.name}
           </div>
           {isWeekly && (
-            <div className="text-[10px] text-ink-300 leading-tight mt-0.5">
+            <div className="text-[10px] text-ink-100 leading-tight mt-0.5">
               {weeklyCompletions}/{habit.frequency_target} השבוע
             </div>
           )}
@@ -923,7 +923,7 @@ function MonthHabitRow({
           <div className="text-sm font-medium text-ink-100 truncate">
             {habit.name}
           </div>
-          <div className="text-[10px] text-ink-500">
+          <div className="text-[10px] text-ink-100">
             {monthCompletions}/{days.length} ימים
           </div>
         </div>
