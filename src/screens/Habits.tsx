@@ -789,7 +789,7 @@ function DayCell({
       onClick={onClick}
       disabled={disabled}
       className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${textCls} ${
-        disabled ? 'opacity-30 cursor-not-allowed' : 'hover:brightness-110'
+        disabled ? 'opacity-30 cursor-default' : 'hover:brightness-110'
       }`}
       style={style}
       aria-label="סמן יום"
@@ -1029,7 +1029,7 @@ function MonthCell({
       onClick={onClick}
       disabled={future}
       className={`aspect-square rounded-[4px] transition-opacity ${
-        future ? 'opacity-25 cursor-not-allowed' : 'hover:brightness-110'
+        future ? 'opacity-25 cursor-default' : 'hover:brightness-110'
       }`}
       style={{ backgroundColor: bg, border }}
       aria-label={`יום ${date.getDate()}`}
