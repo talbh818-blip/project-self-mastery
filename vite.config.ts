@@ -21,20 +21,38 @@ export default defineConfig({
       },
       manifest: {
         name: 'פרויקט מחויבות לעצמי',
-        short_name: 'מחויבות',
+        // Splash screens on Android show short_name; keep it the full project
+        // name so the user sees the same text everywhere.
+        short_name: 'פרויקט מחויבות לעצמי',
         description: 'בנה הרגלים חיוביים. השמד התמכרויות.',
         lang: 'he',
         dir: 'rtl',
-        theme_color: '#1B4332',
-        background_color: '#FAF7EE',
+        // Both colors track the in-app dark surface so the splash screen
+        // matches the app instead of flashing a white card.
+        theme_color: '#0d1319',
+        background_color: '#0d1319',
         display: 'standalone',
         start_url: '/',
         icons: [
+          // Three entries so Android picks the right asset at each density,
+          // plus a separate maskable variant for the adaptive-icon system.
           {
             src: '/logo.png',
-            sizes: '192x192 512x512',
+            sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable',
+            purpose: 'any',
+          },
+          {
+            src: '/logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/logo.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
           },
         ],
       },

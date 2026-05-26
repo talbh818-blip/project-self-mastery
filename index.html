@@ -4,7 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1B4332" />
+    <!-- Status bar / address bar color. Dark so the system chrome blends
+         into the app's dark surface instead of flashing green. -->
+    <meta name="theme-color" content="#0d1319" />
+    <!-- iOS home-screen icon (Apple ignores PWA manifest icons). -->
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="פרויקט מחויבות לעצמי" />
     <title>פרויקט מחויבות לעצמי</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
