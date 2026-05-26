@@ -486,11 +486,11 @@ function HabitsList({
   return (
     <div className="space-y-2.5">
       {/* Day labels header. Mirrors each habit row exactly so the labels
-          line up with the day cells. RTL: the FIRST flex child renders on
-          the right, so we put the icon-column spacer first and the 7-cell
-          grid second — icon col lands right, cells land left. */}
+          line up with the day cells. RTL: first flex child renders on the
+          right, so the 40px icon spacer is first and the 7-cell grid is
+          second — spacer lands right, cells land left. */}
       <div className="flex items-end gap-2 px-3">
-        <div className="w-[80px] shrink-0" aria-hidden="true" />
+        <div className="w-10 shrink-0" aria-hidden="true" />
         <div className="flex-1 grid grid-cols-7 gap-1">
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
@@ -659,29 +659,16 @@ function HabitRow({
 
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-      <div className="flex items-start gap-2">
-        {/* RTL: first DOM child lands on the RIGHT. Icon column first →
-            renders right; cells grid second → renders left. */}
+      {/* Top row: icon (right in RTL) + 7 cells (left). Same baseline. */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onShowDetail}
-          className="w-[80px] shrink-0 flex flex-col items-start text-right hover:opacity-80 transition-opacity"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
+          style={iconTileStyle}
           aria-label="פרטי הרגל"
         >
-          <span
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={iconTileStyle}
-          >
-            <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
-          </span>
-          <div className="text-xs font-medium text-ink-100 leading-tight mt-1.5 line-clamp-2 w-full">
-            {habit.name}
-          </div>
-          {isWeekly && (
-            <div className="text-[10px] text-ink-300 leading-tight mt-0.5 w-full">
-              {weeklyCompletions}/{habit.frequency_target} השבוע
-            </div>
-          )}
+          <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
         </button>
 
         <div className="flex-1 grid grid-cols-7 gap-1">
@@ -706,6 +693,26 @@ function HabitRow({
           })}
         </div>
       </div>
+
+      {/* Bottom: habit name + weekly progress on a single line below the
+          row. The name truncates with ellipsis instead of wrapping so the
+          row keeps a predictable height. The whole strip is clickable —
+          opens the same detail sheet as the icon. */}
+      <button
+        type="button"
+        onClick={onShowDetail}
+        className="mt-2 w-full flex items-baseline gap-1.5 min-w-0 text-right hover:opacity-80 transition-opacity"
+        aria-label="פרטי הרגל"
+      >
+        <span className="text-sm font-medium text-ink-100 truncate min-w-0">
+          {habit.name}
+        </span>
+        {isWeekly && (
+          <span className="text-[10px] text-ink-300 shrink-0">
+            · {weeklyCompletions}/{habit.frequency_target} השבוע
+          </span>
+        )}
+      </button>
     </div>
   );
 }
