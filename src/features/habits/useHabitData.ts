@@ -30,6 +30,7 @@ import {
   archiveHabit as archiveHabitRemote,
   createHabitInSlot,
   setHabitLog,
+  setHabitsOrder as setHabitsOrderRemote,
   updateHabit as updateHabitRemote,
   type CreateHabitInput,
   type UpdateHabitInput,
@@ -66,6 +67,11 @@ export type UseHabitData = {
     input: UpdateHabitInput;
   }) => Promise<void>;
   archiveHabit: (habitId: string) => Promise<void>;
+  /**
+   * Persist a new display order. `orderedHabitIds` is the FULL new order for
+   * the given group (positive or negative); we'll write sort_order = 0..n-1.
+   */
+  reorderHabits: (orderedHabitIds: string[]) => Promise<void>;
   /** Force a full reload from the server (use sparingly — e.g. retry on error). */
   reload: () => void;
 };
@@ -194,10 +200,25 @@ export function useHabitData(userId: string | null): UseHabitData {
       input: CreateHabitInput;
     }) => {
       if (!userId || state.status !== 'ready') return;
+      // Compute sort_order for the new habit — append to the end of its
+      // type group so it doesn't randomly jump above existing ones.
+      const sameType = state.data.habits.filter(
+        (h) => h.type === input.type && !h.archived_at,
+      );
+      const maxOrder = sameType.length > 0
+        ? Math.max(...sameType.map((h) => h.sort_order))
+        : -1;
+      const sortOrder = maxOrder + 1;
+
       // Wait for the server so we get a real habit id, then patch local state.
       // (Creation is a one-time action, the brief wait is acceptable; this
       // avoids juggling temporary ids.)
-      const habit = await createHabitInSlot({ userId, slotIndex, input });
+      const habit = await createHabitInSlot({
+        userId,
+        slotIndex,
+        input,
+        sortOrder,
+      });
       const todayStr = toDateString(new Date());
       const newAssignments = state.data.assignments.map((a) =>
         a.slot_index === slotIndex && a.end_date === null
@@ -335,6 +356,42 @@ export function useHabitData(userId: string | null): UseHabitData {
     [userId, state],
   );
 
+  const reorderHabits = useCallback(
+    async (orderedHabitIds: string[]) => {
+      if (!userId || state.status !== 'ready') return;
+      const prevHabits = state.data.habits;
+
+      // Build sort_order: id → new index in the ordered array.
+      const orderMap = new Map<string, number>();
+      orderedHabitIds.forEach((id, i) => orderMap.set(id, i));
+
+      // Optimistic patch: any habit whose id appears in the order gets its
+      // new sort_order. Habits outside this group are untouched.
+      const nextHabits = prevHabits.map((h) =>
+        orderMap.has(h.id) ? { ...h, sort_order: orderMap.get(h.id)! } : h,
+      );
+      setState({
+        status: 'ready',
+        data: { ...state.data, habits: nextHabits },
+        error: null,
+      });
+
+      try {
+        await setHabitsOrderRemote(
+          orderedHabitIds.map((id, i) => ({ id, sort_order: i })),
+        );
+      } catch (e) {
+        setState({
+          status: 'ready',
+          data: { ...state.data, habits: prevHabits },
+          error: null,
+        });
+        throw e;
+      }
+    },
+    [userId, state],
+  );
+
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   return {
@@ -346,6 +403,7 @@ export function useHabitData(userId: string | null): UseHabitData {
     createHabit,
     updateHabit,
     archiveHabit,
+    reorderHabits,
     reload,
   };
 }

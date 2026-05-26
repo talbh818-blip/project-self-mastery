@@ -618,14 +618,16 @@ function NumberStepper({
         −
       </button>
       <input
-        type="number"
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
         value={value}
         onChange={(e) => {
-          const n = Number(e.target.value);
+          const raw = e.target.value.replace(/[^0-9]/g, '');
+          if (raw === '') return;
+          const n = Number(raw);
           if (!Number.isNaN(n)) onChange(clamp(n));
         }}
-        min={min}
-        max={max}
         className="flex-1 text-center px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500"
       />
       <button

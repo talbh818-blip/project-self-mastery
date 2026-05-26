@@ -48,6 +48,7 @@ export type Habit = {
   quantitative_target: number | null;
   quantitative_unit: string | null;
   difficulty: Difficulty; // self-reported difficulty
+  sort_order: number; // user-controlled display order within the type group
   archived_at: string | null; // ISO timestamp; non-null = archived
 };
 

@@ -31,8 +31,10 @@ export async function createHabitInSlot(params: {
   userId: string;
   slotIndex: SlotIndex;
   input: CreateHabitInput;
+  /** Optional explicit display order. If omitted, the DB default (0) is used. */
+  sortOrder?: number;
 }): Promise<Habit> {
-  const { userId, slotIndex, input } = params;
+  const { userId, slotIndex, input, sortOrder } = params;
   const today = toDateString(new Date());
 
   // 1. Insert the habit row.
@@ -54,6 +56,7 @@ export async function createHabitInSlot(params: {
         ? input.quantitative_unit?.trim() || null
         : null,
       difficulty: input.difficulty,
+      ...(sortOrder !== undefined ? { sort_order: sortOrder } : {}),
     })
     .select('*')
     .single();
@@ -221,4 +224,25 @@ export async function archiveHabit(params: {
   if (closeErr) throw closeErr;
 
   return { archived_at: nowIso };
+}
+
+// ----------------------------------------------------------------------------
+// Bulk-set sort_order for a set of habits. Used after a drag-and-drop
+// reorder. We send the updates in parallel; each row gets exactly one update.
+// ----------------------------------------------------------------------------
+export async function setHabitsOrder(
+  updates: { id: string; sort_order: number }[],
+): Promise<void> {
+  if (updates.length === 0) return;
+  const results = await Promise.all(
+    updates.map((u) =>
+      supabase
+        .from('habits')
+        .update({ sort_order: u.sort_order })
+        .eq('id', u.id),
+    ),
+  );
+  for (const r of results) {
+    if (r.error) throw r.error;
+  }
 }

@@ -417,14 +417,18 @@ function HabitsList({
 }
 
 function DayHeader({ day, isToday }: { day: Date; isToday: boolean }) {
+  if (isToday) {
+    return (
+      <div className="flex flex-col items-center justify-center leading-none py-1 rounded-md bg-ink-100/15 border border-ink-100/50 text-ink-100 font-bold">
+        <span className="text-[10px]">{hebrewDayShort(day)}</span>
+        <span className="text-[9px] mt-0.5">{day.getDate()}</span>
+      </div>
+    );
+  }
   return (
-    <div
-      className={`flex flex-col items-center leading-none py-1 ${
-        isToday ? 'text-ink-100 font-bold' : 'text-ink-500'
-      }`}
-    >
+    <div className="flex flex-col items-center leading-none py-1 text-ink-300">
       <span className="text-[10px]">{hebrewDayShort(day)}</span>
-      <span className="text-[9px] mt-0.5 opacity-70">{day.getDate()}</span>
+      <span className="text-[9px] mt-0.5 opacity-90">{day.getDate()}</span>
     </div>
   );
 }
@@ -455,8 +459,7 @@ function HabitRow({
   ) => void;
 }) {
   const habit = slot.habit!;
-  // Icon tile tinted with the habit's own color, plus a slightly stronger
-  // border so it reads as a "framed chip" even when the row bg is dark.
+  // Icon tile tinted with the habit's color (subtle frame around the icon).
   const iconTileStyle: React.CSSProperties = {
     backgroundColor: hexWithAlpha(habit.color, 0.18),
     border: `1px solid ${hexWithAlpha(habit.color, 0.45)}`,
@@ -472,13 +475,17 @@ function HabitRow({
   const isWeekly = habit.frequency_period === 'weekly';
   const weekGoalHit = isWeekly && weeklyCompletions >= habit.frequency_target;
 
-  const rowClasses = weekGoalHit
-    ? 'bg-forest-500/10 border-forest-500/30'
-    : 'bg-surface-card border-surface-border';
+  // The WHOLE row container is tinted with the habit's color at low opacity.
+  // When the weekly goal is hit, we boost the tint to give a "completed" feel.
+  const rowStyle: React.CSSProperties = {
+    backgroundColor: hexWithAlpha(habit.color, weekGoalHit ? 0.18 : 0.07),
+    borderColor: hexWithAlpha(habit.color, weekGoalHit ? 0.55 : 0.22),
+  };
 
   return (
     <div
-      className={`relative rounded-2xl border grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5 transition-colors ${rowClasses}`}
+      style={rowStyle}
+      className="relative rounded-2xl border grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5 transition-colors"
     >
       <button
         type="button"
