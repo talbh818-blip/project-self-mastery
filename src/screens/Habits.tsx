@@ -954,6 +954,10 @@ function MonthHabitRow({
     return s === 'V' ? acc + 1 : acc;
   }, 0);
 
+  // Pull the same stat indicators the week view shows so the two layouts
+  // feel like the same habit "card" in different orientations.
+  const currentStreak = habitStats?.currentStreak ?? 0;
+
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
       <button
@@ -963,17 +967,44 @@ function MonthHabitRow({
         aria-label="פרטי הרגל"
       >
         <span
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
           style={iconTileStyle}
         >
           <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
+          {/* Difficulty dot — same position as the week view (bottom-left
+              of the tile) */}
+          <span
+            className={`absolute bottom-1 left-1 w-1 h-1 rounded-full ${
+              habit.difficulty === 'easy'
+                ? 'bg-green-400'
+                : habit.difficulty === 'medium'
+                ? 'bg-yellow-400'
+                : 'bg-red-500'
+            }`}
+          />
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-ink-100 truncate">
-            {habit.name}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-sm font-medium text-ink-100 truncate min-w-0">
+              {habit.name}
+            </span>
+            {/* Type pill — matches the week view */}
+            <span
+              className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
+                habit.type === 'positive'
+                  ? 'border-forest-500/60 text-forest-400'
+                  : 'border-red-500/60 text-red-400'
+              }`}
+            >
+              {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
+            </span>
           </div>
-          <div className="text-[10px] text-ink-100">
-            {monthCompletions}/{days.length} ימים
+          <div className="flex items-center gap-1.5 text-[10px] text-ink-100 mt-0.5">
+            <span>{monthCompletions}/{days.length} ימים</span>
+            {/* Current streak — only when active, same look as the week view */}
+            {currentStreak > 0 && (
+              <span className="text-amber-400">· 🔥 {currentStreak}</span>
+            )}
           </div>
         </div>
       </button>
