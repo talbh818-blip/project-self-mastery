@@ -174,6 +174,7 @@ export function Habits() {
       {/* Score — compact card, content right-aligned */}
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-2 relative">
         <div className="flex items-center justify-start gap-3">
+          <span className="text-4xl leading-none" aria-hidden="true">🔥</span>
           <div className="text-right">
             <div className="text-[10px] tracking-wide text-ink-500">ניקוד כולל</div>
             <span
@@ -185,7 +186,6 @@ export function Habits() {
               {totalScore}
             </span>
           </div>
-          <span className="text-4xl leading-none" aria-hidden="true">🔥</span>
         </div>
 
         {/* Floating delta */}
