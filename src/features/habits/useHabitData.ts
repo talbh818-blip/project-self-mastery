@@ -17,18 +17,21 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchAllUserData } from './queries';
 import { computeUserStats, type UserStats } from './scoring';
 import { assembleSlots } from './slotAssembly';
-import type {
-  Habit,
-  HabitLog,
-  LogStatus,
-  SlotAssignment,
-  SlotIndex,
-  SlotView,
+import {
+  SLOT_INDEXES,
+  type Habit,
+  type HabitLog,
+  type LogStatus,
+  type SlotAssignment,
+  type SlotIndex,
+  type SlotView,
 } from './types';
 import { toDateString } from './week';
 import {
   archiveHabit as archiveHabitRemote,
   createHabitInSlot,
+  deleteHabitPermanently as deleteHabitPermanentlyRemote,
+  restoreHabit as restoreHabitRemote,
   setHabitLog,
   setHabitsOrder as setHabitsOrderRemote,
   updateHabit as updateHabitRemote,
@@ -401,11 +404,113 @@ export function useHabitData(userId: string | null): UseHabitData {
     [userId, state],
   );
 
+  const restoreHabit = useCallback(
+    async (habitId: string) => {
+      if (!userId || state.status !== 'ready') return;
+      // Find the next free slot (no active assignment).
+      const occupied = new Set(
+        state.data.assignments
+          .filter((a) => a.end_date === null)
+          .map((a) => a.slot_index),
+      );
+      const nextSlot = SLOT_INDEXES.find((i) => !occupied.has(i));
+      if (!nextSlot) {
+        throw new Error('אין סלוט פנוי — מחק או ארכב הרגל אחר קודם');
+      }
+      const prevHabits = state.data.habits;
+      const prevAssignments = state.data.assignments;
+      const todayStr = toDateString(new Date());
+
+      // Optimistic: clear archived_at and create a new assignment.
+      const nextHabits = prevHabits.map((h) =>
+        h.id === habitId ? { ...h, archived_at: null } : h,
+      );
+      const nextAssignments: SlotAssignment[] = [
+        ...prevAssignments,
+        {
+          id: `optimistic-restore-${habitId}`,
+          user_id: userId,
+          slot_index: nextSlot,
+          habit_id: habitId,
+          start_date: todayStr,
+          end_date: null,
+        },
+      ];
+      setState({
+        status: 'ready',
+        data: {
+          ...state.data,
+          habits: nextHabits,
+          assignments: nextAssignments,
+        },
+        error: null,
+      });
+
+      try {
+        await restoreHabitRemote({ userId, habitId, slotIndex: nextSlot });
+      } catch (e) {
+        setState({
+          status: 'ready',
+          data: {
+            ...state.data,
+            habits: prevHabits,
+            assignments: prevAssignments,
+          },
+          error: null,
+        });
+        throw e;
+      }
+    },
+    [userId, state],
+  );
+
+  const deleteHabitPermanently = useCallback(
+    async (habitId: string) => {
+      if (!userId || state.status !== 'ready') return;
+      const prevHabits = state.data.habits;
+      const prevAssignments = state.data.assignments;
+      const prevLogs = state.data.logs;
+
+      // Optimistic: drop the habit and everything that references it.
+      const nextHabits = prevHabits.filter((h) => h.id !== habitId);
+      const nextAssignments = prevAssignments.filter(
+        (a) => a.habit_id !== habitId,
+      );
+      const nextLogs = prevLogs.filter((l) => l.habit_id !== habitId);
+      setState({
+        status: 'ready',
+        data: {
+          habits: nextHabits,
+          assignments: nextAssignments,
+          logs: nextLogs,
+        },
+        error: null,
+      });
+
+      try {
+        await deleteHabitPermanentlyRemote(habitId);
+      } catch (e) {
+        setState({
+          status: 'ready',
+          data: {
+            habits: prevHabits,
+            assignments: prevAssignments,
+            logs: prevLogs,
+          },
+          error: null,
+        });
+        throw e;
+      }
+    },
+    [userId, state],
+  );
+
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   return {
     status: state.status,
     error: state.error,
+    habits: state.status === 'ready' ? state.data.habits : [],
     stats,
     slotsForRange,
     setLog,
@@ -413,6 +518,8 @@ export function useHabitData(userId: string | null): UseHabitData {
     updateHabit,
     archiveHabit,
     reorderHabits,
+    restoreHabit,
+    deleteHabitPermanently,
     reload,
   };
 }

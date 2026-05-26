@@ -47,6 +47,7 @@ import {
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
 import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
+import { ArchiveSheet } from '../features/habits/ArchiveSheet';
 import {
   nextAmountInCycle,
   nextMarkInCycle,
@@ -331,21 +332,6 @@ export function Habits() {
         />
       )}
 
-      <ArchiveSheet
-        open={archiveOpen}
-        habits={
-          data.status === 'ready'
-            ? data.data.habits.filter((h) => h.archived_at !== null)
-            : []
-        }
-        onClose={() => setArchiveOpen(false)}
-        onRestore={async (id) => {
-          await data.restoreHabit(id);
-        }}
-        onDelete={async (id) => {
-          await data.deleteHabitPermanently(id);
-        }}
-      />
     </section>
   );
 }

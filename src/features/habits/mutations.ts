@@ -231,6 +231,49 @@ export async function archiveHabit(params: {
 }
 
 // ----------------------------------------------------------------------------
+// Restore a previously-archived habit. Clears archived_at AND opens a new
+// active assignment in the given slot, so the habit re-appears in the list
+// immediately.
+// ----------------------------------------------------------------------------
+export async function restoreHabit(params: {
+  userId: string;
+  habitId: string;
+  slotIndex: SlotIndex;
+}): Promise<void> {
+  const { userId, habitId, slotIndex } = params;
+  const today = toDateString(new Date());
+
+  const { error: updErr } = await supabase
+    .from('habits')
+    .update({ archived_at: null })
+    .eq('id', habitId);
+  if (updErr) throw updErr;
+
+  const { error: insErr } = await supabase
+    .from('habit_slot_assignments')
+    .insert({
+      user_id: userId,
+      slot_index: slotIndex,
+      habit_id: habitId,
+      start_date: today,
+      end_date: null,
+    });
+  if (insErr) throw insErr;
+}
+
+// ----------------------------------------------------------------------------
+// Hard-delete a habit. ON DELETE CASCADE handles logs and assignments.
+// Irreversible — only used from the archive screen.
+// ----------------------------------------------------------------------------
+export async function deleteHabitPermanently(habitId: string): Promise<void> {
+  const { error } = await supabase
+    .from('habits')
+    .delete()
+    .eq('id', habitId);
+  if (error) throw error;
+}
+
+// ----------------------------------------------------------------------------
 // Bulk-set sort_order for a set of habits. Used after a drag-and-drop
 // reorder. We send the updates in parallel; each row gets exactly one update.
 // ----------------------------------------------------------------------------
