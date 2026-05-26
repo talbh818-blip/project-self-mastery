@@ -7,7 +7,7 @@ export function Layout() {
       <header className="sticky top-0 z-10 bg-surface-card/95 backdrop-blur border-b border-surface-border">
         <div className="max-w-md mx-auto w-full px-4 py-3 flex items-center justify-center gap-2.5">
           <img
-            src="/logo.png?v=2"
+            src="/logo.png?v=3"
             alt=""
             className="w-9 h-9"
           />
