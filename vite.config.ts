@@ -37,19 +37,19 @@ export default defineConfig({
           // Three entries so Android picks the right asset at each density,
           // plus a separate maskable variant for the adaptive-icon system.
           {
-            src: '/logo.png',
+            src: '/logo.png?v=2',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/logo.png',
+            src: '/logo.png?v=2',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/logo.png',
+            src: '/logo.png?v=2',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

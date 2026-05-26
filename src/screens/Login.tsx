@@ -16,7 +16,7 @@ export function Login() {
   return (
     <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center px-6 text-center">
       <img
-        src="/logo.png"
+        src="/logo.png?v=2"
         alt="פרויקט מחויבות לעצמי"
         className="w-32 h-32 mb-6"
       />
