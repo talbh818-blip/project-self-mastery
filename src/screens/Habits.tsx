@@ -400,16 +400,12 @@ function HabitsList({
     slots.find((s) => s.slot_index === i),
   ).filter((s): s is SlotView => !!s?.habit);
 
-  // Group by type and sort by sort_order so positive habits come first,
-  // negative second, and the user's drag order is preserved within each.
-  const sortByOrder = (a: SlotView, b: SlotView) =>
-    (a.habit!.sort_order ?? 0) - (b.habit!.sort_order ?? 0);
-  const positiveSlots = filledSlots
-    .filter((s) => s.habit!.type === 'positive')
-    .sort(sortByOrder);
-  const negativeSlots = filledSlots
-    .filter((s) => s.habit!.type === 'negative')
-    .sort(sortByOrder);
+  // Single list, sorted by user-controlled sort_order. Positive and negative
+  // habits are mixed together — the user can interleave them however they
+  // want by dragging.
+  const sortedSlots = [...filledSlots].sort(
+    (a, b) => (a.habit!.sort_order ?? 0) - (b.habit!.sort_order ?? 0),
+  );
 
   if (filledSlots.length === 0) {
     return (
@@ -429,9 +425,8 @@ function HabitsList({
         ))}
       </div>
 
-      <SortableHabitGroups
-        positiveSlots={positiveSlots}
-        negativeSlots={negativeSlots}
+      <SortableHabitList
+        slots={sortedSlots}
         onReorder={onReorder}
         renderRow={(slot) => (
           <HabitRow
@@ -450,20 +445,16 @@ function HabitsList({
 }
 
 // ----------------------------------------------------------------------------
-// SortableHabitGroups — shared DnD wrapper for week + month views.
-// Renders two SortableContexts (positive / negative) with a divider between
-// them. Long-press anywhere on a row starts a drag; quick taps still register
-// as clicks on inner cells. Cross-group drags are ignored so the type stays
-// stable.
+// SortableHabitList — single SortableContext for all habits regardless of
+// type. Long-press anywhere on a row starts a drag; quick taps still
+// register as clicks on inner cells.
 // ----------------------------------------------------------------------------
-function SortableHabitGroups({
-  positiveSlots,
-  negativeSlots,
+function SortableHabitList({
+  slots,
   onReorder,
   renderRow,
 }: {
-  positiveSlots: SlotView[];
-  negativeSlots: SlotView[];
+  slots: SlotView[];
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
   renderRow: (slot: SlotView) => React.ReactNode;
 }) {
@@ -478,24 +469,10 @@ function SortableHabitGroups({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
-    // Which group does the dragged item belong to?
-    const inPositive = positiveSlots.some((s) => s.habit!.id === active.id);
-    const inNegative = negativeSlots.some((s) => s.habit!.id === active.id);
-    const overInPositive = positiveSlots.some((s) => s.habit!.id === over.id);
-    const overInNegative = negativeSlots.some((s) => s.habit!.id === over.id);
-
-    // Only allow reordering WITHIN the same group.
-    let group: SlotView[];
-    if (inPositive && overInPositive) group = positiveSlots;
-    else if (inNegative && overInNegative) group = negativeSlots;
-    else return;
-
-    const oldIndex = group.findIndex((s) => s.habit!.id === active.id);
-    const newIndex = group.findIndex((s) => s.habit!.id === over.id);
+    const oldIndex = slots.findIndex((s) => s.habit!.id === active.id);
+    const newIndex = slots.findIndex((s) => s.habit!.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
-
-    const reordered = arrayMove(group, oldIndex, newIndex);
+    const reordered = arrayMove(slots, oldIndex, newIndex);
     onReorder(reordered.map((s) => s.habit!.id)).catch(() => {
       /* error surfaces via mutationError in parent on next interaction */
     });
@@ -507,45 +484,18 @@ function SortableHabitGroups({
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      {positiveSlots.length > 0 && (
-        <SortableContext
-          items={positiveSlots.map((s) => s.habit!.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-2.5">
-            {positiveSlots.map((slot) => (
-              <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
-                {renderRow(slot)}
-              </SortableRow>
-            ))}
-          </div>
-        </SortableContext>
-      )}
-
-      {positiveSlots.length > 0 && negativeSlots.length > 0 && (
-        <div className="flex items-center gap-2 py-2 mt-3 mb-1">
-          <span className="h-px flex-1 bg-surface-border" />
-          <span className="text-[10px] uppercase tracking-wider text-ink-500">
-            התמכרויות
-          </span>
-          <span className="h-px flex-1 bg-surface-border" />
+      <SortableContext
+        items={slots.map((s) => s.habit!.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-2.5">
+          {slots.map((slot) => (
+            <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
+              {renderRow(slot)}
+            </SortableRow>
+          ))}
         </div>
-      )}
-
-      {negativeSlots.length > 0 && (
-        <SortableContext
-          items={negativeSlots.map((s) => s.habit!.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="space-y-2.5">
-            {negativeSlots.map((slot) => (
-              <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
-                {renderRow(slot)}
-              </SortableRow>
-            ))}
-          </div>
-        </SortableContext>
-      )}
+      </SortableContext>
     </DndContext>
   );
 }
@@ -624,10 +574,11 @@ function HabitRow({
   ) => void;
 }) {
   const habit = slot.habit!;
-  // Icon tile tinted with the habit's color (subtle frame around the icon).
+  // Icon tile tinted with the habit's color at very low opacity — same hue
+  // as the marked cells, just barely there. No row-level color tint.
   const iconTileStyle: React.CSSProperties = {
-    backgroundColor: hexWithAlpha(habit.color, 0.18),
-    border: `1px solid ${hexWithAlpha(habit.color, 0.45)}`,
+    backgroundColor: hexWithAlpha(habit.color, 0.05),
+    color: habit.color,
   };
   const scoreColor =
     score > 0 ? 'text-forest-500' : score < 0 ? 'text-red-500' : 'text-ink-500';
@@ -640,29 +591,19 @@ function HabitRow({
   const isWeekly = habit.frequency_period === 'weekly';
   const weekGoalHit = isWeekly && weeklyCompletions >= habit.frequency_target;
 
-  // The WHOLE row container is tinted with the habit's color at low opacity.
-  // When the weekly goal is hit, we boost the tint to give a "completed" feel.
-  const rowStyle: React.CSSProperties = {
-    backgroundColor: hexWithAlpha(habit.color, weekGoalHit ? 0.18 : 0.07),
-    borderColor: hexWithAlpha(habit.color, weekGoalHit ? 0.55 : 0.22),
-  };
-
   return (
-    <div
-      style={rowStyle}
-      className="relative rounded-2xl border grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5 transition-colors"
-    >
+    <div className="relative rounded-2xl border border-surface-border bg-surface-card grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5">
       <button
         type="button"
         onClick={onShowDetail}
-        className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity text-right"
+        className="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity text-right"
         aria-label="פרטי הרגל"
       >
         <span
-          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-cream-50"
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
           style={iconTileStyle}
         >
-          <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
+          <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
         </span>
         <div className="min-w-0">
           <div className="text-sm font-medium text-ink-100 truncate">
@@ -705,18 +646,6 @@ function HabitRow({
         );
       })}
 
-      {/* Tiny habit-type indicator (✓ for build, ✕ for break) anchored
-          at the bottom-right corner of the row, near the name. */}
-      <span
-        aria-hidden="true"
-        className={`absolute bottom-1 right-2 text-[10px] leading-none ${
-          habit.type === 'positive'
-            ? 'text-forest-500/70'
-            : 'text-red-500/70'
-        }`}
-      >
-        {habit.type === 'positive' ? '✓' : '✕'}
-      </span>
     </div>
   );
 }
@@ -739,48 +668,38 @@ function DayCell({
   const isQuant = habit.is_quantitative;
   const target = habit.quantitative_target ?? 0;
 
-  // V/X cells use neutral colors (green for V, red for X) so the habit's
-  // chosen color stays in the row container, not inside the cells.
-  // Quantitative cells DO keep the habit-color tint since they need to
-  // express amount intensity, not a binary outcome.
+  // V (or any positive quantitative amount) → solid block of the habit's
+  // color. Everything else (blank, X, auto_x) → muted empty tile. No glyphs.
   let style: React.CSSProperties;
-  let textCls = 'text-cream-50';
+  let content: React.ReactNode = null;
   if (isQuant && amount && amount > 0) {
     const reached = amount >= target;
     style = {
-      backgroundColor: hexWithAlpha(habit.color, reached ? 0.5 : 0.25),
-      border: `1px solid ${hexWithAlpha(habit.color, reached ? 0.8 : 0.45)}`,
+      backgroundColor: hexWithAlpha(habit.color, reached ? 0.95 : 0.55),
     };
+    content = (
+      <span
+        className={`text-[11px] leading-none text-cream-50 ${
+          reached ? 'font-bold' : 'font-medium'
+        }`}
+      >
+        {amount}
+      </span>
+    );
   } else if (mark === 'V') {
-    style = {
-      backgroundColor: 'rgba(85,181,112,0.30)', // forest-500
-      border: '1px solid rgba(85,181,112,0.60)',
-    };
-    textCls = 'text-forest-500';
-  } else if (mark === 'X') {
-    style = {
-      backgroundColor: 'rgba(239,68,68,0.22)',
-      border: '1px solid rgba(239,68,68,0.55)',
-    };
-    textCls = 'text-red-500';
-  } else if (mark === 'auto_x') {
-    style = {
-      backgroundColor: 'rgba(239,68,68,0.10)',
-      border: '1px solid rgba(239,68,68,0.30)',
-    };
-    textCls = 'text-red-300';
+    // Solid habit color — the screenshot's "filled square" look.
+    style = { backgroundColor: hexWithAlpha(habit.color, 0.95) };
   } else {
-    // Blank — keep the neutral tile look.
+    // blank / X / auto_x — all look the same: an empty muted tile. Past
+    // blanks still score as auto_x; the user just doesn't see an X glyph.
     style = isToday
       ? {
-          backgroundColor: 'rgba(122,160,134,0.20)',
-          border: '1px solid rgba(122,160,134,0.50)',
+          backgroundColor: 'rgba(122,160,134,0.18)',
+          border: '1px solid rgba(122,160,134,0.45)',
         }
       : {
-          backgroundColor: 'rgba(122,160,134,0.10)',
-          border: '1px solid rgba(122,160,134,0.25)',
+          backgroundColor: hexWithAlpha(habit.color, 0.08),
         };
-    textCls = 'text-ink-500';
   }
 
   return (
@@ -788,35 +707,15 @@ function DayCell({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${textCls} ${
+      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${
         disabled ? 'opacity-30 cursor-default' : 'hover:brightness-110'
       }`}
       style={style}
       aria-label="סמן יום"
     >
-      {isQuant && amount && amount > 0 ? (
-        <span
-          className={`text-[11px] leading-none ${
-            amount >= target ? 'font-bold' : 'font-medium'
-          }`}
-        >
-          {amount}
-        </span>
-      ) : (
-        <MarkGlyph mark={mark} />
-      )}
+      {content}
     </button>
   );
-}
-
-function MarkGlyph({ mark }: { mark: LogStatus | undefined }) {
-  if (mark === 'V')
-    return <span className="font-bold text-sm leading-none">✓</span>;
-  if (mark === 'X')
-    return <span className="font-bold text-sm leading-none">✕</span>;
-  if (mark === 'auto_x')
-    return <span className="font-bold text-sm leading-none">✕</span>;
-  return <span className="opacity-50 text-xs leading-none">·</span>;
 }
 
 // ----------------------------------------------------------------------------
@@ -863,15 +762,10 @@ function MonthHeatmap({
     slots.find((s) => s.slot_index === i),
   ).filter((s): s is SlotView => !!s?.habit);
 
-  // Same grouping/sorting rules as week view.
-  const sortByOrder = (a: SlotView, b: SlotView) =>
-    (a.habit!.sort_order ?? 0) - (b.habit!.sort_order ?? 0);
-  const positiveSlots = filledSlots
-    .filter((s) => s.habit!.type === 'positive')
-    .sort(sortByOrder);
-  const negativeSlots = filledSlots
-    .filter((s) => s.habit!.type === 'negative')
-    .sort(sortByOrder);
+  // Same sorting rules as week view — a single list ordered by sort_order.
+  const sortedSlots = [...filledSlots].sort(
+    (a, b) => (a.habit!.sort_order ?? 0) - (b.habit!.sort_order ?? 0),
+  );
 
   if (filledSlots.length === 0) {
     return (
@@ -882,9 +776,8 @@ function MonthHeatmap({
   }
 
   return (
-    <SortableHabitGroups
-      positiveSlots={positiveSlots}
-      negativeSlots={negativeSlots}
+    <SortableHabitList
+      slots={sortedSlots}
       onReorder={onReorder}
       renderRow={(slot) => (
         <MonthHabitRow
@@ -921,8 +814,10 @@ function MonthHabitRow({
   ) => void;
 }) {
   const habit = slot.habit!;
-  const iconBg =
-    habit.type === 'positive' ? 'bg-forest-500/15' : 'bg-red-500/15';
+  const iconTileStyle: React.CSSProperties = {
+    backgroundColor: hexWithAlpha(habit.color, 0.05),
+    color: habit.color,
+  };
 
   // Count Vs in the visible month.
   const monthCompletions = days.reduce((acc, d) => {
@@ -936,14 +831,14 @@ function MonthHabitRow({
       <button
         type="button"
         onClick={onShowDetail}
-        className="w-full flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
+        className="w-full flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
         aria-label="פרטי הרגל"
       >
         <span
-          className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}
-          style={{ color: habit.color }}
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={iconTileStyle}
         >
-          <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
+          <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
         </span>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-ink-100 truncate">
@@ -1004,19 +899,16 @@ function MonthCell({
   future: boolean;
   onClick: () => void;
 }) {
-  // Solid colored dot. Blank cells use a very faint habit-color tint so the
-  // whole strip reads as one color whose intensity tells the story.
-  let bg = hexWithAlpha(habit.color, 0.1);
+  // Solid colored cell when marked, faint habit-color tint when empty.
+  // X / auto_x render the same as a blank cell — past blanks already score
+  // as auto_x, so the user doesn't need a visible "X" treatment.
+  let bg = hexWithAlpha(habit.color, 0.08);
   if (habit.is_quantitative && amount && amount > 0) {
     const target = habit.quantitative_target ?? 10;
     const intensity = Math.min(1, amount / target);
     bg = hexWithAlpha(habit.color, 0.3 + intensity * 0.6);
   } else if (mark === 'V') {
     bg = hexWithAlpha(habit.color, 0.9);
-  } else if (mark === 'X') {
-    bg = 'rgba(239,68,68,0.55)';
-  } else if (mark === 'auto_x') {
-    bg = 'rgba(239,68,68,0.25)';
   }
 
   const border = isToday

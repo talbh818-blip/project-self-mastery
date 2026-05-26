@@ -129,11 +129,15 @@ export async function setHabitLog(params: {
 }
 
 // Cycle the mark for a single day on a *binary* habit.
-// blank → V → X → blank. Auto-X is treated like X.
+// blank ↔ V toggle. Explicit X is no longer reachable from the UI; a past
+// day left blank still counts as auto_x in scoring after the grace period,
+// so the user doesn't need a dedicated "X" button.
+// Clicking a cell that holds a legacy X (or virtual auto_x) clears it back
+// to blank, ready to be re-marked as V.
 export function nextMarkInCycle(current: LogStatus | undefined): LogStatus | null {
+  if (current === 'V') return null;
   if (current === undefined) return 'V';
-  if (current === 'V') return 'X';
-  // 'X' or 'auto_x' → blank
+  // 'X' or 'auto_x' — clear it.
   return null;
 }
 
