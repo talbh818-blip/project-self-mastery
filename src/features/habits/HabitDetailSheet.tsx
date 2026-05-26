@@ -42,6 +42,17 @@ export function HabitDetailSheet({
     };
   }, [open]);
 
+  // Reset transient action state every time the sheet opens for a new habit.
+  // Otherwise a successful archive (which closes the sheet without flipping
+  // `working` back) leaves the next open stuck on the "מאחסן…" label.
+  useEffect(() => {
+    if (open) {
+      setConfirmingArchive(false);
+      setWorking(false);
+      setError(null);
+    }
+  }, [open, habit?.id]);
+
   if (!open || !habit) return null;
 
   const handleArchive = async () => {
@@ -49,6 +60,10 @@ export function HabitDetailSheet({
     setError(null);
     try {
       await onArchive();
+      // Reset BEFORE closing — otherwise the unmounted state holds the
+      // "working" flag for next open.
+      setWorking(false);
+      setConfirmingArchive(false);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'שגיאה בארכוב');
