@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
+  BarChart3,
   ChevronRight,
   ChevronLeft,
   LayoutGrid,
@@ -59,7 +60,7 @@ import {
   type UserStats,
 } from '../features/habits/scoring';
 
-type ViewMode = 'week' | 'month';
+type ViewMode = 'week' | 'month' | 'data';
 
 export function Habits() {
   const { user } = useAuth();
@@ -261,9 +262,22 @@ export function Habits() {
           >
             <LayoutGrid size={18} strokeWidth={1.9} />
           </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('data')}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              viewMode === 'data'
+                ? 'bg-forest-700 text-cream-50'
+                : 'text-ink-300 hover:text-ink-100'
+            }`}
+            aria-label="תצוגת נתונים"
+            title="נתונים"
+          >
+            <BarChart3 size={18} strokeWidth={1.9} />
+          </button>
         </div>
 
-        {viewMode === 'week' ? (
+        {viewMode === 'week' && (
           <NavBar
             onPrev={() => setWeekAnchor(addWeeks(weekAnchor, -1))}
             onNext={() => canGoNextWeek && setWeekAnchor(addWeeks(weekAnchor, 1))}
@@ -273,7 +287,8 @@ export function Habits() {
             prevAriaLabel="שבוע קודם"
             nextAriaLabel="שבוע הבא"
           />
-        ) : (
+        )}
+        {viewMode === 'month' && (
           <NavBar
             onPrev={() => setMonthAnchor(addMonths(monthAnchor, -1))}
             onNext={() =>
@@ -285,6 +300,11 @@ export function Habits() {
             prevAriaLabel="חודש קודם"
             nextAriaLabel="חודש הבא"
           />
+        )}
+        {viewMode === 'data' && (
+          // Data view has no time anchor — fill the leftover row space so
+          // the toolbar stays the same height regardless of mode.
+          <div className="flex-1" />
         )}
       </div>
 
@@ -306,6 +326,13 @@ export function Habits() {
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
           onReorder={data.reorderHabits}
+        />
+      )}
+      {data.status === 'ready' && viewMode === 'data' && (
+        <DataView
+          slots={todaySlots}
+          stats={data.stats}
+          onShowDetail={setDetailHabit}
         />
       )}
       {data.status === 'ready' && viewMode === 'month' && (
@@ -1138,4 +1165,168 @@ function hexWithAlpha(hex: string, alpha: number): string {
   const g = (n >> 8) & 255;
   const b = n & 255;
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ============================================================================
+// DataView — dashboard of the user's habit metrics.
+// ============================================================================
+function DataView({
+  slots,
+  stats,
+  onShowDetail,
+}: {
+  slots: SlotView[];
+  stats: UserStats | null;
+  onShowDetail: (habit: Habit) => void;
+}) {
+  const habits = slots.map((s) => s.habit).filter((h): h is Habit => !!h);
+  const orderedHabits = [...habits].sort(
+    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
+  );
+
+  // Only count currently-active habits so archived ones don't inflate totals.
+  const activeIds = new Set(habits.map((h) => h.id));
+  const activeStats = Array.from(stats?.byHabit.values() ?? []).filter((h) =>
+    activeIds.has(h.habitId),
+  );
+  const totalV = activeStats.reduce((sum, h) => sum + h.vCount, 0);
+  const bestStreak = activeStats.reduce(
+    (m, h) => Math.max(m, h.longestStreak),
+    0,
+  );
+  const activeStreakCount = activeStats.filter((h) => h.currentStreak > 0).length;
+
+  if (habits.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
+        עוד אין הרגלים. לחץ על "+ הרגל" למעלה כדי להתחיל.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        <KpiCard icon="🎯" label="הרגלים פעילים" value={habits.length} />
+        <KpiCard icon="✅" label="ימים מוצלחים" value={totalV} />
+        <KpiCard
+          icon="🏆"
+          label="הרצף הכי ארוך"
+          value={bestStreak}
+          suffix={bestStreak === 1 ? 'יום' : 'ימים'}
+        />
+        <KpiCard
+          icon="🔥"
+          label="ברצף עכשיו"
+          value={activeStreakCount}
+          suffix={activeStreakCount === 1 ? 'הרגל' : 'הרגלים'}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2 px-1">
+          לפי הרגל
+        </h3>
+        <div className="space-y-1.5">
+          {orderedHabits.map((habit) => (
+            <HabitStatRow
+              key={habit.id}
+              habit={habit}
+              stats={stats?.byHabit.get(habit.id) ?? null}
+              onClick={() => onShowDetail(habit)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function KpiCard({
+  icon,
+  label,
+  value,
+  suffix,
+}: {
+  icon: string;
+  label: string;
+  value: number;
+  suffix?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-3">
+      <div className="flex items-center gap-2">
+        <span className="text-2xl leading-none" aria-hidden="true">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <div className="text-[10px] tracking-wide text-ink-300 truncate">
+            {label}
+          </div>
+          <div className="text-xl font-bold text-ink-100 leading-tight">
+            <span className="tabular-nums">{value}</span>
+            {suffix && (
+              <span className="text-[11px] font-normal text-ink-300 mr-1">
+                {suffix}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HabitStatRow({
+  habit,
+  stats,
+  onClick,
+}: {
+  habit: Habit;
+  stats: HabitScoreResult | null;
+  onClick: () => void;
+}) {
+  const iconTileStyle: React.CSSProperties = {
+    backgroundColor: hexWithAlpha(habit.color, 0.18),
+    color: 'white',
+  };
+  const currentStreak = stats?.currentStreak ?? 0;
+  const vCount = stats?.vCount ?? 0;
+  const totalPoints = stats?.totalPoints ?? 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-surface-raised transition-colors text-right"
+    >
+      <span
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+        style={iconTileStyle}
+      >
+        <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-ink-100 truncate">
+          {habit.name}
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-ink-300 mt-0.5">
+          <span>{vCount} ימים</span>
+          {currentStreak > 0 && (
+            <span className="text-amber-400">· 🔥 {currentStreak}</span>
+          )}
+        </div>
+      </div>
+      <div
+        className={`text-sm font-bold tabular-nums shrink-0 ${
+          totalPoints > 0
+            ? 'text-forest-500'
+            : totalPoints < 0
+            ? 'text-red-400'
+            : 'text-ink-300'
+        }`}
+      >
+        {totalPoints > 0 ? `+${totalPoints}` : totalPoints}
+      </div>
+    </button>
+  );
 }
