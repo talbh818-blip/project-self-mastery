@@ -5,13 +5,13 @@ export function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-surface-base">
       <header className="sticky top-0 z-10 bg-surface-card/95 backdrop-blur border-b border-surface-border">
-        <div className="max-w-md mx-auto w-full px-4 py-2.5 flex items-center justify-center gap-2">
+        <div className="max-w-md mx-auto w-full px-4 py-3 flex items-center justify-center gap-2.5">
           <img
             src="/logo.png"
             alt=""
-            className="w-6 h-6"
+            className="w-9 h-9"
           />
-          <span className="text-sm font-semibold text-ink-100 tracking-tight">
+          <span className="text-lg font-semibold text-ink-100 tracking-tight">
             פרויקט מחויבות לעצמי
           </span>
         </div>

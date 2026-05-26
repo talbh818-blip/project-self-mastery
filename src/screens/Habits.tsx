@@ -182,6 +182,17 @@ export function Habits() {
           <span className="text-base font-medium">הרגל</span>
         </button>
 
+        {/* Archive button — sits immediately to the left of + הרגל in RTL. */}
+        <button
+          type="button"
+          onClick={() => setArchiveOpen(true)}
+          className="w-11 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-center text-ink-300 hover:text-ink-100 hover:bg-surface-raised transition-colors"
+          aria-label="ארכיון הרגלים"
+          title="ארכיון"
+        >
+          <Archive size={18} strokeWidth={1.9} />
+        </button>
+
         {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
         <div className="flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
           <button
@@ -211,17 +222,6 @@ export function Habits() {
             <LayoutGrid size={18} strokeWidth={1.9} />
           </button>
         </div>
-
-        {/* Archive button */}
-        <button
-          type="button"
-          onClick={() => setArchiveOpen(true)}
-          className="w-11 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-center text-ink-300 hover:text-ink-100 hover:bg-surface-raised transition-colors"
-          aria-label="ארכיון הרגלים"
-          title="ארכיון"
-        >
-          <Archive size={18} strokeWidth={1.9} />
-        </button>
 
         {viewMode === 'week' ? (
           <NavBar
