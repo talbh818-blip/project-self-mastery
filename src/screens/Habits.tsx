@@ -765,12 +765,12 @@ function MonthHabitRow({
       </button>
 
       {/* Calendar grid: 7 day-of-week columns (Sun→Sat in Hebrew RTL).
-          The first row is padded so day 1 lands on the correct weekday.
-          Larger row-gap visually separates one week from the next. */}
+          Compact — capped width keeps cells ~half the previous size while
+          preserving day-of-week alignment. */}
       <div className="mt-1">
         {/* Weekday header */}
         <div
-          className="grid grid-cols-7 gap-x-1 mb-1.5 text-[9px] text-ink-500"
+          className="grid grid-cols-7 gap-x-1 mb-1 text-[8px] text-ink-500 max-w-[252px] mx-auto"
           dir="rtl"
         >
           {['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'].map((label) => (
@@ -781,7 +781,7 @@ function MonthHabitRow({
         </div>
 
         <div
-          className="grid grid-cols-7 gap-x-1 gap-y-2.5"
+          className="grid grid-cols-7 gap-x-1 gap-y-1.5 max-w-[252px] mx-auto"
           dir="rtl"
         >
           {/* Empty leading cells so day 1 lands under the correct weekday */}
@@ -876,7 +876,7 @@ function MonthCell({
       style={{ backgroundColor: bg, border }}
       aria-label={`יום ${date.getDate()}`}
     >
-      <span className="text-[11px] leading-none">{date.getDate()}</span>
+      <span className="text-[10px] leading-none">{date.getDate()}</span>
     </button>
   );
 }
