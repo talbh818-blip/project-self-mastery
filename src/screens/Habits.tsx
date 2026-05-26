@@ -4,9 +4,11 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
+  Compass,
   LayoutGrid,
   Plus,
   Rows3,
+  Sparkles,
 } from 'lucide-react';
 import {
   DndContext,
@@ -539,7 +541,7 @@ function HabitsList({
       <SortableHabitList
         slots={sortedSlots}
         onReorder={onReorder}
-        renderRow={(slot, dragHandleRef, dragListeners) => (
+        renderRow={(slot) => (
           <HabitRow
             slot={slot}
             days={days}
@@ -548,8 +550,6 @@ function HabitsList({
             currentStreak={stats?.byHabit.get(slot.habit!.id)?.currentStreak ?? 0}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
-            dragHandleRef={dragHandleRef}
-            dragListeners={dragListeners}
           />
         )}
       />
@@ -557,16 +557,12 @@ function HabitsList({
   );
 }
 
-// Type aliases for the drag-handle render-prop threaded through SortableRow →
-// SortableHabitList → HabitRow / MonthHabitRow.
-type DragHandleRef = (el: HTMLElement | null) => void;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DragHandleListeners = Record<string, any> | undefined;
-
 // ----------------------------------------------------------------------------
 // SortableHabitList — single SortableContext for all habits regardless of
-// type. Long-press on the icon tile starts a drag; the rest of the row
-// allows free vertical scrolling.
+// type. The ENTIRE row is the drag activator: long-press anywhere on a habit
+// card and drag up/down to reorder. Inner buttons (icon, name, day cells)
+// still receive normal taps because a quick release before the 250ms touch
+// delay cancels the drag and lets the click event through.
 // ----------------------------------------------------------------------------
 function SortableHabitList({
   slots,
@@ -575,13 +571,13 @@ function SortableHabitList({
 }: {
   slots: SlotView[];
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
-  renderRow: (slot: SlotView, dragHandleRef: DragHandleRef, dragListeners: DragHandleListeners) => React.ReactNode;
+  renderRow: (slot: SlotView) => React.ReactNode;
 }) {
   // Explicit Mouse + Touch sensors so drag works on both desktop and mobile.
   // The unified PointerSensor often misses touch activation on iOS Safari /
   // some Android browsers because the page's scroll handler eats the event
   // before the delay elapses. TouchSensor handles touch directly and pairs
-  // nicely with `touch-action: none` on each draggable row.
+  // with `touch-action: none` on each draggable row (set in SortableRow).
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
@@ -618,7 +614,7 @@ function SortableHabitList({
         <div className="space-y-2.5">
           {slots.map((slot) => (
             <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
-              {(dragHandleRef, dragListeners) => renderRow(slot, dragHandleRef, dragListeners)}
+              {renderRow(slot)}
             </SortableRow>
           ))}
         </div>
@@ -627,16 +623,15 @@ function SortableHabitList({
   );
 }
 
-// Wraps a habit row with dnd-kit sortable bindings.
-// Uses a render-prop so the drag handle (setActivatorNodeRef + listeners) can
-// be forwarded to just the icon tile — keeping the rest of the row free for
-// native touch scrolling.
+// Wraps a habit row with dnd-kit sortable bindings. The wrapper div is BOTH
+// the sortable element and the drag activator — long-pressing anywhere on
+// the row triggers a drag.
 function SortableRow({
   id,
   children,
 }: {
   id: string;
-  children: (dragHandleRef: DragHandleRef, dragListeners: DragHandleListeners) => React.ReactNode;
+  children: React.ReactNode;
 }) {
   const {
     attributes,
@@ -647,18 +642,26 @@ function SortableRow({
     transition,
     isDragging,
   } = useSortable({ id });
+  // The same element is both the sortable node and its own activator,
+  // so the touch handler is attached at the row level.
+  const setRefs = (el: HTMLDivElement | null) => {
+    setNodeRef(el);
+    setActivatorNodeRef(el);
+  };
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    // Allow free vertical scroll on the row. Only the icon tile (the actual
-    // drag handle) will have touchAction:'none' to let dnd-kit intercept.
-    touchAction: 'auto',
+    // `touch-action: none` lets dnd-kit's TouchSensor intercept the touch
+    // before the browser kicks off a native scroll. The 250ms activation
+    // delay means quick taps on inner buttons still fire onClick normally
+    // — only a sustained hold without movement starts a drag.
+    touchAction: 'none',
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      {children(setActivatorNodeRef, listeners)}
+    <div ref={setRefs} style={style} {...attributes} {...listeners}>
+      {children}
     </div>
   );
 }
@@ -695,8 +698,6 @@ function HabitRow({
   currentStreak,
   onShowDetail,
   onMarkCell,
-  dragHandleRef,
-  dragListeners,
 }: {
   slot: SlotView;
   days: Date[];
@@ -710,8 +711,6 @@ function HabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
-  dragHandleRef?: DragHandleRef;
-  dragListeners?: DragHandleListeners;
 }) {
   const habit = slot.habit!;
   // Subtle color-tinted tile, icon always white for clean contrast.
@@ -731,18 +730,15 @@ function HabitRow({
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
       {/* Top row: icon (right in RTL) + 7 cells (left). Same baseline. */}
       <div className="flex items-center gap-2">
-        {/* Icon tile — this is the DRAG HANDLE.
-            ref + listeners restrict drag activation to this element so the
-            rest of the row is free for native touch scrolling.
-            touchAction:'none' lets dnd-kit intercept the long-press here. */}
+        {/* Icon tile — a tap opens the detail sheet. The drag handle lives
+            on the outer SortableRow wrapper so long-pressing ANYWHERE on
+            the row starts a drag. */}
         <button
-          ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
           className="relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
-          style={{ ...iconTileStyle, touchAction: 'none' }}
+          style={iconTileStyle}
           aria-label="פרטי הרגל"
-          {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
           {/* Difficulty dot — bottom-left corner of the tile */}
@@ -964,7 +960,7 @@ function MonthHeatmap({
     <SortableHabitList
       slots={sortedSlots}
       onReorder={onReorder}
-      renderRow={(slot, dragHandleRef, dragListeners) => (
+      renderRow={(slot) => (
         <MonthHabitRow
           slot={slot}
           days={days}
@@ -972,8 +968,6 @@ function MonthHeatmap({
           habitStats={stats?.byHabit.get(slot.habit!.id) ?? null}
           onShowDetail={() => onShowDetail(slot.habit!)}
           onMarkCell={onMarkCell}
-          dragHandleRef={dragHandleRef}
-          dragListeners={dragListeners}
         />
       )}
     />
@@ -987,8 +981,6 @@ function MonthHabitRow({
   habitStats,
   onShowDetail,
   onMarkCell,
-  dragHandleRef,
-  dragListeners,
 }: {
   slot: SlotView;
   days: Date[];
@@ -1001,8 +993,6 @@ function MonthHabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
-  dragHandleRef?: DragHandleRef;
-  dragListeners?: DragHandleListeners;
 }) {
   const habit = slot.habit!;
   const iconTileStyle: React.CSSProperties = {
@@ -1023,18 +1013,17 @@ function MonthHabitRow({
 
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-      {/* Header: icon tile (drag handle) + name/info (detail tap) side by side */}
+      {/* Header: icon tile + name/info side by side. The drag handle lives
+          on the outer SortableRow wrapper, so a long-press anywhere on the
+          card (icon, name, the heatmap strip below) starts a drag. */}
       <div className="flex items-center gap-2.5 mb-2">
-        {/* Icon tile — DRAG HANDLE. touchAction:'none' lets dnd-kit intercept
-            the long-press; a quick tap still fires onClick → opens detail. */}
+        {/* Icon tile — tap opens detail sheet. */}
         <button
-          ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
           className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
-          style={{ ...iconTileStyle, touchAction: 'none' }}
+          style={iconTileStyle}
           aria-label="פרטי הרגל"
-          {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
           {/* Difficulty dot — same position as the week view (bottom-left
@@ -1289,18 +1278,23 @@ function DataView({
 
   return (
     <div className="space-y-3">
-      {/* KPI grid — range-aware */}
-      <div className="grid grid-cols-2 gap-2">
-        <KpiCard icon="✅" label={`ימים מוצלחים · ${DATA_RANGE_LABEL[range]}`} value={totalVInRange} />
-        <KpiCard icon="💎" label={`ימים מושלמים · ${DATA_RANGE_LABEL[range]}`} value={perfectDays} />
+      {/* KPI row — three cards. Lucide icons throughout except the streak,
+          which intentionally keeps the 🔥 emoji as the single emoji on
+          this screen. */}
+      <div className="grid grid-cols-3 gap-2">
         <KpiCard
-          icon="🏆"
+          icon={<Sparkles size={22} strokeWidth={1.8} className="text-forest-500" />}
+          label="ימים מושלמים"
+          value={perfectDays}
+        />
+        <KpiCard
+          icon={<span className="text-2xl leading-none">🔥</span>}
           label="הרצף הכי ארוך"
           value={bestStreak}
           suffix={bestStreak === 1 ? 'יום' : 'ימים'}
         />
         <KpiCard
-          icon="⏱️"
+          icon={<Compass size={22} strokeWidth={1.8} className="text-ink-100" />}
           label="במסע כבר"
           value={daysSinceStart}
           suffix={daysSinceStart === 1 ? 'יום' : 'ימים'}
@@ -1517,8 +1511,9 @@ function HabitDataCard({
       <div className="text-[11px] font-medium text-ink-100 truncate w-full leading-tight">
         {habit.name}
       </div>
-      <div className="text-base font-bold tabular-nums leading-none text-ink-100">
-        {successRate}%
+      <div className="text-base font-bold leading-none text-ink-100">
+        <span className="tabular-nums">{successRate}%</span>
+        <span className="text-[10px] font-normal text-ink-300 mr-1">הצלחה</span>
       </div>
       <div
         className={`text-[10px] font-medium tabular-nums leading-none ${
