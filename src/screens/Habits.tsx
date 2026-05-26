@@ -683,11 +683,21 @@ function HabitRow({
         <button
           type="button"
           onClick={onShowDetail}
-          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
+          className="relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
           style={iconTileStyle}
           aria-label="פרטי הרגל"
         >
           <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
+          {/* Difficulty dot — bottom-left corner of the tile */}
+          <span
+            className={`absolute bottom-1 left-1 w-2 h-2 rounded-full ring-1 ring-surface-card ${
+              habit.difficulty === 'easy'
+                ? 'bg-green-400'
+                : habit.difficulty === 'medium'
+                ? 'bg-yellow-400'
+                : 'bg-red-500'
+            }`}
+          />
         </button>
 
         <div className="flex-1 grid grid-cols-7 gap-1.5">
@@ -741,18 +751,6 @@ function HabitRow({
             · {weeklyCompletions}/{habit.frequency_target} השבוע
           </span>
         )}
-        {/* Difficulty */}
-        <span
-          className={`shrink-0 text-[10px] ${
-            habit.difficulty === 'easy'
-              ? 'text-forest-400'
-              : habit.difficulty === 'medium'
-              ? 'text-yellow-400'
-              : 'text-red-400'
-          }`}
-        >
-          · {habit.difficulty === 'easy' ? 'קל' : habit.difficulty === 'medium' ? 'בינוני' : 'קשה'}
-        </span>
         {/* Current streak — only when active */}
         {currentStreak > 0 && (
           <span className="shrink-0 text-[10px] text-amber-400">
