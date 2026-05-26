@@ -26,6 +26,8 @@ import {
   Trophy, Award, Medal, Rocket, ThumbsUp, Crown,
   // Warnings / breaking habits (negative)
   Skull, AlertTriangle, Ban, XCircle, ThumbsDown, Dices,
+  // Awareness / monitoring
+  Eye,
   HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -61,6 +63,8 @@ const ICONS: Record<string, LucideIcon> = {
   Trophy, Award, Medal, Rocket, ThumbsUp, Crown,
   // Warnings / breaking
   Skull, AlertTriangle, Ban, XCircle, ThumbsDown, Dices,
+  // Awareness
+  Eye,
 };
 
 // ----------------------------------------------------------------------------
@@ -90,6 +94,8 @@ export const POSITIVE_HABIT_ICONS: readonly string[] = [
   'Trophy', 'Award', 'Medal', 'Rocket', 'ThumbsUp', 'Crown',
   // Nature / misc positive
   'CheckCircle2', 'Zap', 'Leaf', 'TreePine', 'Bird', 'PawPrint',
+  // Awareness
+  'Eye',
 ];
 
 // ----------------------------------------------------------------------------
@@ -110,6 +116,8 @@ export const NEGATIVE_HABIT_ICONS: readonly string[] = [
   'Dices',
   // Warnings / breaking
   'Skull', 'AlertTriangle', 'Ban', 'XCircle', 'ThumbsDown', 'Flame',
+  // Awareness
+  'Eye',
 ];
 
 // Combined list — kept for back-compat callers (e.g. emoji-mode detection

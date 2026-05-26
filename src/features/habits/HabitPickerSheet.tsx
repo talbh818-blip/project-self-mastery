@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
   HabitIcon,
@@ -243,14 +243,14 @@ export function HabitPickerSheet({
                   selected={type === 'positive'}
                   accentClass="border-forest-500 bg-forest-700/20 text-forest-400"
                   onClick={() => handleTypeChange('positive')}
-                  icon="✅"
+                  Icon={CheckCircle2}
                   title="הרגל חיובי"
                 />
                 <TypeCard
                   selected={type === 'negative'}
                   accentClass="border-red-500/70 bg-red-950/30 text-red-400"
                   onClick={() => handleTypeChange('negative')}
-                  icon="❌"
+                  Icon={XCircle}
                   title="התמכרות שלילית"
                 />
               </div>
@@ -511,13 +511,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function TypeCard({
   selected,
   onClick,
-  icon,
+  Icon,
   title,
   accentClass,
 }: {
   selected: boolean;
   onClick: () => void;
-  icon: string; // emoji
+  Icon: LucideIcon;
   title: string;
   accentClass: string;
 }) {
@@ -532,7 +532,7 @@ function TypeCard({
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="text-lg leading-none">{icon}</span>
+        <Icon size={18} strokeWidth={2} />
         <span className="text-sm font-medium">{title}</span>
       </div>
     </button>
