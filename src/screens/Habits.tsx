@@ -212,17 +212,6 @@ export function Habits() {
           <span className="text-base font-medium">הרגל</span>
         </button>
 
-        {/* Archive button — sits immediately to the left of + הרגל in RTL. */}
-        <button
-          type="button"
-          onClick={() => setArchiveOpen(true)}
-          className="w-11 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-center text-ink-300 hover:text-ink-100 hover:bg-surface-raised transition-colors"
-          aria-label="ארכיון הרגלים"
-          title="ארכיון"
-        >
-          <Archive size={18} strokeWidth={1.9} />
-        </button>
-
         {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
         <div className="flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
           <button
@@ -330,6 +319,7 @@ export function Habits() {
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
           onReorder={data.reorderHabits}
+          onOpenArchive={() => setArchiveOpen(true)}
         />
       )}
       {data.status === 'ready' && viewMode === 'data' && (
@@ -476,6 +466,7 @@ function HabitsList({
   onShowDetail,
   onMarkCell,
   onReorder,
+  onOpenArchive,
 }: {
   slots: SlotView[];
   days: Date[];
@@ -489,6 +480,7 @@ function HabitsList({
     currentAmount: number | null | undefined,
   ) => void;
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
+  onOpenArchive: () => void;
 }) {
   const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
     const r = stats?.byHabit.get(habitId);
@@ -521,10 +513,18 @@ function HabitsList({
     <div className="space-y-2.5">
       {/* Day labels header. Mirrors each habit row exactly so the labels
           line up with the day cells. RTL: first flex child renders on the
-          right, so the 40px icon spacer is first and the 7-cell grid is
-          second — spacer lands right, cells land left. */}
+          right — the archive button sits above the habit icon tiles. */}
       <div className="flex items-end gap-2 px-3">
-        <div className="w-12 shrink-0" aria-hidden="true" />
+        {/* Archive — tiny, subtle, above the icon column */}
+        <button
+          type="button"
+          onClick={onOpenArchive}
+          className="w-12 shrink-0 flex items-end justify-center pb-0.5 text-ink-500 hover:text-ink-300 transition-colors"
+          aria-label="ארכיון הרגלים"
+          title="ארכיון"
+        >
+          <Archive size={13} strokeWidth={1.7} />
+        </button>
         <div className="flex-1 grid grid-cols-7 gap-1.5">
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
