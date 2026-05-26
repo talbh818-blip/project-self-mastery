@@ -54,7 +54,6 @@ import {
 } from '../features/habits/mutations';
 import { useHabitData } from '../features/habits/useHabitData';
 import {
-  scoreForRange,
   type HabitScoreResult,
   type UserStats,
 } from '../features/habits/scoring';
@@ -302,8 +301,6 @@ export function Habits() {
           slots={weekSlots}
           days={weekRange.days}
           today={today}
-          rangeStart={weekRange.start}
-          rangeEnd={weekRange.end}
           stats={data.stats}
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
@@ -441,8 +438,6 @@ function HabitsList({
   slots,
   days,
   today,
-  rangeStart,
-  rangeEnd,
   stats,
   onShowDetail,
   onMarkCell,
@@ -451,8 +446,6 @@ function HabitsList({
   slots: SlotView[];
   days: Date[];
   today: Date;
-  rangeStart: Date;
-  rangeEnd: Date;
   stats: UserStats | null;
   onShowDetail: (habit: Habit) => void;
   onMarkCell: (
@@ -469,11 +462,6 @@ function HabitsList({
     const s = r.effectiveByDate.get(dateStr);
     if (s === 'blank' || s === undefined) return undefined;
     return s;
-  };
-  const weekScoreFor = (habitId: string): number => {
-    const r = stats?.byHabit.get(habitId);
-    if (!r) return 0;
-    return scoreForRange(r, rangeStart, rangeEnd);
   };
 
   const filledSlots = SLOT_INDEXES.map((i) =>
@@ -513,7 +501,6 @@ function HabitsList({
             slot={slot}
             days={days}
             today={today}
-            score={weekScoreFor(slot.habit!.id)}
             effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
@@ -635,7 +622,6 @@ function HabitRow({
   slot,
   days,
   today,
-  score,
   effectiveFor,
   onShowDetail,
   onMarkCell,
@@ -643,7 +629,6 @@ function HabitRow({
   slot: SlotView;
   days: Date[];
   today: Date;
-  score: number;
   effectiveFor: (dateStr: string) => LogStatus | undefined;
   onShowDetail: () => void;
   onMarkCell: (
@@ -654,14 +639,11 @@ function HabitRow({
   ) => void;
 }) {
   const habit = slot.habit!;
-  // Icon tile tinted with the habit's color at very low opacity — same hue
-  // as the marked cells, just barely there. No row-level color tint.
+  // Subtle color-tinted tile, icon always white for clean contrast.
   const iconTileStyle: React.CSSProperties = {
-    backgroundColor: hexWithAlpha(habit.color, 0.05),
-    color: habit.color,
+    backgroundColor: hexWithAlpha(habit.color, 0.12),
+    color: 'white',
   };
-  const scoreColor =
-    score > 0 ? 'text-forest-500' : score < 0 ? 'text-red-500' : 'text-ink-500';
 
   const weeklyCompletions = days.reduce((acc, d) => {
     const dateStr = toDateString(d);
@@ -669,7 +651,6 @@ function HabitRow({
     return m === 'V' ? acc + 1 : acc;
   }, 0);
   const isWeekly = habit.frequency_period === 'weekly';
-  const weekGoalHit = isWeekly && weeklyCompletions >= habit.frequency_target;
 
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5">
@@ -689,20 +670,11 @@ function HabitRow({
           <div className="text-sm font-medium text-ink-100 truncate">
             {habit.name}
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] leading-tight">
-            <span className={scoreColor}>
-              {score > 0 ? `+${score}` : score}
-            </span>
-            {isWeekly && (
-              <span
-                className={`text-[10px] ${
-                  weekGoalHit ? 'text-forest-500' : 'text-ink-500'
-                }`}
-              >
-                · {weeklyCompletions}/{habit.frequency_target} השבוע
-              </span>
-            )}
-          </div>
+          {isWeekly && (
+            <div className="text-[10px] text-ink-300 leading-tight mt-0.5">
+              {weeklyCompletions}/{habit.frequency_target} השבוע
+            </div>
+          )}
         </div>
       </button>
 
@@ -772,16 +744,30 @@ function DayCell({
     // Full habit color — the screenshot's "filled square" look.
     style = { backgroundColor: habit.color };
   } else {
-    // blank / X / auto_x — all look the same: an empty muted tile. Past
-    // blanks still score as auto_x; the user just doesn't see an X glyph.
+    // blank / X / auto_x — empty tile. Past blanks score as auto_x.
     style = isToday
       ? {
           backgroundColor: 'rgba(122,160,134,0.18)',
           border: '1px solid rgba(122,160,134,0.45)',
         }
       : {
-          backgroundColor: hexWithAlpha(habit.color, 0.08),
+          backgroundColor: hexWithAlpha(habit.color, 0.15),
         };
+    // Past days (not today, not future) that were never marked get a
+    // centered horizontal dash — signals the day was missed.
+    if (!disabled && !isToday) {
+      content = (
+        <span
+          style={{
+            display: 'block',
+            width: '55%',
+            height: '2px',
+            backgroundColor: 'rgba(255,255,255,0.5)',
+            borderRadius: '1px',
+          }}
+        />
+      );
+    }
   }
 
   return (
@@ -790,7 +776,7 @@ function DayCell({
       onClick={onClick}
       disabled={disabled}
       className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${
-        disabled ? 'opacity-30 cursor-default' : 'hover:brightness-110'
+        disabled ? 'opacity-50 cursor-default' : 'hover:brightness-110'
       }`}
       style={style}
       aria-label="סמן יום"
@@ -897,8 +883,8 @@ function MonthHabitRow({
 }) {
   const habit = slot.habit!;
   const iconTileStyle: React.CSSProperties = {
-    backgroundColor: hexWithAlpha(habit.color, 0.05),
-    color: habit.color,
+    backgroundColor: hexWithAlpha(habit.color, 0.12),
+    color: 'white',
   };
 
   // Count Vs in the visible month.

@@ -14,10 +14,10 @@ export const SLOT_INDEXES: readonly SlotIndex[] = [
 // solid bright blocks instead of pastel washes.
 export type HabitColor = { name: string; hex: string };
 export const HABIT_COLORS: readonly HabitColor[] = [
-  { name: 'אדום',   hex: '#ff5d5d' },
-  { name: 'כתום',   hex: '#ff943c' },
-  { name: 'צהוב',   hex: '#ffcc2e' },
-  { name: 'ליים',   hex: '#b4e83a' },
+  { name: 'אדום',   hex: '#FF3B3B' },
+  { name: 'כתום',   hex: '#FF8500' },
+  { name: 'צהוב',   hex: '#FFD700' },
+  { name: 'ליים',   hex: '#AAEE00' },
   { name: 'ירוק',   hex: '#2ecc71' },
   { name: 'טורקיז', hex: '#1fd1b3' },
   { name: 'תכלת',   hex: '#3ec5f5' },
