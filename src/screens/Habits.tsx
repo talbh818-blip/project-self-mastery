@@ -31,7 +31,7 @@ import {
   formatRangeShort,
   getMonthRange,
   getWeekRange,
-  hebrewDayLong,
+  hebrewDayShort,
   isFuture,
   isSameDay,
   relativeMonthLabel,
@@ -618,21 +618,22 @@ function SortableRow({
 }
 
 function DayHeader({ day, isToday }: { day: Date; isToday: boolean }) {
-  // Date on top, day name below. For today, the day name is replaced with
-  // the literal word "היום" so the user spots it instantly.
-  const label = isToday ? 'היום' : hebrewDayLong(day);
+  // Day label on top, date on bottom. Compact single-letter Hebrew letter
+  // (א׳, ב׳, …) for normal days; the literal word "היום" replaces the letter
+  // on today so it pops out at a glance.
+  const label = isToday ? 'היום' : hebrewDayShort(day);
   if (isToday) {
     return (
       <div className="flex flex-col items-center justify-center leading-none py-1 rounded-md bg-ink-100/15 border border-ink-100/50 text-ink-100 font-bold">
-        <span className="text-[10px]">{day.getDate()}</span>
-        <span className="text-[9px] mt-0.5">{label}</span>
+        <span className="text-[10px]">{label}</span>
+        <span className="text-[9px] mt-0.5">{day.getDate()}</span>
       </div>
     );
   }
   return (
     <div className="flex flex-col items-center leading-none py-1 text-ink-300">
-      <span className="text-[10px]">{day.getDate()}</span>
-      <span className="text-[9px] mt-0.5 opacity-90">{label}</span>
+      <span className="text-[10px]">{label}</span>
+      <span className="text-[9px] mt-0.5 opacity-90">{day.getDate()}</span>
     </div>
   );
 }
