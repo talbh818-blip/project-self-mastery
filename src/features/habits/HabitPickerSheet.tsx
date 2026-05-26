@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
   HabitIcon,
@@ -210,6 +210,27 @@ export function HabitPickerSheet({
           </h2>
           <div className="w-7" /> {/* spacer for symmetric header */}
         </header>
+
+        {/* Error banner — sits between the header and the scrollable body so
+            it's always visible no matter where the user is scrolled. Dismiss
+            with the X. */}
+        {error && (
+          <div
+            role="alert"
+            className="mx-5 mt-3 mb-1 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-sm px-3 py-2.5 flex items-start gap-2"
+          >
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <div className="flex-1 leading-snug">{error}</div>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="shrink-0 -m-1 p-1 text-red-300/70 hover:text-red-300"
+              aria-label="סגור הודעה"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto themed-scroll">
@@ -454,11 +475,6 @@ export function HabitPickerSheet({
               )}
             </section>
 
-            {error && (
-              <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-3 py-2">
-                {error}
-              </div>
-            )}
           </div>
         </div>
 
