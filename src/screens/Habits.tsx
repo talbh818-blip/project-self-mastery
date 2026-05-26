@@ -690,7 +690,7 @@ function HabitRow({
           <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
           {/* Difficulty dot — bottom-left corner of the tile */}
           <span
-            className={`absolute bottom-1 left-1 w-2 h-2 rounded-full ring-1 ring-surface-card ${
+            className={`absolute bottom-1 left-1 w-1 h-1 rounded-full ${
               habit.difficulty === 'easy'
                 ? 'bg-green-400'
                 : habit.difficulty === 'medium'
@@ -743,7 +743,7 @@ function HabitRow({
               : 'border-red-500/60 text-red-400'
           }`}
         >
-          {habit.type === 'positive' ? 'הרגל חיובי' : 'התמכרות שלילית'}
+          {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
         </span>
         {/* Weekly frequency progress */}
         {isWeekly && (
