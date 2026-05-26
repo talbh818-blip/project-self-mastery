@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   ChevronRight,
@@ -141,6 +141,26 @@ export function Habits() {
 
   const totalScore = data.stats?.totalScore ?? 0;
 
+  // Detect score deltas to drive the pop/float animation. We hold the
+  // animation key on a ref so the FIRST render after load doesn't trigger
+  // an animation (we treat the initial value as "no change").
+  const prevScoreRef = useRef<number | null>(null);
+  const [scoreAnim, setScoreAnim] = useState<{ key: number; delta: number } | null>(null);
+  useEffect(() => {
+    const prev = prevScoreRef.current;
+    prevScoreRef.current = totalScore;
+    if (prev === null) return; // skip first time
+    if (totalScore === prev) return;
+    const delta = totalScore - prev;
+    const key = Date.now();
+    setScoreAnim({ key, delta });
+    const ms = delta > 0 ? 1150 : 950;
+    const t = setTimeout(() => {
+      setScoreAnim((cur) => (cur && cur.key === key ? null : cur));
+    }, ms);
+    return () => clearTimeout(t);
+  }, [totalScore]);
+
   const nextEmptySlot: SlotIndex | null = useMemo(() => {
     if (data.status !== 'ready') return null;
     for (const i of SLOT_INDEXES) {
@@ -153,16 +173,36 @@ export function Habits() {
   return (
     <section className="text-ink-100">
       {/* Score */}
-      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 flex items-center gap-3">
-        <span className="text-2xl leading-none">🔥</span>
-        <div>
-          <div className="text-[11px] tracking-wide text-ink-500">
-            ניקוד כולל
-          </div>
-          <div className="text-2xl font-bold text-ink-100 leading-none mt-1">
-            {totalScore}
-          </div>
+      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative">
+        <div className="text-[11px] tracking-wide text-ink-500 text-center">
+          ניקוד כולל
         </div>
+        <div className="mt-1 flex items-center justify-center gap-3">
+          <span className="text-3xl leading-none">🌱</span>
+          <span
+            key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
+            className={`text-3xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
+              scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
+            }`}
+          >
+            {totalScore}
+          </span>
+          <span className="text-3xl leading-none">🔥</span>
+        </div>
+        {/* Floating delta. Pops up on a gain, briefly flashes red on a loss. */}
+        {scoreAnim && (
+          <span
+            key={`delta-${scoreAnim.key}`}
+            aria-hidden="true"
+            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-3 font-bold text-lg tabular-nums ${
+              scoreAnim.delta > 0
+                ? 'text-forest-500 animate-score-float'
+                : 'text-red-400 animate-score-flash-down'
+            }`}
+          >
+            {scoreAnim.delta > 0 ? `+${scoreAnim.delta}` : scoreAnim.delta}
+          </span>
+        )}
       </div>
 
       {/* Action row: + הרגל | view toggle | archive | period nav.
