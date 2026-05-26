@@ -4,11 +4,9 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
-  Compass,
   LayoutGrid,
   Plus,
   Rows3,
-  Sparkles,
 } from 'lucide-react';
 import {
   DndContext,
@@ -1278,12 +1276,25 @@ function DataView({
 
   return (
     <div className="space-y-3">
-      {/* KPI row — three cards. Lucide icons throughout except the streak,
-          which intentionally keeps the 🔥 emoji as the single emoji on
-          this screen. */}
+      {/* KPI row — three cards. RTL: first DOM child is rightmost. Order:
+          1) במסע כבר   (rightmost) — uses the app's compass logo
+          2) ימים מושלמים  (middle)  — ✨ emoji
+          3) הרצף הכי ארוך (leftmost)— 🔥 emoji */}
       <div className="grid grid-cols-3 gap-2">
         <KpiCard
-          icon={<Sparkles size={22} strokeWidth={1.8} className="text-forest-500" />}
+          icon={
+            <img
+              src="/logo.png?v=3"
+              alt=""
+              className="w-7 h-7 object-contain"
+            />
+          }
+          label="במסע כבר"
+          value={daysSinceStart}
+          suffix={daysSinceStart === 1 ? 'יום' : 'ימים'}
+        />
+        <KpiCard
+          icon={<span className="text-2xl leading-none">✨</span>}
           label="ימים מושלמים"
           value={perfectDays}
         />
@@ -1292,12 +1303,6 @@ function DataView({
           label="הרצף הכי ארוך"
           value={bestStreak}
           suffix={bestStreak === 1 ? 'יום' : 'ימים'}
-        />
-        <KpiCard
-          icon={<Compass size={22} strokeWidth={1.8} className="text-ink-100" />}
-          label="במסע כבר"
-          value={daysSinceStart}
-          suffix={daysSinceStart === 1 ? 'יום' : 'ימים'}
         />
       </div>
 
@@ -1309,7 +1314,7 @@ function DataView({
 
       {/* Per-habit grid — 3 columns, each card with key habit metrics */}
       <div>
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2 px-1">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-100 mb-2 px-1">
           לפי הרגל
         </h3>
         <div className="grid grid-cols-3 gap-2">
@@ -1390,7 +1395,7 @@ function CumulativeScoreChart({
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-500">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-100">
           נקודות מצטברות
         </h3>
         <div className="text-sm font-bold text-ink-100 tabular-nums">
@@ -1432,7 +1437,7 @@ function WeekdayBars({ counts }: { counts: number[] }) {
   // dir="rtl" so they flow right-to-left visually.
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
-      <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2">
+      <h3 className="text-[11px] uppercase tracking-wider text-ink-100 mb-2">
         ימים מוצלחים לפי יום בשבוע
       </h3>
       <div className="grid grid-cols-7 gap-1.5 items-end h-24" dir="rtl">
@@ -1590,7 +1595,7 @@ function YearlyHeatmap({
 
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
-      <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2">
+      <h3 className="text-[11px] uppercase tracking-wider text-ink-100 mb-2">
         365 ימים אחרונים
       </h3>
       <div
