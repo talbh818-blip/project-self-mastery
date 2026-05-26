@@ -9,7 +9,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.jpg'],
+      includeAssets: ['logo.png'],
       // Make new SW activate immediately and take control of all open tabs,
       // so a single Ctrl+Shift+R after a deploy is enough to pick up new code.
       // Combined with the controllerchange listener in main.tsx, the app will
@@ -31,9 +31,9 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/logo.jpg',
+            src: '/logo.png',
             sizes: '192x192 512x512',
-            type: 'image/jpeg',
+            type: 'image/png',
             purpose: 'any maskable',
           },
         ],

@@ -50,6 +50,8 @@ type State =
 export type UseHabitData = {
   status: 'loading' | 'ready' | 'error';
   error: string | null;
+  /** All habits owned by the user, including archived. */
+  habits: Habit[];
   stats: UserStats | null;
   slotsForRange: (range: { start: Date; end: Date }) => SlotView[];
   setLog: (params: {
@@ -72,6 +74,13 @@ export type UseHabitData = {
    * the given group (positive or negative); we'll write sort_order = 0..n-1.
    */
   reorderHabits: (orderedHabitIds: string[]) => Promise<void>;
+  /**
+   * Restore a previously-archived habit. Re-opens the habit and assigns it
+   * to the next available slot. Throws if no slot is free.
+   */
+  restoreHabit: (habitId: string) => Promise<void>;
+  /** Hard-delete a habit and all of its logs/assignments. Irreversible. */
+  deleteHabitPermanently: (habitId: string) => Promise<void>;
   /** Force a full reload from the server (use sparingly — e.g. retry on error). */
   reload: () => void;
 };

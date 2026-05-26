@@ -16,9 +16,9 @@ export function Login() {
   return (
     <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center px-6 text-center">
       <img
-        src="/logo.jpg"
+        src="/logo.png"
         alt="פרויקט מחויבות לעצמי"
-        className="w-28 h-28 mb-6 rounded-2xl shadow-lg"
+        className="w-32 h-32 mb-6"
       />
       <h1 className="text-3xl font-semibold text-ink-100 mb-3">
         פרויקט מחויבות לעצמי

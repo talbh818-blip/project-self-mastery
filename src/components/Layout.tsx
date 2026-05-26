@@ -7,9 +7,9 @@ export function Layout() {
       <header className="sticky top-0 z-10 bg-surface-card/95 backdrop-blur border-b border-surface-border">
         <div className="max-w-md mx-auto w-full px-4 py-2.5 flex items-center justify-center gap-2">
           <img
-            src="/logo.jpg"
+            src="/logo.png"
             alt=""
-            className="w-6 h-6 rounded-md"
+            className="w-6 h-6"
           />
           <span className="text-sm font-semibold text-ink-100 tracking-tight">
             פרויקט מחויבות לעצמי

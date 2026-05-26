@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ChevronRight, ChevronLeft, Plus } from 'lucide-react';
+import {
+  Archive,
+  ChevronRight,
+  ChevronLeft,
+  LayoutGrid,
+  Plus,
+  Rows3,
+} from 'lucide-react';
 import {
   DndContext,
   PointerSensor,
@@ -95,6 +102,7 @@ export function Habits() {
   const [pickerSlot, setPickerSlot] = useState<SlotIndex | null>(null);
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const handleCellClick = async (
@@ -144,57 +152,76 @@ export function Habits() {
   return (
     <section className="text-ink-100">
       {/* Score */}
-      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl leading-none">🔥</span>
-          <div>
-            <div className="text-[11px] tracking-wide text-ink-500">
-              ניקוד כולל
-            </div>
-            <div className="text-2xl font-bold text-ink-100 leading-none mt-1">
-              {totalScore}
-            </div>
+      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 flex items-center gap-3">
+        <span className="text-2xl leading-none">🔥</span>
+        <div>
+          <div className="text-[11px] tracking-wide text-ink-500">
+            ניקוד כולל
           </div>
-        </div>
-        {/* View mode toggle */}
-        <div className="flex gap-1 bg-surface-raised rounded-full p-0.5">
-          <button
-            type="button"
-            onClick={() => setViewMode('week')}
-            className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
-              viewMode === 'week'
-                ? 'bg-forest-700 text-cream-50'
-                : 'text-ink-300 hover:text-ink-100'
-            }`}
-          >
-            שבועי
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('month')}
-            className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
-              viewMode === 'month'
-                ? 'bg-forest-700 text-cream-50'
-                : 'text-ink-300 hover:text-ink-100'
-            }`}
-          >
-            חודשי
-          </button>
+          <div className="text-2xl font-bold text-ink-100 leading-none mt-1">
+            {totalScore}
+          </div>
         </div>
       </div>
 
-      {/* Add habit + range nav */}
+      {/* Action row: + הרגל | view toggle | archive | period nav.
+          In RTL the DOM order maps right→left, so the + button is rightmost
+          and the nav box flexes to fill the leftmost space. */}
       <div className="mb-4 flex items-stretch gap-2">
         <button
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="min-w-[110px] rounded-2xl border border-surface-border bg-surface-card px-4 flex items-center justify-center gap-1.5 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-2xl border border-surface-border bg-surface-card px-4 py-2 flex items-center gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
         >
-          <Plus size={16} strokeWidth={2} />
-          <span className="text-sm font-medium">הרגל</span>
+          <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center">
+            <Plus size={14} strokeWidth={3} />
+          </span>
+          <span className="text-base font-medium">הרגל</span>
         </button>
+
+        {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
+        <div className="flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode('week')}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              viewMode === 'week'
+                ? 'bg-forest-700 text-cream-50'
+                : 'text-ink-300 hover:text-ink-100'
+            }`}
+            aria-label="תצוגה שבועית"
+            title="שבועי"
+          >
+            <Rows3 size={18} strokeWidth={1.9} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('month')}
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+              viewMode === 'month'
+                ? 'bg-forest-700 text-cream-50'
+                : 'text-ink-300 hover:text-ink-100'
+            }`}
+            aria-label="תצוגה חודשית"
+            title="חודשי"
+          >
+            <LayoutGrid size={18} strokeWidth={1.9} />
+          </button>
+        </div>
+
+        {/* Archive button */}
+        <button
+          type="button"
+          onClick={() => setArchiveOpen(true)}
+          className="w-11 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-center text-ink-300 hover:text-ink-100 hover:bg-surface-raised transition-colors"
+          aria-label="ארכיון הרגלים"
+          title="ארכיון"
+        >
+          <Archive size={18} strokeWidth={1.9} />
+        </button>
+
         {viewMode === 'week' ? (
           <NavBar
             onPrev={() => setWeekAnchor(addWeeks(weekAnchor, -1))}
@@ -303,6 +330,22 @@ export function Habits() {
           }}
         />
       )}
+
+      <ArchiveSheet
+        open={archiveOpen}
+        habits={
+          data.status === 'ready'
+            ? data.data.habits.filter((h) => h.archived_at !== null)
+            : []
+        }
+        onClose={() => setArchiveOpen(false)}
+        onRestore={async (id) => {
+          await data.restoreHabit(id);
+        }}
+        onDelete={async (id) => {
+          await data.deleteHabitPermanently(id);
+        }}
+      />
     </section>
   );
 }
