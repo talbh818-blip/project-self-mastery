@@ -4,11 +4,9 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
-  Compass,
   LayoutGrid,
   Plus,
   Rows3,
-  Sparkles,
 } from 'lucide-react';
 import {
   DndContext,
@@ -281,26 +279,27 @@ export function Habits() {
             nextAriaLabel="חודש הבא"
           />
         )}
-        {viewMode === 'data' && (
-          // Time range pills for the dashboard — same shape as the week/
-          // month NavBar so the toolbar height stays stable across modes.
-          <div className="flex-1 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-around px-1 py-1.5 gap-1">
-            {(['7d', '30d', '365d'] as DataRange[]).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setDataRange(r)}
-                className={`flex-1 text-xs font-medium py-1.5 rounded-xl transition-colors ${
-                  dataRange === r
-                    ? 'bg-forest-700 text-cream-50'
-                    : 'text-ink-300 hover:text-ink-100'
-                }`}
-              >
-                {DATA_RANGE_LABEL[r]}
-              </button>
-            ))}
-          </div>
-        )}
+        {viewMode === 'data' && (() => {
+          // Reuse the NavBar shape (chevrons + centered label) so the toolbar
+          // height stays stable across modes. Right arrow widens the range,
+          // left arrow narrows it. Disabled at the endpoints.
+          const order: DataRange[] = ['7d', '30d', '365d'];
+          const idx = order.indexOf(dataRange);
+          const canWiden = idx < order.length - 1;
+          const canNarrow = idx > 0;
+          return (
+            <NavBar
+              onPrev={() => canWiden && setDataRange(order[idx + 1])}
+              onNext={() => canNarrow && setDataRange(order[idx - 1])}
+              canPrev={canWiden}
+              canNext={canNarrow}
+              mainLabel={DATA_RANGE_LABEL[dataRange]}
+              subLabel={`${DATA_RANGE_DAYS[dataRange]} ימים אחרונים`}
+              prevAriaLabel="טווח רחב יותר"
+              nextAriaLabel="טווח צר יותר"
+            />
+          );
+        })()}
       </div>
 
       {/* Body */}
@@ -1636,29 +1635,30 @@ function KpiCard({
   value,
   suffix,
 }: {
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   value: number;
   suffix?: string;
 }) {
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-3">
-      <div className="flex items-center gap-2">
-        <span className="text-2xl leading-none" aria-hidden="true">
+      <div className="flex flex-col items-center text-center gap-1.5">
+        <span
+          className="flex items-center justify-center text-ink-100 leading-none"
+          aria-hidden="true"
+        >
           {icon}
         </span>
-        <div className="min-w-0">
-          <div className="text-[10px] tracking-wide text-ink-300 truncate">
-            {label}
-          </div>
-          <div className="text-xl font-bold text-ink-100 leading-tight">
-            <span className="tabular-nums">{value}</span>
-            {suffix && (
-              <span className="text-[11px] font-normal text-ink-300 mr-1">
-                {suffix}
-              </span>
-            )}
-          </div>
+        <div className="text-[10px] tracking-wide text-ink-300 leading-tight">
+          {label}
+        </div>
+        <div className="text-lg font-bold text-ink-100 leading-none">
+          <span className="tabular-nums">{value}</span>
+          {suffix && (
+            <span className="text-[10px] font-normal text-ink-300 mr-1">
+              {suffix}
+            </span>
+          )}
         </div>
       </div>
     </div>
