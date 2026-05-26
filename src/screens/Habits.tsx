@@ -1,5 +1,20 @@
 import { useMemo, useState } from 'react';
 import { ChevronRight, ChevronLeft, Plus } from 'lucide-react';
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useAuth } from '../hooks/useAuth';
 import {
   addMonths,
@@ -224,6 +239,7 @@ export function Habits() {
           stats={data.stats}
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
+          onReorder={data.reorderHabits}
         />
       )}
       {data.status === 'ready' && viewMode === 'month' && (
@@ -234,6 +250,7 @@ export function Habits() {
           stats={data.stats}
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
+          onReorder={data.reorderHabits}
           loading={false}
           error={null}
         />
@@ -349,6 +366,7 @@ function HabitsList({
   stats,
   onShowDetail,
   onMarkCell,
+  onReorder,
 }: {
   slots: SlotView[];
   days: Date[];
@@ -363,6 +381,7 @@ function HabitsList({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  onReorder: (orderedHabitIds: string[]) => Promise<void>;
 }) {
   const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
     const r = stats?.byHabit.get(habitId);
@@ -380,6 +399,17 @@ function HabitsList({
   const filledSlots = SLOT_INDEXES.map((i) =>
     slots.find((s) => s.slot_index === i),
   ).filter((s): s is SlotView => !!s?.habit);
+
+  // Group by type and sort by sort_order so positive habits come first,
+  // negative second, and the user's drag order is preserved within each.
+  const sortByOrder = (a: SlotView, b: SlotView) =>
+    (a.habit!.sort_order ?? 0) - (b.habit!.sort_order ?? 0);
+  const positiveSlots = filledSlots
+    .filter((s) => s.habit!.type === 'positive')
+    .sort(sortByOrder);
+  const negativeSlots = filledSlots
+    .filter((s) => s.habit!.type === 'negative')
+    .sort(sortByOrder);
 
   if (filledSlots.length === 0) {
     return (
@@ -399,19 +429,154 @@ function HabitsList({
         ))}
       </div>
 
-      {/* Habit rows */}
-      {filledSlots.map((slot) => (
-        <HabitRow
-          key={slot.slot_index}
-          slot={slot}
-          days={days}
-          today={today}
-          score={weekScoreFor(slot.habit!.id)}
-          effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
-          onShowDetail={() => onShowDetail(slot.habit!)}
-          onMarkCell={onMarkCell}
-        />
-      ))}
+      <SortableHabitGroups
+        positiveSlots={positiveSlots}
+        negativeSlots={negativeSlots}
+        onReorder={onReorder}
+        renderRow={(slot) => (
+          <HabitRow
+            slot={slot}
+            days={days}
+            today={today}
+            score={weekScoreFor(slot.habit!.id)}
+            effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
+            onShowDetail={() => onShowDetail(slot.habit!)}
+            onMarkCell={onMarkCell}
+          />
+        )}
+      />
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// SortableHabitGroups — shared DnD wrapper for week + month views.
+// Renders two SortableContexts (positive / negative) with a divider between
+// them. Long-press anywhere on a row starts a drag; quick taps still register
+// as clicks on inner cells. Cross-group drags are ignored so the type stays
+// stable.
+// ----------------------------------------------------------------------------
+function SortableHabitGroups({
+  positiveSlots,
+  negativeSlots,
+  onReorder,
+  renderRow,
+}: {
+  positiveSlots: SlotView[];
+  negativeSlots: SlotView[];
+  onReorder: (orderedHabitIds: string[]) => Promise<void>;
+  renderRow: (slot: SlotView) => React.ReactNode;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // Long-press to start drag, with a small tolerance so a tap that wiggles
+      // doesn't accidentally activate.
+      activationConstraint: { delay: 250, tolerance: 5 },
+    }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    // Which group does the dragged item belong to?
+    const inPositive = positiveSlots.some((s) => s.habit!.id === active.id);
+    const inNegative = negativeSlots.some((s) => s.habit!.id === active.id);
+    const overInPositive = positiveSlots.some((s) => s.habit!.id === over.id);
+    const overInNegative = negativeSlots.some((s) => s.habit!.id === over.id);
+
+    // Only allow reordering WITHIN the same group.
+    let group: SlotView[];
+    if (inPositive && overInPositive) group = positiveSlots;
+    else if (inNegative && overInNegative) group = negativeSlots;
+    else return;
+
+    const oldIndex = group.findIndex((s) => s.habit!.id === active.id);
+    const newIndex = group.findIndex((s) => s.habit!.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(group, oldIndex, newIndex);
+    onReorder(reordered.map((s) => s.habit!.id)).catch(() => {
+      /* error surfaces via mutationError in parent on next interaction */
+    });
+  };
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      {positiveSlots.length > 0 && (
+        <SortableContext
+          items={positiveSlots.map((s) => s.habit!.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2.5">
+            {positiveSlots.map((slot) => (
+              <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
+                {renderRow(slot)}
+              </SortableRow>
+            ))}
+          </div>
+        </SortableContext>
+      )}
+
+      {positiveSlots.length > 0 && negativeSlots.length > 0 && (
+        <div className="flex items-center gap-2 py-2 mt-3 mb-1">
+          <span className="h-px flex-1 bg-surface-border" />
+          <span className="text-[10px] uppercase tracking-wider text-ink-500">
+            התמכרויות
+          </span>
+          <span className="h-px flex-1 bg-surface-border" />
+        </div>
+      )}
+
+      {negativeSlots.length > 0 && (
+        <SortableContext
+          items={negativeSlots.map((s) => s.habit!.id)}
+          strategy={verticalListSortingStrategy}
+        >
+          <div className="space-y-2.5">
+            {negativeSlots.map((slot) => (
+              <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
+                {renderRow(slot)}
+              </SortableRow>
+            ))}
+          </div>
+        </SortableContext>
+      )}
+    </DndContext>
+  );
+}
+
+// Wraps a habit row with dnd-kit sortable bindings. The whole row is the
+// drag handle (long-press activates).
+function SortableRow({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 10 : 'auto',
+    touchAction: 'manipulation',
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {children}
     </div>
   );
 }
@@ -574,7 +739,10 @@ function DayCell({
   const isQuant = habit.is_quantitative;
   const target = habit.quantitative_target ?? 0;
 
-  // All cells get inline styles so V tints with the habit's own color.
+  // V/X cells use neutral colors (green for V, red for X) so the habit's
+  // chosen color stays in the row container, not inside the cells.
+  // Quantitative cells DO keep the habit-color tint since they need to
+  // express amount intensity, not a binary outcome.
   let style: React.CSSProperties;
   let textCls = 'text-cream-50';
   if (isQuant && amount && amount > 0) {
@@ -585,14 +753,16 @@ function DayCell({
     };
   } else if (mark === 'V') {
     style = {
-      backgroundColor: hexWithAlpha(habit.color, 0.4),
-      border: `1px solid ${hexWithAlpha(habit.color, 0.7)}`,
+      backgroundColor: 'rgba(85,181,112,0.30)', // forest-500
+      border: '1px solid rgba(85,181,112,0.60)',
     };
+    textCls = 'text-forest-500';
   } else if (mark === 'X') {
     style = {
       backgroundColor: 'rgba(239,68,68,0.22)',
       border: '1px solid rgba(239,68,68,0.55)',
     };
+    textCls = 'text-red-500';
   } else if (mark === 'auto_x') {
     style = {
       backgroundColor: 'rgba(239,68,68,0.10)',
@@ -600,7 +770,7 @@ function DayCell({
     };
     textCls = 'text-red-300';
   } else {
-    // Blank — keep the existing neutral tile look.
+    // Blank — keep the neutral tile look.
     style = isToday
       ? {
           backgroundColor: 'rgba(122,160,134,0.20)',
@@ -660,6 +830,7 @@ function MonthHeatmap({
   stats,
   onShowDetail,
   onMarkCell,
+  onReorder,
   loading,
   error,
 }: {
@@ -674,6 +845,7 @@ function MonthHeatmap({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  onReorder: (orderedHabitIds: string[]) => Promise<void>;
   loading: boolean;
   error: string | null;
 }) {
@@ -691,6 +863,16 @@ function MonthHeatmap({
     slots.find((s) => s.slot_index === i),
   ).filter((s): s is SlotView => !!s?.habit);
 
+  // Same grouping/sorting rules as week view.
+  const sortByOrder = (a: SlotView, b: SlotView) =>
+    (a.habit!.sort_order ?? 0) - (b.habit!.sort_order ?? 0);
+  const positiveSlots = filledSlots
+    .filter((s) => s.habit!.type === 'positive')
+    .sort(sortByOrder);
+  const negativeSlots = filledSlots
+    .filter((s) => s.habit!.type === 'negative')
+    .sort(sortByOrder);
+
   if (filledSlots.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
@@ -700,10 +882,12 @@ function MonthHeatmap({
   }
 
   return (
-    <div className="space-y-2.5">
-      {filledSlots.map((slot) => (
+    <SortableHabitGroups
+      positiveSlots={positiveSlots}
+      negativeSlots={negativeSlots}
+      onReorder={onReorder}
+      renderRow={(slot) => (
         <MonthHabitRow
-          key={slot.slot_index}
           slot={slot}
           days={days}
           today={today}
@@ -711,8 +895,8 @@ function MonthHeatmap({
           onShowDetail={() => onShowDetail(slot.habit!)}
           onMarkCell={onMarkCell}
         />
-      ))}
-    </div>
+      )}
+    />
   );
 }
 
@@ -771,55 +955,33 @@ function MonthHabitRow({
         </div>
       </button>
 
-      {/* Calendar grid: 7 day-of-week columns (Sun→Sat in Hebrew RTL).
-          Compact — capped width keeps cells ~half the previous size while
-          preserving day-of-week alignment. */}
-      <div className="mt-1">
-        {/* Weekday header */}
-        <div
-          className="grid grid-cols-7 gap-x-1 mb-1 text-[8px] text-ink-500 max-w-[252px] mx-auto"
-          dir="rtl"
-        >
-          {['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'].map((label) => (
-            <div key={label} className="text-center">
-              {label}
-            </div>
-          ))}
-        </div>
-
-        <div
-          className="grid grid-cols-7 gap-x-1 gap-y-1.5 max-w-[252px] mx-auto"
-          dir="rtl"
-        >
-          {/* Empty leading cells so day 1 lands under the correct weekday */}
-          {Array.from({ length: days[0].getDay() }).map((_, i) => (
-            <div key={`pad-${i}`} />
-          ))}
-
-          {days.map((d, i) => {
-            const future = isFuture(d, today);
-            const isToday = isSameDay(d, today);
-            const dateStr = toDateString(d);
-            const sFromStats = habitStats?.effectiveByDate.get(dateStr);
-            const mark: LogStatus | undefined =
-              sFromStats && sFromStats !== 'blank' ? sFromStats : undefined;
-            const amount = habitStats?.amountByDate.get(dateStr) ?? null;
-            return (
-              <MonthCell
-                key={i}
-                habit={habit}
-                date={d}
-                mark={mark}
-                amount={amount}
-                isToday={isToday}
-                future={future}
-                onClick={() =>
-                  !future && onMarkCell(habit, dateStr, mark, amount)
-                }
-              />
-            );
-          })}
-        </div>
+      {/* Heatmap strip: small solid dots that span the full row width, RTL.
+          No weekday alignment, no date labels — just color intensity, like
+          HabitKit. 11 columns fit a full month in ≤3 rows. */}
+      <div className="mt-1 grid grid-cols-11 gap-1" dir="rtl">
+        {days.map((d, i) => {
+          const future = isFuture(d, today);
+          const isToday = isSameDay(d, today);
+          const dateStr = toDateString(d);
+          const sFromStats = habitStats?.effectiveByDate.get(dateStr);
+          const mark: LogStatus | undefined =
+            sFromStats && sFromStats !== 'blank' ? sFromStats : undefined;
+          const amount = habitStats?.amountByDate.get(dateStr) ?? null;
+          return (
+            <MonthCell
+              key={i}
+              habit={habit}
+              date={d}
+              mark={mark}
+              amount={amount}
+              isToday={isToday}
+              future={future}
+              onClick={() =>
+                !future && onMarkCell(habit, dateStr, mark, amount)
+              }
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -842,34 +1004,23 @@ function MonthCell({
   future: boolean;
   onClick: () => void;
 }) {
-  // Background tint + text color, depending on the mark / amount.
-  let bg = 'rgba(255,255,255,0.04)';
-  let textCls = 'text-ink-300';
-  let tinted = false;
+  // Solid colored dot. Blank cells use a very faint habit-color tint so the
+  // whole strip reads as one color whose intensity tells the story.
+  let bg = hexWithAlpha(habit.color, 0.1);
   if (habit.is_quantitative && amount && amount > 0) {
     const target = habit.quantitative_target ?? 10;
     const intensity = Math.min(1, amount / target);
-    bg = hexWithAlpha(habit.color, 0.25 + intensity * 0.6);
-    textCls = 'text-cream-50';
-    tinted = true;
+    bg = hexWithAlpha(habit.color, 0.3 + intensity * 0.6);
   } else if (mark === 'V') {
-    bg = hexWithAlpha(habit.color, 0.85);
-    textCls = 'text-cream-50';
-    tinted = true;
+    bg = hexWithAlpha(habit.color, 0.9);
   } else if (mark === 'X') {
     bg = 'rgba(239,68,68,0.55)';
-    textCls = 'text-cream-50';
-    tinted = true;
   } else if (mark === 'auto_x') {
     bg = 'rgba(239,68,68,0.25)';
-    textCls = 'text-red-300';
-    tinted = true;
-  } else if (isToday) {
-    textCls = 'text-ink-100';
   }
 
   const border = isToday
-    ? '1px solid rgba(212,232,218,0.55)'
+    ? '1px solid rgba(212,232,218,0.6)'
     : '1px solid transparent';
 
   return (
@@ -877,14 +1028,12 @@ function MonthCell({
       type="button"
       onClick={onClick}
       disabled={future}
-      className={`aspect-square rounded-md flex items-center justify-center transition-opacity ${textCls} ${
+      className={`aspect-square rounded-[4px] transition-opacity ${
         future ? 'opacity-25 cursor-not-allowed' : 'hover:brightness-110'
-      } ${tinted ? 'font-semibold' : ''}`}
+      }`}
       style={{ backgroundColor: bg, border }}
       aria-label={`יום ${date.getDate()}`}
-    >
-      <span className="text-[10px] leading-none">{date.getDate()}</span>
-    </button>
+    />
   );
 }
 
