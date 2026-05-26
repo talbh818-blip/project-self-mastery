@@ -332,6 +332,17 @@ export function Habits() {
         />
       )}
 
+      <ArchiveSheet
+        open={archiveOpen}
+        habits={data.archivedHabits}
+        onClose={() => setArchiveOpen(false)}
+        onRestore={async (id) => {
+          await data.restoreHabit(id);
+        }}
+        onDelete={async (id) => {
+          await data.deleteHabitPermanently(id);
+        }}
+      />
     </section>
   );
 }
@@ -704,7 +715,9 @@ function DayCell({
   if (isQuant && amount && amount > 0) {
     const reached = amount >= target;
     style = {
-      backgroundColor: hexWithAlpha(habit.color, reached ? 0.95 : 0.55),
+      backgroundColor: reached
+        ? habit.color
+        : hexWithAlpha(habit.color, 0.6),
     };
     content = (
       <span
@@ -716,8 +729,8 @@ function DayCell({
       </span>
     );
   } else if (mark === 'V') {
-    // Solid habit color — the screenshot's "filled square" look.
-    style = { backgroundColor: hexWithAlpha(habit.color, 0.95) };
+    // Full habit color — the screenshot's "filled square" look.
+    style = { backgroundColor: habit.color };
   } else {
     // blank / X / auto_x — all look the same: an empty muted tile. Past
     // blanks still score as auto_x; the user just doesn't see an X glyph.
@@ -935,9 +948,13 @@ function MonthCell({
   if (habit.is_quantitative && amount && amount > 0) {
     const target = habit.quantitative_target ?? 10;
     const intensity = Math.min(1, amount / target);
-    bg = hexWithAlpha(habit.color, 0.3 + intensity * 0.6);
+    // Range 0.4–1.0 so even partial days read as a clear colored cell.
+    bg =
+      intensity >= 1
+        ? habit.color
+        : hexWithAlpha(habit.color, 0.4 + intensity * 0.55);
   } else if (mark === 'V') {
-    bg = hexWithAlpha(habit.color, 0.9);
+    bg = habit.color;
   }
 
   const border = isToday

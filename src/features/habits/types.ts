@@ -10,19 +10,21 @@ export const SLOT_INDEXES: readonly SlotIndex[] = [
 
 // Curated palette offered when picking a habit color.
 // Names are descriptive; values are concrete hex codes stored on the habit row.
+// Vivid / saturated set inspired by HabitKit so the marked cells read as
+// solid bright blocks instead of pastel washes.
 export type HabitColor = { name: string; hex: string };
 export const HABIT_COLORS: readonly HabitColor[] = [
-  { name: 'אדום',   hex: '#e57373' },
-  { name: 'כתום',   hex: '#f0a05a' },
-  { name: 'צהוב',   hex: '#e8c44d' },
-  { name: 'ליים',   hex: '#a6c553' },
-  { name: 'ירוק',   hex: '#56aa70' },
-  { name: 'טורקיז', hex: '#4ec3a8' },
-  { name: 'תכלת',   hex: '#62b6dc' },
-  { name: 'כחול',   hex: '#5b8cd9' },
-  { name: 'סגול',   hex: '#9b7bd4' },
-  { name: 'ורוד',   hex: '#e58aba' },
-  { name: 'אפור',   hex: '#9aa3ab' },
+  { name: 'אדום',   hex: '#ff5d5d' },
+  { name: 'כתום',   hex: '#ff943c' },
+  { name: 'צהוב',   hex: '#ffcc2e' },
+  { name: 'ליים',   hex: '#b4e83a' },
+  { name: 'ירוק',   hex: '#2ecc71' },
+  { name: 'טורקיז', hex: '#1fd1b3' },
+  { name: 'תכלת',   hex: '#3ec5f5' },
+  { name: 'כחול',   hex: '#4d8aff' },
+  { name: 'סגול',   hex: '#a070ff' },
+  { name: 'ורוד',   hex: '#ff5fae' },
+  { name: 'אפור',   hex: '#a8b1bd' },
 ] as const;
 
 export type CatalogItem = {
