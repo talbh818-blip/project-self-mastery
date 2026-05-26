@@ -24,7 +24,7 @@ function stageFor(pts: number): Stage {
 /** Stage 0 — tiny sprout just breaking soil */
 function Sprout() {
   return (
-    <svg viewBox="0 0 120 100" width="100%" height="100%" aria-hidden>
+    <svg viewBox="15 5 90 95" width="100%" height="100%" aria-hidden>
       <ellipse cx={60} cy={89} rx={18} ry={5} fill="#3D6B4F" opacity={0.5} />
       {/* stem */}
       <line x1={60} y1={89} x2={60} y2={64} stroke="#8B6914" strokeWidth={2.5} strokeLinecap="round" />
@@ -38,7 +38,7 @@ function Sprout() {
 /** Stage 1 — small seedling with branching leaves */
 function Seedling() {
   return (
-    <svg viewBox="0 0 120 100" width="100%" height="100%" aria-hidden>
+    <svg viewBox="15 5 90 95" width="100%" height="100%" aria-hidden>
       <ellipse cx={60} cy={90} rx={22} ry={5} fill="#3D6B4F" opacity={0.5} />
       {/* main stem */}
       <line x1={60} y1={90} x2={60} y2={54} stroke="#8B6914" strokeWidth={3} strokeLinecap="round" />
@@ -59,7 +59,7 @@ function Seedling() {
 /** Stage 2 — sapling with a short trunk and round canopy */
 function Sapling() {
   return (
-    <svg viewBox="0 0 120 100" width="100%" height="100%" aria-hidden>
+    <svg viewBox="15 5 90 95" width="100%" height="100%" aria-hidden>
       <ellipse cx={60} cy={91} rx={26} ry={6} fill="#3D6B4F" opacity={0.45} />
       {/* trunk */}
       <rect x={55} y={68} width={10} height={24} rx={5} fill="#8B6914" />
@@ -75,7 +75,7 @@ function Sapling() {
 /** Stage 3 — young tree with layered canopy and visible roots */
 function YoungTree() {
   return (
-    <svg viewBox="0 0 120 100" width="100%" height="100%" aria-hidden>
+    <svg viewBox="15 5 90 95" width="100%" height="100%" aria-hidden>
       <ellipse cx={60} cy={92} rx={32} ry={7} fill="#3D6B4F" opacity={0.45} />
       {/* trunk */}
       <rect x={53} y={60} width={14} height={33} rx={6} fill="#7C5B2A" />
@@ -95,7 +95,7 @@ function YoungTree() {
 /** Stage 4 — full mature tree with glow and sparkle details */
 function MatureTree() {
   return (
-    <svg viewBox="0 0 120 100" width="100%" height="100%" aria-hidden>
+    <svg viewBox="10 5 100 95" width="100%" height="100%" aria-hidden>
       {/* ambient glow */}
       <ellipse cx={60} cy={52} rx={52} ry={48} fill="#4ED371" opacity={0.07} />
       <ellipse cx={60} cy={93} rx={36} ry={7} fill="#3D6B4F" opacity={0.45} />
