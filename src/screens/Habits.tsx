@@ -1640,16 +1640,20 @@ function KpiCard({
   value: number;
   suffix?: string;
 }) {
+  // Fixed-height rows force every card's label and value to land on the
+  // same vertical baseline regardless of which glyph the icon happens to
+  // be (an emoji 🔥/✨ rendered at text-2xl can be a few px taller than
+  // an <img> at h-7, which used to push the label down on some cards).
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-3">
       <div className="flex flex-col items-center text-center gap-1.5">
         <span
-          className="flex items-center justify-center text-ink-100 leading-none"
+          className="h-9 flex items-center justify-center text-ink-100 leading-none"
           aria-hidden="true"
         >
           {icon}
         </span>
-        <div className="text-[10px] tracking-wide text-ink-300 leading-tight">
+        <div className="text-[10px] tracking-wide text-ink-300 leading-tight min-h-[1em] whitespace-nowrap">
           {label}
         </div>
         <div className="text-lg font-bold text-ink-100 leading-none">
