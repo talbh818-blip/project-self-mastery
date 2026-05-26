@@ -4,9 +4,11 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
+  Compass,
   LayoutGrid,
   Plus,
   Rows3,
+  Sparkles,
 } from 'lucide-react';
 import {
   DndContext,
@@ -414,6 +416,7 @@ export function Habits() {
 function NavBar({
   onPrev,
   onNext,
+  canPrev = true,
   canNext,
   mainLabel,
   subLabel,
@@ -422,6 +425,7 @@ function NavBar({
 }: {
   onPrev: () => void;
   onNext: () => void;
+  canPrev?: boolean;
   canNext: boolean;
   mainLabel: string;
   subLabel: string;
@@ -432,8 +436,9 @@ function NavBar({
     <div className="flex-1 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 py-1.5">
       <button
         type="button"
-        onClick={onPrev}
-        className="p-1.5 text-ink-300 hover:text-ink-100"
+        onClick={() => canPrev && onPrev()}
+        disabled={!canPrev}
+        className="p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label={prevAriaLabel}
       >
         <ChevronRight size={18} />
@@ -519,11 +524,11 @@ function HabitsList({
         <button
           type="button"
           onClick={onOpenArchive}
-          className="w-12 shrink-0 flex items-end justify-center pb-0.5 text-ink-500 hover:text-ink-300 transition-colors"
+          className="w-12 shrink-0 self-center flex items-center justify-center text-ink-500 hover:text-ink-300 transition-colors"
           aria-label="ארכיון הרגלים"
           title="ארכיון"
         >
-          <Archive size={13} strokeWidth={1.7} />
+          <Archive size={16} strokeWidth={1.7} />
         </button>
         <div className="flex-1 grid grid-cols-7 gap-1.5">
           {days.map((d, i) => (
