@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -30,7 +31,7 @@ import {
   formatRangeShort,
   getMonthRange,
   getWeekRange,
-  hebrewDayShort,
+  hebrewDayLong,
   isFuture,
   isSameDay,
   relativeMonthLabel,
@@ -507,6 +508,7 @@ function HabitsList({
             days={days}
             today={today}
             effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
+            currentStreak={stats?.byHabit.get(slot.habit!.id)?.currentStreak ?? 0}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
           />
@@ -530,11 +532,19 @@ function SortableHabitList({
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
   renderRow: (slot: SlotView) => React.ReactNode;
 }) {
+  // Explicit Mouse + Touch sensors so drag works on both desktop and mobile.
+  // The unified PointerSensor often misses touch activation on iOS Safari /
+  // some Android browsers because the page's scroll handler eats the event
+  // before the delay elapses. TouchSensor handles touch directly and pairs
+  // nicely with `touch-action: none` on each draggable row.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      // Long-press to start drag, with a small tolerance so a tap that wiggles
-      // doesn't accidentally activate.
-      activationConstraint: { delay: 250, tolerance: 5 },
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      // Long-press to start drag on mobile. Wider tolerance because finger
+      // touches naturally wobble a few px.
+      activationConstraint: { delay: 250, tolerance: 8 },
     }),
   );
 
@@ -594,7 +604,11 @@ function SortableRow({
     transition,
     opacity: isDragging ? 0.6 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    touchAction: 'manipulation',
+    // dnd-kit needs the browser to stop interpreting touches as scrolls /
+    // double-taps for the drag gesture to register on mobile. Setting this
+    // to 'none' means a finger held on the row activates the long-press
+    // drag instead of the page scrolling.
+    touchAction: 'none',
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
@@ -607,14 +621,14 @@ function DayHeader({ day, isToday }: { day: Date; isToday: boolean }) {
   if (isToday) {
     return (
       <div className="flex flex-col items-center justify-center leading-none py-1 rounded-md bg-ink-100/15 border border-ink-100/50 text-ink-100 font-bold">
-        <span className="text-[10px]">{hebrewDayShort(day)}</span>
+        <span className="text-[10px]">{hebrewDayLong(day)}</span>
         <span className="text-[9px] mt-0.5">{day.getDate()}</span>
       </div>
     );
   }
   return (
     <div className="flex flex-col items-center leading-none py-1 text-ink-300">
-      <span className="text-[10px]">{hebrewDayShort(day)}</span>
+      <span className="text-[10px]">{hebrewDayLong(day)}</span>
       <span className="text-[9px] mt-0.5 opacity-90">{day.getDate()}</span>
     </div>
   );
