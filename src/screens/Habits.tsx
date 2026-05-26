@@ -490,8 +490,8 @@ function HabitsList({
           right, so the 40px icon spacer is first and the 7-cell grid is
           second — spacer lands right, cells land left. */}
       <div className="flex items-end gap-2 px-3">
-        <div className="w-10 shrink-0" aria-hidden="true" />
-        <div className="flex-1 grid grid-cols-7 gap-1">
+        <div className="w-12 shrink-0" aria-hidden="true" />
+        <div className="flex-1 grid grid-cols-7 gap-1.5">
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
           ))}
@@ -664,14 +664,14 @@ function HabitRow({
         <button
           type="button"
           onClick={onShowDetail}
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
+          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
           style={iconTileStyle}
           aria-label="פרטי הרגל"
         >
-          <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
+          <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
         </button>
 
-        <div className="flex-1 grid grid-cols-7 gap-1">
+        <div className="flex-1 grid grid-cols-7 gap-1.5">
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
             const future = isFuture(d, today);
@@ -694,21 +694,29 @@ function HabitRow({
         </div>
       </div>
 
-      {/* Bottom: habit name + weekly progress on a single line below the
-          row. The name truncates with ellipsis instead of wrapping so the
-          row keeps a predictable height. The whole strip is clickable —
-          opens the same detail sheet as the icon. */}
+      {/* Bottom: habit name + type pill + weekly progress on a single line.
+          The name truncates with ellipsis instead of wrapping. Type pill and
+          progress stay shrink-0 so they're never cut. */}
       <button
         type="button"
         onClick={onShowDetail}
-        className="mt-2 w-full flex items-baseline gap-1.5 min-w-0 text-right hover:opacity-80 transition-opacity"
+        className="mt-2 w-full flex items-center gap-1.5 min-w-0 text-right hover:opacity-80 transition-opacity"
         aria-label="פרטי הרגל"
       >
         <span className="text-sm font-medium text-ink-100 truncate min-w-0">
           {habit.name}
         </span>
+        <span
+          className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
+            habit.type === 'positive'
+              ? 'border-forest-500/60 text-forest-400'
+              : 'border-red-500/60 text-red-400'
+          }`}
+        >
+          {habit.type === 'positive' ? 'הרגל חיובי' : 'התמכרות שלילית'}
+        </span>
         {isWeekly && (
-          <span className="text-[10px] text-ink-300 shrink-0">
+          <span className="text-[10px] text-ink-100 shrink-0">
             · {weeklyCompletions}/{habit.frequency_target} השבוע
           </span>
         )}
