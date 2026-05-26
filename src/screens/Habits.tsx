@@ -173,7 +173,7 @@ export function Habits() {
     <section className="text-ink-100">
       {/* Score — compact card, content right-aligned */}
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-2 relative">
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-start gap-3">
           <div className="text-right">
             <div className="text-[10px] tracking-wide text-ink-500">ניקוד כולל</div>
             <span
