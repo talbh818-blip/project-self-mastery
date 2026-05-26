@@ -518,10 +518,16 @@ function HabitsList({
   );
 }
 
+// Type aliases for the drag-handle render-prop threaded through SortableRow →
+// SortableHabitList → HabitRow / MonthHabitRow.
+type DragHandleRef = (el: HTMLElement | null) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DragHandleListeners = Record<string, any> | undefined;
+
 // ----------------------------------------------------------------------------
 // SortableHabitList — single SortableContext for all habits regardless of
-// type. Long-press anywhere on a row starts a drag; quick taps still
-// register as clicks on inner cells.
+// type. Long-press on the icon tile starts a drag; the rest of the row
+// allows free vertical scrolling.
 // ----------------------------------------------------------------------------
 function SortableHabitList({
   slots,
@@ -530,7 +536,7 @@ function SortableHabitList({
 }: {
   slots: SlotView[];
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
-  renderRow: (slot: SlotView) => React.ReactNode;
+  renderRow: (slot: SlotView, dragHandleRef: DragHandleRef, dragListeners: DragHandleListeners) => React.ReactNode;
 }) {
   // Explicit Mouse + Touch sensors so drag works on both desktop and mobile.
   // The unified PointerSensor often misses touch activation on iOS Safari /

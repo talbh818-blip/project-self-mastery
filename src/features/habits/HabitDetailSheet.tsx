@@ -79,13 +79,13 @@ export function HabitDetailSheet({
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full sm:max-w-md bg-surface-card rounded-t-3xl sm:rounded-3xl shadow-xl flex flex-col"
+        className="w-full max-w-md bg-surface-card rounded-3xl shadow-xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
