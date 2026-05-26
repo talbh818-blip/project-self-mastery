@@ -642,6 +642,7 @@ function HabitRow({
   days,
   today,
   effectiveFor,
+  currentStreak,
   onShowDetail,
   onMarkCell,
 }: {
@@ -649,6 +650,7 @@ function HabitRow({
   days: Date[];
   today: Date;
   effectiveFor: (dateStr: string) => LogStatus | undefined;
+  currentStreak: number;
   onShowDetail: () => void;
   onMarkCell: (
     habit: Habit,
@@ -720,6 +722,7 @@ function HabitRow({
         <span className="text-sm font-medium text-ink-100 truncate min-w-0">
           {habit.name}
         </span>
+        {/* Type pill */}
         <span
           className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
             habit.type === 'positive'
@@ -729,9 +732,28 @@ function HabitRow({
         >
           {habit.type === 'positive' ? 'הרגל חיובי' : 'התמכרות שלילית'}
         </span>
+        {/* Weekly frequency progress */}
         {isWeekly && (
           <span className="text-[10px] text-ink-100 shrink-0">
             · {weeklyCompletions}/{habit.frequency_target} השבוע
+          </span>
+        )}
+        {/* Difficulty */}
+        <span
+          className={`shrink-0 text-[10px] ${
+            habit.difficulty === 'easy'
+              ? 'text-forest-400'
+              : habit.difficulty === 'medium'
+              ? 'text-yellow-400'
+              : 'text-red-400'
+          }`}
+        >
+          · {habit.difficulty === 'easy' ? 'קל' : habit.difficulty === 'medium' ? 'בינוני' : 'קשה'}
+        </span>
+        {/* Current streak — only when active */}
+        {currentStreak > 0 && (
+          <span className="shrink-0 text-[10px] text-amber-400">
+            · 🔥 {currentStreak}
           </span>
         )}
       </button>
