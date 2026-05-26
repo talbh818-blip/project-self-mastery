@@ -173,21 +173,31 @@ export function Habits() {
     <section className="text-ink-100">
       {/* Score */}
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative">
-        <div className="text-[11px] tracking-wide text-ink-500 text-center">
-          ניקוד כולל
+        {/* Centered label + score stack */}
+        <div className="text-center">
+          <div className="text-[11px] tracking-wide text-ink-500">
+            ניקוד כולל
+          </div>
+          <div className="mt-1">
+            <span
+              key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
+              className={`text-3xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
+                scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
+              }`}
+            >
+              {totalScore}
+            </span>
+          </div>
         </div>
-        <div className="mt-1 flex items-center justify-center gap-3">
-          <span className="text-3xl leading-none">🌱</span>
-          <span
-            key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
-            className={`text-3xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
-              scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
-            }`}
-          >
-            {totalScore}
-          </span>
-          <span className="text-3xl leading-none">🔥</span>
+
+        {/* Emojis pinned to the right (in RTL, 🌱 sits rightmost, 🔥 to its
+            left). Vertically centered so they line up with both the label
+            and the number together. */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+          <span className="text-2xl leading-none">🌱</span>
+          <span className="text-2xl leading-none">🔥</span>
         </div>
+
         {/* Floating delta. Pops up on a gain, briefly flashes red on a loss. */}
         {scoreAnim && (
           <span
