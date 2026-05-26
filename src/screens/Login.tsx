@@ -1,5 +1,4 @@
 import { Navigate } from 'react-router-dom';
-import { Compass } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 export function Login() {
@@ -16,7 +15,11 @@ export function Login() {
 
   return (
     <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center px-6 text-center">
-      <Compass size={64} className="text-ink-100 mb-6" strokeWidth={1.5} />
+      <img
+        src="/logo.jpg"
+        alt="פרויקט מחויבות לעצמי"
+        className="w-28 h-28 mb-6 rounded-2xl shadow-lg"
+      />
       <h1 className="text-3xl font-semibold text-ink-100 mb-3">
         פרויקט מחויבות לעצמי
       </h1>
