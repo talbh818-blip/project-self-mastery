@@ -502,7 +502,7 @@ function HabitsList({
       <SortableHabitList
         slots={sortedSlots}
         onReorder={onReorder}
-        renderRow={(slot) => (
+        renderRow={(slot, dragHandleRef, dragListeners) => (
           <HabitRow
             slot={slot}
             days={days}
@@ -511,6 +511,8 @@ function HabitsList({
             currentStreak={stats?.byHabit.get(slot.habit!.id)?.currentStreak ?? 0}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
+            dragHandleRef={dragHandleRef}
+            dragListeners={dragListeners}
           />
         )}
       />
@@ -579,7 +581,7 @@ function SortableHabitList({
         <div className="space-y-2.5">
           {slots.map((slot) => (
             <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
-              {renderRow(slot)}
+              {(dragHandleRef, dragListeners) => renderRow(slot, dragHandleRef, dragListeners)}
             </SortableRow>
           ))}
         </div>
@@ -588,19 +590,22 @@ function SortableHabitList({
   );
 }
 
-// Wraps a habit row with dnd-kit sortable bindings. The whole row is the
-// drag handle (long-press activates).
+// Wraps a habit row with dnd-kit sortable bindings.
+// Uses a render-prop so the drag handle (setActivatorNodeRef + listeners) can
+// be forwarded to just the icon tile — keeping the rest of the row free for
+// native touch scrolling.
 function SortableRow({
   id,
   children,
 }: {
   id: string;
-  children: React.ReactNode;
+  children: (dragHandleRef: DragHandleRef, dragListeners: DragHandleListeners) => React.ReactNode;
 }) {
   const {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -610,15 +615,13 @@ function SortableRow({
     transition,
     opacity: isDragging ? 0.6 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    // dnd-kit needs the browser to stop interpreting touches as scrolls /
-    // double-taps for the drag gesture to register on mobile. Setting this
-    // to 'none' means a finger held on the row activates the long-press
-    // drag instead of the page scrolling.
-    touchAction: 'none',
+    // Allow free vertical scroll on the row. Only the icon tile (the actual
+    // drag handle) will have touchAction:'none' to let dnd-kit intercept.
+    touchAction: 'auto',
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {children(setActivatorNodeRef, listeners)}
     </div>
   );
 }
@@ -655,6 +658,8 @@ function HabitRow({
   currentStreak,
   onShowDetail,
   onMarkCell,
+  dragHandleRef,
+  dragListeners,
 }: {
   slot: SlotView;
   days: Date[];
@@ -668,6 +673,8 @@ function HabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  dragHandleRef?: DragHandleRef;
+  dragListeners?: DragHandleListeners;
 }) {
   const habit = slot.habit!;
   // Subtle color-tinted tile, icon always white for clean contrast.
@@ -687,12 +694,18 @@ function HabitRow({
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
       {/* Top row: icon (right in RTL) + 7 cells (left). Same baseline. */}
       <div className="flex items-center gap-2">
+        {/* Icon tile — this is the DRAG HANDLE.
+            ref + listeners restrict drag activation to this element so the
+            rest of the row is free for native touch scrolling.
+            touchAction:'none' lets dnd-kit intercept the long-press here. */}
         <button
+          ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
           className="relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
-          style={iconTileStyle}
+          style={{ ...iconTileStyle, touchAction: 'none' }}
           aria-label="פרטי הרגל"
+          {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
           {/* Difficulty dot — bottom-left corner of the tile */}
@@ -914,7 +927,7 @@ function MonthHeatmap({
     <SortableHabitList
       slots={sortedSlots}
       onReorder={onReorder}
-      renderRow={(slot) => (
+      renderRow={(slot, dragHandleRef, dragListeners) => (
         <MonthHabitRow
           slot={slot}
           days={days}
@@ -922,6 +935,8 @@ function MonthHeatmap({
           habitStats={stats?.byHabit.get(slot.habit!.id) ?? null}
           onShowDetail={() => onShowDetail(slot.habit!)}
           onMarkCell={onMarkCell}
+          dragHandleRef={dragHandleRef}
+          dragListeners={dragListeners}
         />
       )}
     />
@@ -935,6 +950,8 @@ function MonthHabitRow({
   habitStats,
   onShowDetail,
   onMarkCell,
+  dragHandleRef,
+  dragListeners,
 }: {
   slot: SlotView;
   days: Date[];
@@ -947,6 +964,8 @@ function MonthHabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  dragHandleRef?: DragHandleRef;
+  dragListeners?: DragHandleListeners;
 }) {
   const habit = slot.habit!;
   const iconTileStyle: React.CSSProperties = {
@@ -967,15 +986,18 @@ function MonthHabitRow({
 
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-      <button
-        type="button"
-        onClick={onShowDetail}
-        className="w-full flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
-        aria-label="פרטי הרגל"
-      >
-        <span
-          className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
-          style={iconTileStyle}
+      {/* Header: icon tile (drag handle) + name/info (detail tap) side by side */}
+      <div className="flex items-center gap-2.5 mb-2">
+        {/* Icon tile — DRAG HANDLE. touchAction:'none' lets dnd-kit intercept
+            the long-press; a quick tap still fires onClick → opens detail. */}
+        <button
+          ref={dragHandleRef}
+          type="button"
+          onClick={onShowDetail}
+          className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
+          style={{ ...iconTileStyle, touchAction: 'none' }}
+          aria-label="פרטי הרגל"
+          {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
           {/* Difficulty dot — same position as the week view (bottom-left
@@ -989,8 +1011,15 @@ function MonthHabitRow({
                 : 'bg-red-500'
             }`}
           />
-        </span>
-        <div className="flex-1 min-w-0">
+        </button>
+
+        {/* Name + stats — tappable for detail, no drag */}
+        <button
+          type="button"
+          onClick={onShowDetail}
+          className="flex-1 min-w-0 text-right hover:opacity-80 transition-opacity"
+          aria-label="פרטי הרגל"
+        >
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-sm font-medium text-ink-100 truncate min-w-0">
               {habit.name}
@@ -1013,8 +1042,8 @@ function MonthHabitRow({
               <span className="text-amber-400">· 🔥 {currentStreak}</span>
             )}
           </div>
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Heatmap strip: small solid dots that span the full row width, RTL.
           No weekday alignment, no date labels — just color intensity, like
