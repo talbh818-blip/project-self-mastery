@@ -334,7 +334,7 @@ export function Habits() {
 
       <ArchiveSheet
         open={archiveOpen}
-        habits={data.archivedHabits}
+        habits={data.habits.filter((h) => h.archived_at !== null)}
         onClose={() => setArchiveOpen(false)}
         onRestore={async (id) => {
           await data.restoreHabit(id);
