@@ -173,28 +173,29 @@ export function Habits() {
     <section className="text-ink-100">
       {/* Score */}
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative">
-        {/* Centered label (with emojis hugged onto it) + score stack */}
-        <div className="text-center">
-          <div className="flex items-center justify-center gap-1.5">
-            <span className="text-[11px] tracking-wide text-ink-500">
+        {/* Emojis sit on the RIGHT of the label+number stack (in RTL the
+            first DOM child renders rightmost). Tight gap between the two
+            so they feel like a single mark, and a small gap to the stack
+            so they read as attached to "ניקוד כולל". */}
+        <div className="flex items-center justify-center gap-2">
+          <span className="inline-flex items-center gap-0.5 leading-none">
+            <span className="text-2xl leading-none" aria-hidden="true">🔥</span>
+            <span className="text-2xl leading-none" aria-hidden="true">🌱</span>
+          </span>
+          <div className="text-center">
+            <div className="text-[11px] tracking-wide text-ink-500">
               ניקוד כולל
-            </span>
-            {/* Emojis sit right next to the label so they read as part of it.
-                Tight gap between the two so they feel like a single mark. */}
-            <span className="inline-flex items-center gap-0.5 leading-none">
-              <span className="text-base leading-none" aria-hidden="true">🔥</span>
-              <span className="text-base leading-none" aria-hidden="true">🌱</span>
-            </span>
-          </div>
-          <div className="mt-1">
-            <span
-              key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
-              className={`text-3xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
-                scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
-              }`}
-            >
-              {totalScore}
-            </span>
+            </div>
+            <div className="mt-1">
+              <span
+                key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
+                className={`text-3xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
+                  scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
+                }`}
+              >
+                {totalScore}
+              </span>
+            </div>
           </div>
         </div>
 

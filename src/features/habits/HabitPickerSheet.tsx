@@ -44,7 +44,7 @@ const DEFAULTS = {
   icon: HABIT_ICONS[0],
   name: '',
   description: '',
-  color: HABIT_COLORS[4].hex, // green
+  color: HABIT_COLORS[5].hex, // ירוק (index 5 in the 21-swatch palette)
   difficulty: 'medium' as Difficulty,
   frequency_period: 'daily' as FrequencyPeriod,
   frequency_target: 1,

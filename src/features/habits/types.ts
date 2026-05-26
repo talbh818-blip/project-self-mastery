@@ -9,22 +9,35 @@ export const SLOT_INDEXES: readonly SlotIndex[] = [
 ] as const;
 
 // Curated palette offered when picking a habit color.
-// Names are descriptive; values are concrete hex codes stored on the habit row.
-// Vivid / saturated set inspired by HabitKit so the marked cells read as
-// solid bright blocks instead of pastel washes.
+// 21 swatches arranged as 7 columns × 3 rows in the picker — matches the
+// HabitKit-style rainbow the user requested. Row 1 = warm spectrum, row 2 =
+// cool spectrum, row 3 = pinks + grays.
 export type HabitColor = { name: string; hex: string };
 export const HABIT_COLORS: readonly HabitColor[] = [
-  { name: 'אדום',   hex: '#FF3B3B' },
-  { name: 'כתום',   hex: '#FF8500' },
-  { name: 'צהוב',   hex: '#FFD700' },
-  { name: 'ליים',   hex: '#AAEE00' },
-  { name: 'ירוק',   hex: '#2ecc71' },
-  { name: 'טורקיז', hex: '#1fd1b3' },
-  { name: 'תכלת',   hex: '#3ec5f5' },
-  { name: 'כחול',   hex: '#4d8aff' },
-  { name: 'סגול',   hex: '#a070ff' },
-  { name: 'ורוד',   hex: '#ff5fae' },
-  { name: 'אפור',   hex: '#a8b1bd' },
+  // Row 1 — warm: red → orange → yellow → green
+  { name: 'אדום',      hex: '#F76C6C' },
+  { name: 'כתום',      hex: '#F2994A' },
+  { name: 'זהב',       hex: '#F2C94C' },
+  { name: 'צהוב',      hex: '#FFE066' },
+  { name: 'ליים',      hex: '#A8D63B' },
+  { name: 'ירוק',      hex: '#4ED371' },
+  { name: 'אזמרגד',    hex: '#27AE92' },
+  // Row 2 — cool: cyan → blue → purple
+  { name: 'מנטה',      hex: '#1FD1AC' },
+  { name: 'תכלת',      hex: '#22BCDB' },
+  { name: 'כחול',      hex: '#2D8FDE' },
+  { name: 'אינדיגו',   hex: '#4F7BEE' },
+  { name: 'סגול',      hex: '#6962F2' },
+  { name: 'לבנדר',     hex: '#A175F2' },
+  { name: 'סגול-ורוד', hex: '#B770EF' },
+  // Row 3 — pinks + grays
+  { name: 'מג׳נטה',     hex: '#CB7AEF' },
+  { name: 'ורוד',       hex: '#EB80B5' },
+  { name: 'אלמוג',      hex: '#EE6D85' },
+  { name: 'אפור-כחול', hex: '#8B9DAF' },
+  { name: 'אפור בהיר', hex: '#ACB0B5' },
+  { name: 'אפור',       hex: '#8E9296' },
+  { name: 'אפור כהה',  hex: '#787A7C' },
 ] as const;
 
 export type CatalogItem = {
