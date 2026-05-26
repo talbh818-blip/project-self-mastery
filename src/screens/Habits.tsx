@@ -886,7 +886,7 @@ function DayCell({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${
+      className={`w-full h-8 rounded-md flex items-center justify-center transition-colors ${
         disabled ? 'opacity-50 cursor-default' : 'hover:brightness-110'
       }`}
       style={style}
