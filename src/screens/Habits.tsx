@@ -529,7 +529,7 @@ function HabitsList({
         >
           <Archive size={16} strokeWidth={1.7} />
         </button>
-        <div className="flex-1 grid grid-cols-7 gap-3">
+        <div className="w-[223px] shrink-0 grid grid-cols-7 gap-2">
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
           ))}
@@ -726,8 +726,8 @@ function HabitRow({
 
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-      {/* Top row: icon (right in RTL) + 7 cells (left). Same baseline. */}
-      <div className="flex items-center gap-2">
+      {/* Top row: icon tile (its own block) + cells grid (separate block). */}
+      <div className="flex items-center gap-5">
         {/* Icon tile — a tap opens the detail sheet. The drag handle lives
             on the outer SortableRow wrapper so long-pressing ANYWHERE on
             the row starts a drag. */}
@@ -751,7 +751,7 @@ function HabitRow({
           />
         </button>
 
-        <div className="flex-1 grid grid-cols-7 gap-3">
+        <div className="w-[223px] shrink-0 grid grid-cols-7 gap-2">
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
             const future = isFuture(d, today);
