@@ -4,7 +4,7 @@
 // actions. Edit reopens HabitPickerSheet in edit mode; Archive soft-deletes
 // the habit (data preserved).
 // ============================================================================
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Pencil, Archive, Flame, Trophy } from 'lucide-react';
 import { HabitIcon } from './HabitIcon';
 import type { Habit } from './types';
@@ -30,6 +30,17 @@ export function HabitDetailSheet({
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lock body scroll while the sheet is open so the page underneath can't
+  // bounce around on mobile.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
 
   if (!open || !habit) return null;
 
@@ -75,15 +86,15 @@ export function HabitDetailSheet({
           <div className="w-7" />
         </header>
 
-        {/* Body */}
-        <div className="px-5 py-4 space-y-4">
+        {/* Body — no scrolling; sized to always fit. */}
+        <div className="px-5 py-3 space-y-3">
           {/* Identity row */}
           <div className="flex items-start gap-3">
             <span
-              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-cream-50"
               style={{
-                backgroundColor: hexWithAlpha(habit.color, 0.18),
-                color: habit.color,
+                backgroundColor: hexWithAlpha(habit.color, 0.20),
+                border: `1px solid ${hexWithAlpha(habit.color, 0.45)}`,
               }}
             >
               <HabitIcon name={habit.icon} size={28} strokeWidth={1.7} />
@@ -98,64 +109,49 @@ export function HabitDetailSheet({
                 {typeBadge.label}
               </span>
               {habit.description && (
-                <p className="text-xs text-ink-300 mt-2 leading-snug">
+                <p className="text-xs text-ink-300 mt-1.5 leading-snug line-clamp-2">
                   {habit.description}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Frequency / quantitative summary */}
-          <Row label="יעד">
-            <span className="text-sm text-ink-100">
-              {formatFrequency(habit)}
-            </span>
-          </Row>
-
-          {/* Streak info — only meaningful when stats are loaded */}
-          {stats && (
-            <>
-              <Row
-                label="רצף נוכחי"
-                icon={
-                  <Flame
-                    size={16}
-                    className={stats.currentStreak > 0 ? 'text-forest-500' : 'text-ink-500'}
-                  />
-                }
-              >
-                <span className="text-sm text-ink-100 font-medium">
-                  {stats.currentStreak} {stats.currentStreak === 1 ? 'יום' : 'ימים'}
-                </span>
-              </Row>
-              <Row
-                label="רצף שיא"
-                icon={<Trophy size={16} className="text-ink-300" />}
-              >
-                <span className="text-sm text-ink-100 font-medium">
-                  {stats.longestStreak} {stats.longestStreak === 1 ? 'יום' : 'ימים'}
-                </span>
-              </Row>
-              <Row label="ימים מוצלחים סך הכל">
-                <span className="text-sm text-ink-100 font-medium">
-                  {stats.vCount}
-                </span>
-              </Row>
-              <Row label="נקודות (לכל הזמן)">
-                <span
-                  className={`text-sm font-medium ${
-                    stats.totalPoints > 0
-                      ? 'text-forest-500'
-                      : stats.totalPoints < 0
-                      ? 'text-red-400'
-                      : 'text-ink-100'
-                  }`}
+          {/* Stats — denser layout: label and value sit next to each other on
+              the same line (RTL: label on the right, value immediately to its
+              left). No more huge gap. */}
+          <div className="space-y-1.5 text-[13px]">
+            <Row label="יעד">{formatFrequency(habit)}</Row>
+            {stats && (
+              <>
+                <Row
+                  label="רצף נוכחי"
+                  icon={<Flame size={14} className="text-cream-50" />}
                 >
-                  {stats.totalPoints > 0 ? `+${stats.totalPoints}` : stats.totalPoints}
-                </span>
-              </Row>
-            </>
-          )}
+                  {stats.currentStreak} {stats.currentStreak === 1 ? 'יום' : 'ימים'}
+                </Row>
+                <Row
+                  label="רצף שיא"
+                  icon={<Trophy size={14} className="text-cream-50" />}
+                >
+                  {stats.longestStreak} {stats.longestStreak === 1 ? 'יום' : 'ימים'}
+                </Row>
+                <Row label="ימים מוצלחים סך הכל">{stats.vCount}</Row>
+                <Row label="נקודות (לכל הזמן)">
+                  <span
+                    className={
+                      stats.totalPoints > 0
+                        ? 'text-forest-500'
+                        : stats.totalPoints < 0
+                        ? 'text-red-400'
+                        : ''
+                    }
+                  >
+                    {stats.totalPoints > 0 ? `+${stats.totalPoints}` : stats.totalPoints}
+                  </span>
+                </Row>
+              </>
+            )}
+          </div>
 
           {error && (
             <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-3 py-2">
@@ -225,13 +221,16 @@ function Row({
   icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // Compact "label: value" pair. They sit side-by-side with a small gap so
+  // the reader's eye can hop straight from the label to its value instead of
+  // scanning across an empty void.
   return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-[12px] text-ink-300 flex items-center gap-1.5">
+    <div className="flex items-baseline gap-2">
+      <span className="text-ink-300 flex items-center gap-1">
         {icon}
-        {label}
+        {label}:
       </span>
-      {children}
+      <span className="text-ink-100 font-medium">{children}</span>
     </div>
   );
 }

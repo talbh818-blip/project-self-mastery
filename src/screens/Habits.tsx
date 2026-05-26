@@ -173,10 +173,18 @@ export function Habits() {
     <section className="text-ink-100">
       {/* Score */}
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative">
-        {/* Centered label + score stack */}
+        {/* Centered label (with emojis hugged onto it) + score stack */}
         <div className="text-center">
-          <div className="text-[11px] tracking-wide text-ink-500">
-            ניקוד כולל
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="text-[11px] tracking-wide text-ink-500">
+              ניקוד כולל
+            </span>
+            {/* Emojis sit right next to the label so they read as part of it.
+                Tight gap between the two so they feel like a single mark. */}
+            <span className="inline-flex items-center gap-0.5 leading-none">
+              <span className="text-base leading-none" aria-hidden="true">🔥</span>
+              <span className="text-base leading-none" aria-hidden="true">🌱</span>
+            </span>
           </div>
           <div className="mt-1">
             <span
@@ -188,14 +196,6 @@ export function Habits() {
               {totalScore}
             </span>
           </div>
-        </div>
-
-        {/* Emojis pinned to the right (in RTL, 🌱 sits rightmost, 🔥 to its
-            left). Vertically centered so they line up with both the label
-            and the number together. */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-          <span className="text-2xl leading-none">🌱</span>
-          <span className="text-2xl leading-none">🔥</span>
         </div>
 
         {/* Floating delta. Pops up on a gain, briefly flashes red on a loss. */}
