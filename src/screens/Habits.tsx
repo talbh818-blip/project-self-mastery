@@ -529,7 +529,7 @@ function HabitsList({
         >
           <Archive size={16} strokeWidth={1.7} />
         </button>
-        <div className="flex-1 grid grid-cols-7 gap-2">
+        <div className="flex-1 grid grid-cols-7 gap-3">
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
           ))}
@@ -751,7 +751,7 @@ function HabitRow({
           />
         </button>
 
-        <div className="flex-1 grid grid-cols-7 gap-2">
+        <div className="flex-1 grid grid-cols-7 gap-3">
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
             const future = isFuture(d, today);
