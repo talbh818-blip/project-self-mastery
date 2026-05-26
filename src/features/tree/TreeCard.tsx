@@ -221,7 +221,7 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
   const TreeSVGComponent = TREE_BY_STAGE[stage];
 
   return (
-    <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative overflow-hidden">
+    <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-2 relative overflow-hidden">
 
       {/* ── First-time tooltip ─────────────────────────────────────────── */}
       {showTooltip && (
@@ -240,10 +240,10 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
         </button>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
 
         {/* ── Tree illustration (right in RTL — first in DOM) ─────────── */}
-        <div className="relative shrink-0 w-20 h-16">
+        <div className="relative shrink-0 w-16 h-12">
           <TreeSVGComponent />
           {/* Water drops fall from above the tree canopy */}
           {waterDrops.map((drop, i) => (
