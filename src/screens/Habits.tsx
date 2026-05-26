@@ -176,7 +176,7 @@ export function Habits() {
         <div className="flex items-center justify-start gap-3">
           <span className="text-4xl leading-none" aria-hidden="true">🔥</span>
           <div className="text-right">
-            <div className="text-[10px] tracking-wide text-ink-500">ניקוד כולל</div>
+            <div className="text-[10px] tracking-wide text-ink-100">ניקוד כולל</div>
             <span
               key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
               className={`text-2xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
@@ -485,12 +485,17 @@ function HabitsList({
 
   return (
     <div className="space-y-2.5">
-      {/* Day labels header — full-width 7-column grid so it aligns with the
-          cell strip below each habit row. */}
-      <div className="grid grid-cols-7 gap-1 px-3">
-        {days.map((d, i) => (
-          <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
-        ))}
+      {/* Day labels header. Layout mirrors each habit row: a flex with the
+          7-cell grid on the left and an empty spacer on the right that
+          matches the icon column underneath, so the labels stay aligned with
+          the day cells of every row. */}
+      <div className="flex items-end gap-2 px-3">
+        <div className="flex-1 grid grid-cols-7 gap-1">
+          {days.map((d, i) => (
+            <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
+          ))}
+        </div>
+        <div className="w-[80px] shrink-0" aria-hidden="true" />
       </div>
 
       <SortableHabitList
@@ -654,54 +659,55 @@ function HabitRow({
 
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-      {/* Top row: icon + name + weekly progress (no longer competing with the
-          7 cells for horizontal space — full width of the card). */}
-      <button
-        type="button"
-        onClick={onShowDetail}
-        className="w-full flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
-        aria-label="פרטי הרגל"
-      >
-        <span
-          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={iconTileStyle}
+      <div className="flex items-start gap-2">
+        {/* 7 day cells on the left, top-aligned with the icon */}
+        <div className="flex-1 grid grid-cols-7 gap-1">
+          {days.map((d, i) => {
+            const isToday = isSameDay(d, today);
+            const future = isFuture(d, today);
+            const dateStr = toDateString(d);
+            const effective = effectiveFor(dateStr);
+            const mark = effective ?? slot.marks[dateStr];
+            const amount = slot.amounts[dateStr] ?? null;
+            return (
+              <DayCell
+                key={i}
+                habit={habit}
+                mark={mark}
+                amount={amount}
+                isToday={isToday}
+                disabled={future}
+                onClick={() => onMarkCell(habit, dateStr, mark, amount)}
+              />
+            );
+          })}
+        </div>
+
+        {/* Icon column on the right (RTL = first DOM child of the flex
+            would land left; we put cells first so they go left and the icon
+            column lands right). Below the icon: habit name + weekly
+            progress, both constrained to the icon column's width. */}
+        <button
+          type="button"
+          onClick={onShowDetail}
+          className="w-[80px] shrink-0 flex flex-col items-end text-right hover:opacity-80 transition-opacity"
+          aria-label="פרטי הרגל"
         >
-          <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-ink-100 truncate">
+          <span
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={iconTileStyle}
+          >
+            <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
+          </span>
+          <div className="text-xs font-medium text-ink-100 leading-tight mt-1.5 line-clamp-2 w-full">
             {habit.name}
           </div>
           {isWeekly && (
-            <div className="text-[10px] text-ink-100 leading-tight mt-0.5">
+            <div className="text-[10px] text-ink-300 leading-tight mt-0.5 w-full">
               {weeklyCompletions}/{habit.frequency_target} השבוע
             </div>
           )}
-        </div>
-      </button>
-
-      {/* Bottom row: 7 day cells spanning the full card width, aligned with
-          the day-of-week header at the top of the list. */}
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((d, i) => {
-          const isToday = isSameDay(d, today);
-          const future = isFuture(d, today);
-          const dateStr = toDateString(d);
-          const effective = effectiveFor(dateStr);
-          const mark = effective ?? slot.marks[dateStr];
-          const amount = slot.amounts[dateStr] ?? null;
-          return (
-            <DayCell
-              key={i}
-              habit={habit}
-              mark={mark}
-              amount={amount}
-              isToday={isToday}
-              disabled={future}
-              onClick={() => onMarkCell(habit, dateStr, mark, amount)}
-            />
-          );
-        })}
+        </button>
       </div>
     </div>
   );
