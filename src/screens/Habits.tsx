@@ -171,40 +171,29 @@ export function Habits() {
 
   return (
     <section className="text-ink-100">
-      {/* Score */}
-      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative">
-        {/* Emojis sit on the RIGHT of the label+number stack (in RTL the
-            first DOM child renders rightmost). Tight gap between the two
-            so they feel like a single mark, and a small gap to the stack
-            so they read as attached to "ניקוד כולל". */}
-        <div className="flex items-center justify-center gap-2">
-          <span className="inline-flex items-center gap-0.5 leading-none">
-            <span className="text-2xl leading-none" aria-hidden="true">🔥</span>
-            <span className="text-2xl leading-none" aria-hidden="true">🌱</span>
-          </span>
-          <div className="text-center">
-            <div className="text-[11px] tracking-wide text-ink-500">
-              ניקוד כולל
-            </div>
-            <div className="mt-1">
-              <span
-                key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
-                className={`text-3xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
-                  scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
-                }`}
-              >
-                {totalScore}
-              </span>
-            </div>
+      {/* Score — compact card, content right-aligned */}
+      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-2 relative">
+        <div className="flex items-center justify-end gap-3">
+          <div className="text-right">
+            <div className="text-[10px] tracking-wide text-ink-500">ניקוד כולל</div>
+            <span
+              key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
+              className={`text-2xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
+                scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
+              }`}
+            >
+              {totalScore}
+            </span>
           </div>
+          <span className="text-4xl leading-none" aria-hidden="true">🔥</span>
         </div>
 
-        {/* Floating delta. Pops up on a gain, briefly flashes red on a loss. */}
+        {/* Floating delta */}
         {scoreAnim && (
           <span
             key={`delta-${scoreAnim.key}`}
             aria-hidden="true"
-            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-3 font-bold text-lg tabular-nums ${
+            className={`pointer-events-none absolute right-16 bottom-1 font-bold text-base tabular-nums ${
               scoreAnim.delta > 0
                 ? 'text-forest-500 animate-score-float'
                 : 'text-red-400 animate-score-flash-down'
@@ -664,20 +653,22 @@ function HabitRow({
   const isWeekly = habit.frequency_period === 'weekly';
 
   return (
-    <div className="relative rounded-2xl border border-surface-border bg-surface-card grid grid-cols-[1fr_repeat(7,32px)] gap-1 items-center px-3 py-2.5">
+    <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
+      {/* Top row: icon + name + weekly progress (no longer competing with the
+          7 cells for horizontal space — full width of the card). */}
       <button
         type="button"
         onClick={onShowDetail}
-        className="flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity text-right"
+        className="w-full flex items-center gap-2.5 min-w-0 hover:opacity-80 transition-opacity text-right mb-2"
         aria-label="פרטי הרגל"
       >
         <span
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={iconTileStyle}
         >
-          <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
+          <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
         </span>
-        <div className="min-w-0">
+        <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-ink-100 truncate">
             {habit.name}
           </div>
@@ -689,26 +680,29 @@ function HabitRow({
         </div>
       </button>
 
-      {days.map((d, i) => {
-        const isToday = isSameDay(d, today);
-        const future = isFuture(d, today);
-        const dateStr = toDateString(d);
-        const effective = effectiveFor(dateStr);
-        const mark = effective ?? slot.marks[dateStr];
-        const amount = slot.amounts[dateStr] ?? null;
-        return (
-          <DayCell
-            key={i}
-            habit={habit}
-            mark={mark}
-            amount={amount}
-            isToday={isToday}
-            disabled={future}
-            onClick={() => onMarkCell(habit, dateStr, mark, amount)}
-          />
-        );
-      })}
-
+      {/* Bottom row: 7 day cells spanning the full card width, aligned with
+          the day-of-week header at the top of the list. */}
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((d, i) => {
+          const isToday = isSameDay(d, today);
+          const future = isFuture(d, today);
+          const dateStr = toDateString(d);
+          const effective = effectiveFor(dateStr);
+          const mark = effective ?? slot.marks[dateStr];
+          const amount = slot.amounts[dateStr] ?? null;
+          return (
+            <DayCell
+              key={i}
+              habit={habit}
+              mark={mark}
+              amount={amount}
+              isToday={isToday}
+              disabled={future}
+              onClick={() => onMarkCell(habit, dateStr, mark, amount)}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
