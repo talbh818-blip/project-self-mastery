@@ -771,8 +771,8 @@ function HabitRow({
             · {weeklyCompletions}/{habit.frequency_target} השבוע
           </span>
         )}
-        {/* Current streak — only when active */}
-        {currentStreak > 0 && (
+        {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
+        {currentStreak >= 3 && (
           <span className="shrink-0 text-[10px] text-amber-400">
             · 🔥 {currentStreak}
           </span>
@@ -1037,8 +1037,8 @@ function MonthHabitRow({
           </div>
           <div className="flex items-center gap-1.5 text-[10px] text-ink-100 mt-0.5">
             <span>{monthCompletions}/{days.length} ימים</span>
-            {/* Current streak — only when active, same look as the week view */}
-            {currentStreak > 0 && (
+            {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
+            {currentStreak >= 3 && (
               <span className="text-amber-400">· 🔥 {currentStreak}</span>
             )}
           </div>
