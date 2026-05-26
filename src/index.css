@@ -103,3 +103,32 @@ body {
 .animate-score-flash-down {
   animation: score-flash-down 900ms ease-out forwards;
 }
+
+/* ----------------------------------------------------------------------------
+ * Digital-tree watering animation.
+ * Water drops drip downward when the user's score increases.
+ * --------------------------------------------------------------------------*/
+@keyframes water-drip {
+  0%   { opacity: 0.9; transform: translateY(-4px) scaleY(1); }
+  60%  { opacity: 0.7; }
+  100% { opacity: 0;   transform: translateY(28px)  scaleY(0.7); }
+}
+.water-drop {
+  position: absolute;
+  width: 5px;
+  height: 8px;
+  border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+  background: #7dd3fc;
+  animation: water-drip 0.85s ease-in forwards;
+  pointer-events: none;
+}
+
+/* Subtle pulse on the progress bar when watered */
+@keyframes bar-pulse {
+  0%   { filter: brightness(1); }
+  40%  { filter: brightness(1.4); }
+  100% { filter: brightness(1); }
+}
+.animate-bar-pulse {
+  animation: bar-pulse 600ms ease-out;
+}

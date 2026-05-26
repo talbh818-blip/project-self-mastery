@@ -59,6 +59,7 @@ import {
   type HabitScoreResult,
   type UserStats,
 } from '../features/habits/scoring';
+import { TreeCard } from '../features/tree/TreeCard';
 
 type ViewMode = 'week' | 'month' | 'data';
 
@@ -173,38 +174,12 @@ export function Habits() {
 
   return (
     <section className="text-ink-100">
-      {/* Score — compact card, content right-aligned */}
-      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-2 relative">
-        <div className="flex items-center justify-start gap-3">
-          <span className="text-4xl leading-none" aria-hidden="true">🔥</span>
-          <div className="text-right">
-            <div className="text-[10px] tracking-wide text-ink-100">ניקוד כולל</div>
-            <span
-              key={scoreAnim?.delta && scoreAnim.delta > 0 ? scoreAnim.key : 'static'}
-              className={`text-2xl font-bold text-ink-100 leading-none tabular-nums inline-block ${
-                scoreAnim && scoreAnim.delta > 0 ? 'animate-score-pop' : ''
-              }`}
-            >
-              {totalScore}
-            </span>
-          </div>
-        </div>
-
-        {/* Floating delta */}
-        {scoreAnim && (
-          <span
-            key={`delta-${scoreAnim.key}`}
-            aria-hidden="true"
-            className={`pointer-events-none absolute right-16 bottom-1 font-bold text-base tabular-nums ${
-              scoreAnim.delta > 0
-                ? 'text-forest-500 animate-score-float'
-                : 'text-red-400 animate-score-flash-down'
-            }`}
-          >
-            {scoreAnim.delta > 0 ? `+${scoreAnim.delta}` : scoreAnim.delta}
-          </span>
-        )}
-      </div>
+      {/* Digital tree — score drives growth; watered on every V */}
+      <TreeCard
+        totalScore={totalScore}
+        userId={user?.id ?? ''}
+        scoreAnim={scoreAnim}
+      />
 
       {/* Action row: + הרגל | view toggle | archive | period nav.
           In RTL the DOM order maps right→left, so the + button is rightmost
