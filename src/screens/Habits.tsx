@@ -62,6 +62,19 @@ import {
 import { TreeCard } from '../features/tree/TreeCard';
 
 type ViewMode = 'week' | 'month' | 'data';
+// Data dashboard time range. Drives every KPI / chart in the data view.
+type DataRange = '7d' | '30d' | '365d';
+
+const DATA_RANGE_DAYS: Record<DataRange, number> = {
+  '7d': 7,
+  '30d': 30,
+  '365d': 365,
+};
+const DATA_RANGE_LABEL: Record<DataRange, string> = {
+  '7d': 'השבוע',
+  '30d': 'החודש',
+  '365d': 'השנה',
+};
 
 export function Habits() {
   const { user } = useAuth();
@@ -76,6 +89,7 @@ export function Habits() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekAnchor, setWeekAnchor] = useState<Date>(today);
   const [monthAnchor, setMonthAnchor] = useState<Date>(today);
+  const [dataRange, setDataRange] = useState<DataRange>('30d');
 
   const weekRange = useMemo(() => getWeekRange(weekAnchor), [weekAnchor]);
   const monthRange = useMemo(() => getMonthRange(monthAnchor), [monthAnchor]);
@@ -277,9 +291,24 @@ export function Habits() {
           />
         )}
         {viewMode === 'data' && (
-          // Data view has no time anchor — fill the leftover row space so
-          // the toolbar stays the same height regardless of mode.
-          <div className="flex-1" />
+          // Time range pills for the dashboard — same shape as the week/
+          // month NavBar so the toolbar height stays stable across modes.
+          <div className="flex-1 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-around px-1 py-1.5 gap-1">
+            {(['7d', '30d', '365d'] as DataRange[]).map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setDataRange(r)}
+                className={`flex-1 text-xs font-medium py-1.5 rounded-xl transition-colors ${
+                  dataRange === r
+                    ? 'bg-forest-700 text-cream-50'
+                    : 'text-ink-300 hover:text-ink-100'
+                }`}
+              >
+                {DATA_RANGE_LABEL[r]}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -307,6 +336,8 @@ export function Habits() {
         <DataView
           slots={todaySlots}
           stats={data.stats}
+          range={dataRange}
+          today={today}
           onShowDetail={setDetailHabit}
         />
       )}
@@ -1143,33 +1174,106 @@ function hexWithAlpha(hex: string, alpha: number): string {
 }
 
 // ============================================================================
-// DataView — dashboard of the user's habit metrics.
+// DataView — dashboard of the user's habit metrics across a time range.
 // ============================================================================
 function DataView({
   slots,
   stats,
+  range,
+  today,
   onShowDetail,
 }: {
   slots: SlotView[];
   stats: UserStats | null;
+  range: DataRange;
+  today: Date;
   onShowDetail: (habit: Habit) => void;
 }) {
+  const rangeDays = DATA_RANGE_DAYS[range];
+  const rangeStart = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - rangeDays + 1);
+    return d;
+  }, [today, rangeDays]);
+  const rangeStartStr = toDateString(rangeStart);
+  const todayStr = toDateString(today);
+
   const habits = slots.map((s) => s.habit).filter((h): h is Habit => !!h);
   const orderedHabits = [...habits].sort(
     (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0),
   );
-
-  // Only count currently-active habits so archived ones don't inflate totals.
   const activeIds = new Set(habits.map((h) => h.id));
   const activeStats = Array.from(stats?.byHabit.values() ?? []).filter((h) =>
     activeIds.has(h.habitId),
   );
-  const totalV = activeStats.reduce((sum, h) => sum + h.vCount, 0);
+
+  // ---- Range-filtered metrics ------------------------------------------------
+  // For every metric we ignore dates outside [rangeStart, today].
+  let totalVInRange = 0;
+  const dailyDelta = new Map<string, number>(); // date → score change today
+  const dailyVCount = new Map<string, number>(); // date → # of V across habits
+  const weekdayVCount = new Array<number>(7).fill(0); // Sun..Sat
+  const startDateByHabit = new Map<string, string>(); // earliest active date per habit
+  const vCountInRangeByHabit = new Map<string, number>();
+
+  for (const h of activeStats) {
+    let firstDate: string | null = null;
+    for (const [dateStr, status] of h.effectiveByDate) {
+      if (firstDate === null || dateStr < firstDate) firstDate = dateStr;
+      if (dateStr < rangeStartStr || dateStr > todayStr) continue;
+      // Base points for the day
+      let pts = 0;
+      if (status === 'V') pts = 5;
+      else if (status === 'X' || status === 'auto_x') pts = -3;
+      // Bonuses earned on this date
+      const bonus = h.bonusesEarned.find((b) => b.earnedOn === dateStr);
+      if (bonus) pts += bonus.threshold.bonus;
+      dailyDelta.set(dateStr, (dailyDelta.get(dateStr) ?? 0) + pts);
+      if (status === 'V') {
+        totalVInRange += 1;
+        dailyVCount.set(dateStr, (dailyVCount.get(dateStr) ?? 0) + 1);
+        const d = dateFromStr(dateStr);
+        weekdayVCount[d.getDay()] += 1;
+        vCountInRangeByHabit.set(
+          h.habitId,
+          (vCountInRangeByHabit.get(h.habitId) ?? 0) + 1,
+        );
+      }
+    }
+    if (firstDate) startDateByHabit.set(h.habitId, firstDate);
+  }
+
+  // Cumulative score series for the line chart — one point per day in range.
+  const dates: Date[] = [];
+  for (let i = 0; i < rangeDays; i++) {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + i);
+    dates.push(d);
+  }
+  let runningTotal = 0;
+  const cumulativePoints = dates.map((d) => {
+    runningTotal += dailyDelta.get(toDateString(d)) ?? 0;
+    return { date: d, value: runningTotal };
+  });
+
+  // Perfect days — every active habit got a V (only counted if user has >0).
+  let perfectDays = 0;
+  if (habits.length > 0) {
+    for (const count of dailyVCount.values()) {
+      if (count >= habits.length) perfectDays += 1;
+    }
+  }
+
+  // Days since the user first marked anything.
+  const earliestStart = Array.from(startDateByHabit.values()).sort()[0];
+  const daysSinceStart = earliestStart
+    ? Math.max(1, daysBetweenDateStr(earliestStart, todayStr) + 1)
+    : 0;
+
   const bestStreak = activeStats.reduce(
     (m, h) => Math.max(m, h.longestStreak),
     0,
   );
-  const activeStreakCount = activeStats.filter((h) => h.currentStreak > 0).length;
 
   if (habits.length === 0) {
     return (
@@ -1181,9 +1285,10 @@ function DataView({
 
   return (
     <div className="space-y-3">
+      {/* KPI grid — range-aware */}
       <div className="grid grid-cols-2 gap-2">
-        <KpiCard icon="🎯" label="הרגלים פעילים" value={habits.length} />
-        <KpiCard icon="✅" label="ימים מוצלחים" value={totalV} />
+        <KpiCard icon="✅" label={`ימים מוצלחים · ${DATA_RANGE_LABEL[range]}`} value={totalVInRange} />
+        <KpiCard icon="💎" label={`ימים מושלמים · ${DATA_RANGE_LABEL[range]}`} value={perfectDays} />
         <KpiCard
           icon="🏆"
           label="הרצף הכי ארוך"
@@ -1191,24 +1296,327 @@ function DataView({
           suffix={bestStreak === 1 ? 'יום' : 'ימים'}
         />
         <KpiCard
-          icon="🔥"
-          label="ברצף עכשיו"
-          value={activeStreakCount}
-          suffix={activeStreakCount === 1 ? 'הרגל' : 'הרגלים'}
+          icon="⏱️"
+          label="במסע כבר"
+          value={daysSinceStart}
+          suffix={daysSinceStart === 1 ? 'יום' : 'ימים'}
         />
       </div>
 
-      <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
+      {/* Cumulative score over the range */}
+      <CumulativeScoreChart points={cumulativePoints} />
+
+      {/* Day-of-week pattern */}
+      <WeekdayBars counts={weekdayVCount} />
+
+      {/* Per-habit grid — 3 columns, each card with key habit metrics */}
+      <div>
         <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2 px-1">
           לפי הרגל
         </h3>
-        <div className="space-y-1.5">
+        <div className="grid grid-cols-3 gap-2">
           {orderedHabits.map((habit) => (
-            <HabitStatRow
+            <HabitDataCard
               key={habit.id}
               habit={habit}
               stats={stats?.byHabit.get(habit.id) ?? null}
+              vCountInRange={vCountInRangeByHabit.get(habit.id) ?? 0}
+              startDate={startDateByHabit.get(habit.id) ?? null}
+              today={today}
+              rangeDays={rangeDays}
               onClick={() => onShowDetail(habit)}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Yearly heatmap — last 365 days regardless of selected range */}
+      <YearlyHeatmap activeStats={activeStats} today={today} habitCount={habits.length} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function dateFromStr(s: string): Date {
+  // Parse YYYY-MM-DD as local midnight (avoids TZ drift).
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function daysBetweenDateStr(a: string, b: string): number {
+  const da = dateFromStr(a).getTime();
+  const db = dateFromStr(b).getTime();
+  return Math.round((db - da) / (1000 * 60 * 60 * 24));
+}
+
+function formatStartDate(dateStr: string): string {
+  const d = dateFromStr(dateStr);
+  return `${d.getDate()}.${d.getMonth() + 1}.${String(d.getFullYear()).slice(-2)}`;
+}
+
+// ---------------------------------------------------------------------------
+// CumulativeScoreChart — SVG line of running score over the visible range.
+// ---------------------------------------------------------------------------
+function CumulativeScoreChart({
+  points,
+}: {
+  points: { date: Date; value: number }[];
+}) {
+  if (points.length === 0) return null;
+  const min = Math.min(0, ...points.map((p) => p.value));
+  const max = Math.max(0, ...points.map((p) => p.value));
+  const W = 320;
+  const H = 80;
+  const padX = 4;
+  const padY = 8;
+  const xStep = (W - padX * 2) / Math.max(1, points.length - 1);
+  const yScale = (v: number) => {
+    if (max === min) return H / 2;
+    return padY + (1 - (v - min) / (max - min)) * (H - padY * 2);
+  };
+
+  const path = points
+    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${padX + i * xStep} ${yScale(p.value)}`)
+    .join(' ');
+  const areaPath =
+    `M ${padX} ${H - padY} ` +
+    points
+      .map((p, i) => `L ${padX + i * xStep} ${yScale(p.value)}`)
+      .join(' ') +
+    ` L ${padX + (points.length - 1) * xStep} ${H - padY} Z`;
+
+  const last = points[points.length - 1].value;
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
+      <div className="flex items-baseline justify-between mb-2">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-500">
+          נקודות מצטברות
+        </h3>
+        <div className="text-sm font-bold text-ink-100 tabular-nums">
+          {last > 0 ? `+${last}` : last}
+        </div>
+      </div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="w-full h-20"
+      >
+        <defs>
+          <linearGradient id="scoreFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--color-forest-500)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--color-forest-500)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#scoreFill)" />
+        <path
+          d={path}
+          fill="none"
+          stroke="var(--color-forest-500)"
+          strokeWidth="2"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      </svg>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WeekdayBars — 7 bars showing V count per day-of-week within the range.
+// ---------------------------------------------------------------------------
+function WeekdayBars({ counts }: { counts: number[] }) {
+  const max = Math.max(1, ...counts);
+  const labels = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+  // RTL: render Sun → Sat in the natural order, but the container uses
+  // dir="rtl" so they flow right-to-left visually.
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
+      <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2">
+        ימים מוצלחים לפי יום בשבוע
+      </h3>
+      <div className="grid grid-cols-7 gap-1.5 items-end h-24" dir="rtl">
+        {counts.map((c, i) => {
+          const h = Math.round((c / max) * 100);
+          return (
+            <div key={i} className="flex flex-col items-center gap-1 h-full">
+              <div className="text-[10px] text-ink-300 tabular-nums leading-none">
+                {c}
+              </div>
+              <div className="flex-1 w-full flex items-end">
+                <div
+                  className="w-full bg-forest-500/70 rounded-md"
+                  style={{ height: `${h}%`, minHeight: c > 0 ? 6 : 2 }}
+                />
+              </div>
+              <div className="text-[10px] text-ink-500 leading-none">
+                {labels[i]}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// HabitDataCard — one habit's mini dashboard card (3 per row).
+// ---------------------------------------------------------------------------
+function HabitDataCard({
+  habit,
+  stats,
+  vCountInRange,
+  startDate,
+  today,
+  rangeDays,
+  onClick,
+}: {
+  habit: Habit;
+  stats: HabitScoreResult | null;
+  vCountInRange: number;
+  startDate: string | null;
+  today: Date;
+  rangeDays: number;
+  onClick: () => void;
+}) {
+  const iconTileStyle: React.CSSProperties = {
+    backgroundColor: hexWithAlpha(habit.color, 0.18),
+    color: 'white',
+  };
+  // Effective denominator: habit can't have a higher rate than days it was
+  // actually being tracked. Cap by both the range length and days-since-start.
+  const todayStr = toDateString(today);
+  const daysSinceHabitStart = startDate
+    ? Math.max(1, daysBetweenDateStr(startDate, todayStr) + 1)
+    : rangeDays;
+  const effectiveDays = Math.min(rangeDays, daysSinceHabitStart);
+  const successRate = effectiveDays > 0
+    ? Math.round((vCountInRange / effectiveDays) * 100)
+    : 0;
+  const totalPoints = stats?.totalPoints ?? 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-surface-border bg-surface-card p-2.5 flex flex-col items-center text-center gap-1.5 hover:bg-surface-raised transition-colors min-w-0"
+    >
+      <span
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+        style={iconTileStyle}
+      >
+        <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
+      </span>
+      <div className="text-[11px] font-medium text-ink-100 truncate w-full leading-tight">
+        {habit.name}
+      </div>
+      <div className="text-base font-bold tabular-nums leading-none text-ink-100">
+        {successRate}%
+      </div>
+      <div
+        className={`text-[10px] font-medium tabular-nums leading-none ${
+          totalPoints > 0
+            ? 'text-forest-500'
+            : totalPoints < 0
+            ? 'text-red-400'
+            : 'text-ink-300'
+        }`}
+      >
+        {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
+      </div>
+      {startDate && (
+        <div className="text-[9px] text-ink-500 leading-none">
+          מ-{formatStartDate(startDate)}
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// YearlyHeatmap — last 365 days, 7 rows (days of week) × ~53 columns (weeks).
+// Color intensity by total V count across all active habits on that date.
+// ---------------------------------------------------------------------------
+function YearlyHeatmap({
+  activeStats,
+  today,
+  habitCount,
+}: {
+  activeStats: HabitScoreResult[];
+  today: Date;
+  habitCount: number;
+}) {
+  // Build V counts per date from all habits.
+  const vByDate = new Map<string, number>();
+  for (const h of activeStats) {
+    for (const [date, status] of h.effectiveByDate) {
+      if (status === 'V') vByDate.set(date, (vByDate.get(date) ?? 0) + 1);
+    }
+  }
+
+  // 365 days back from today (today included → 365 cells total). We start
+  // from the Sunday at or before (today - 364) so weeks are aligned columns.
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364);
+  start.setDate(start.getDate() - start.getDay()); // back to Sunday
+
+  const totalDays = Math.ceil(
+    (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
+  ) + 1;
+  const totalWeeks = Math.ceil(totalDays / 7);
+
+  // Color intensity buckets: 0, 1, 2-3, 4+ habits done that day.
+  const colorFor = (count: number): string => {
+    if (count <= 0) return 'rgba(122,160,134,0.08)';
+    const max = Math.max(1, habitCount);
+    const ratio = Math.min(1, count / max);
+    return `rgba(85,181,112,${0.25 + ratio * 0.6})`;
+  };
+
+  const cells: { date: Date; weekIdx: number; dow: number; count: number }[] = [];
+  const d = new Date(start);
+  for (let i = 0; i < totalWeeks * 7; i++) {
+    if (d > today) break;
+    cells.push({
+      date: new Date(d),
+      weekIdx: Math.floor(i / 7),
+      dow: d.getDay(),
+      count: vByDate.get(toDateString(d)) ?? 0,
+    });
+    d.setDate(d.getDate() + 1);
+  }
+
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
+      <h3 className="text-[11px] uppercase tracking-wider text-ink-500 mb-2">
+        365 ימים אחרונים
+      </h3>
+      <div
+        className="overflow-x-auto themed-scroll"
+        style={{ direction: 'ltr' }}
+      >
+        <div
+          className="grid gap-[2px]"
+          style={{
+            gridTemplateColumns: `repeat(${totalWeeks}, minmax(0, 1fr))`,
+            gridAutoFlow: 'column',
+            gridTemplateRows: 'repeat(7, 1fr)',
+            minWidth: totalWeeks * 6,
+          }}
+        >
+          {cells.map((c, i) => (
+            <div
+              key={i}
+              className="aspect-square rounded-[2px]"
+              style={{
+                backgroundColor: colorFor(c.count),
+                gridColumnStart: c.weekIdx + 1,
+                gridRowStart: c.dow + 1,
+              }}
+              title={`${toDateString(c.date)} · ${c.count} הרגלים`}
             />
           ))}
         </div>
@@ -1252,56 +1660,3 @@ function KpiCard({
   );
 }
 
-function HabitStatRow({
-  habit,
-  stats,
-  onClick,
-}: {
-  habit: Habit;
-  stats: HabitScoreResult | null;
-  onClick: () => void;
-}) {
-  const iconTileStyle: React.CSSProperties = {
-    backgroundColor: hexWithAlpha(habit.color, 0.18),
-    color: 'white',
-  };
-  const currentStreak = stats?.currentStreak ?? 0;
-  const vCount = stats?.vCount ?? 0;
-  const totalPoints = stats?.totalPoints ?? 0;
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-surface-raised transition-colors text-right"
-    >
-      <span
-        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-        style={iconTileStyle}
-      >
-        <HabitIcon name={habit.icon} size={22} strokeWidth={1.8} />
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-ink-100 truncate">
-          {habit.name}
-        </div>
-        <div className="flex items-center gap-1.5 text-[10px] text-ink-300 mt-0.5">
-          <span>{vCount} ימים</span>
-          {currentStreak > 0 && (
-            <span className="text-amber-400">· 🔥 {currentStreak}</span>
-          )}
-        </div>
-      </div>
-      <div
-        className={`text-sm font-bold tabular-nums shrink-0 ${
-          totalPoints > 0
-            ? 'text-forest-500'
-            : totalPoints < 0
-            ? 'text-red-400'
-            : 'text-ink-300'
-        }`}
-      >
-        {totalPoints > 0 ? `+${totalPoints}` : totalPoints}
-      </div>
-    </button>
-  );
-}
