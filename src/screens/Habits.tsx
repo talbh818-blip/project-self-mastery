@@ -201,13 +201,18 @@ export function Habits() {
 
       {/* Action row: + הרגל | view toggle | archive | period nav.
           In RTL the DOM order maps right→left, so the + button is rightmost
-          and the nav box flexes to fill the leftmost space. */}
-      <div className="mb-4 flex items-stretch gap-1.5 sm:gap-2">
+          and the nav box flexes to fill the leftmost space.
+
+          Fixed height + items-center: button sizes stay identical across
+          week / month / data views regardless of how long the NavBar's
+          inner label happens to be. Without this, a longer subLabel can
+          push NavBar to wrap and items-stretch then resizes every sibling. */}
+      <div className="mb-4 flex items-center gap-1.5 sm:gap-2 h-12">
         <button
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="shrink-0 rounded-2xl border border-surface-border bg-surface-card px-3 sm:px-4 py-2 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 h-full rounded-2xl border border-surface-border bg-surface-card px-3 sm:px-4 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
         >
           <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center shrink-0">
@@ -217,7 +222,7 @@ export function Habits() {
         </button>
 
         {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
-        <div className="shrink-0 flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
+        <div className="shrink-0 h-full flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
           <button
             type="button"
             onClick={() => setViewMode('week')}
@@ -298,7 +303,7 @@ export function Habits() {
               canPrev={canWiden}
               canNext={canNarrow}
               mainLabel={DATA_RANGE_LABEL[dataRange]}
-              subLabel={`${DATA_RANGE_DAYS[dataRange]} ימים אחרונים`}
+              subLabel={`${DATA_RANGE_DAYS[dataRange]} ימים`}
               prevAriaLabel="טווח רחב יותר"
               nextAriaLabel="טווח צר יותר"
             />
@@ -438,7 +443,7 @@ function NavBar({
   nextAriaLabel: string;
 }) {
   return (
-    <div className="flex-1 min-w-0 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 py-1.5">
+    <div className="flex-1 min-w-0 h-full rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 overflow-hidden">
       <button
         type="button"
         onClick={() => canPrev && onPrev()}
