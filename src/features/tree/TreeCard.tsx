@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
 
@@ -245,6 +245,14 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
     window.open('https://onetreeplanted.org/products/plant-trees', '_blank');
   };
 
+  // Small random jitter so the floating delta badge doesn't always land in
+  // the exact same spot — keeps it feeling alive.
+  const animOffset = useMemo(
+    () => Math.round((Math.random() - 0.5) * 18), // ±9px horizontal
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scoreAnim?.key],
+  );
+
   const TreeSVGComponent = TREE_BY_STAGE[stage];
 
   return (
@@ -335,25 +343,27 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
           {/* Total score — trees-planted count now lives in the badge above. */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-ink-300">ניקוד:</span>
-            <span className="text-base text-ink-100 font-bold tabular-nums">{totalScore}</span>
+            {/* relative wrapper so the floating delta badge anchors to the score number */}
+            <span className="relative text-base text-ink-100 font-bold tabular-nums">
+              {totalScore}
+              {scoreAnim && (
+                <span
+                  key={`delta-${scoreAnim.key}`}
+                  aria-hidden="true"
+                  className={`pointer-events-none absolute font-bold text-sm tabular-nums whitespace-nowrap ${
+                    scoreAnim.delta > 0
+                      ? 'text-forest-500 animate-score-float'
+                      : 'text-red-400 animate-score-flash-down'
+                  }`}
+                  style={{ left: `calc(50% + ${animOffset}px)`, top: 0 }}
+                >
+                  {scoreAnim.delta > 0 ? `+${scoreAnim.delta}` : scoreAnim.delta}
+                </span>
+              )}
+            </span>
           </div>
         </div>
       </div>
-
-      {/* ── Floating score delta (forwarded from parent) ─────────────── */}
-      {scoreAnim && (
-        <span
-          key={`delta-${scoreAnim.key}`}
-          aria-hidden="true"
-          className={`pointer-events-none absolute left-4 bottom-3 font-bold text-sm tabular-nums ${
-            scoreAnim.delta > 0
-              ? 'text-forest-500 animate-score-float'
-              : 'text-red-400 animate-score-flash-down'
-          }`}
-        >
-          {scoreAnim.delta > 0 ? `+${scoreAnim.delta}` : scoreAnim.delta}
-        </span>
-      )}
 
       {/* ── Plant button — appears only when mature ─────────────────── */}
       {isMature && (

@@ -132,6 +132,6 @@ export async function fetchWeek(
         }
       }
     }
-    return { slot_index: slot, habit, marks, amounts };
+    return { slot_index: slot, habit, marks, amounts, habitStartDate: a?.start_date ?? null };
   });
 }
