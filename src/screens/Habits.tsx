@@ -212,19 +212,19 @@ export function Habits() {
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="shrink-0 h-full rounded-2xl border border-surface-border bg-surface-card px-2.5 min-[339px]:px-4 flex items-center gap-1.5 min-[339px]:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 h-full rounded-2xl border border-surface-border bg-surface-card px-2.5 min-[379px]:px-4 flex items-center gap-1.5 min-[379px]:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
           title="הוסף הרגל"
         >
           <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center shrink-0">
             <Plus size={14} strokeWidth={3} />
           </span>
-          {/* "הרגל" label hidden below 339px so the NavBar period selector
-              has enough room for its date label at the narrowest phones
-              (320px). At 339px+ both icon and label appear together. The
-              + icon alone is recognised as "add"; aria-label/title keep
-              the action discoverable to screen readers and tooltips. */}
-          <span className="hidden min-[339px]:inline text-base font-medium">הרגל</span>
+          {/* "הרגל" label hidden below 379px so the NavBar period selector
+              has enough room for its date label at narrow phones. At
+              379px+ both icon and label appear together. The + icon
+              alone is recognised as "add"; aria-label/title keep the
+              action discoverable to screen readers and tooltips. */}
+          <span className="hidden min-[379px]:inline text-base font-medium">הרגל</span>
         </button>
 
         {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
