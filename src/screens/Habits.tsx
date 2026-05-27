@@ -530,10 +530,14 @@ function HabitsList({
         archiveZone={
           // Day-labels header — lives INSIDE the DndContext so the
           // ArchiveDropZone droppable registers correctly.
-          <div className="flex items-end justify-between gap-2 px-2 sm:px-3 mb-2.5">
+          {/* Outer layout uses CSS Grid (not flex) so the icon column and
+              the 7-day column align identically across the day-headers row
+              and every habit row below, no matter what RTL/flex quirks the
+              browser applies. */}
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 px-2 sm:px-3 mb-2.5">
             <ArchiveDropZone onClick={onOpenArchive} />
             <div
-              className="grid gap-1 sm:gap-2 flex-1 min-w-0 max-w-[260px]"
+              className="grid gap-1 sm:gap-2"
               style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
             >
               {days.map((d, i) => (
@@ -829,8 +833,10 @@ function HabitRow({
 
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-2 sm:px-3 py-2.5">
-      {/* Top row: icon tile (its own block) + cells grid (separate block). */}
-      <div className="flex items-center justify-between gap-2">
+      {/* Top row: icon tile (its own block) + cells grid (separate block).
+          CSS Grid (not flex) so the icon column + 7-day grid stay locked to
+          the same column geometry as the day-headers row above. */}
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
         {/* Icon tile — DRAG HANDLE. A quick tap opens the detail sheet; a
             long-press (250ms) starts a drag. `touchAction:'none'` is what
             lets dnd-kit's TouchSensor intercept the long-press here, while
@@ -858,7 +864,7 @@ function HabitRow({
           />
         </button>
 
-        <div className="grid gap-1 sm:gap-2 flex-1 min-w-0 max-w-[260px]" style={{gridTemplateColumns: 'repeat(7, minmax(0, 1fr))'}}>
+        <div className="grid gap-1 sm:gap-2" style={{gridTemplateColumns: 'repeat(7, minmax(0, 1fr))'}}>
           {(() => {
             // Pre-compute per-cell info in chronological order (days[0] =
             // earliest, days[6] = latest) so each cell knows how deep it sits
