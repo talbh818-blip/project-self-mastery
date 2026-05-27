@@ -1,11 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import {
   Target,
-  BarChart3,
   Shield,
   BookOpen,
   PlayCircle,
-  Users,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -18,11 +17,10 @@ type NavItem = {
 
 const items: NavItem[] = [
   { to: '/', label: 'הרגלים', icon: Target, end: true },
-  { to: '/data', label: 'נתונים', icon: BarChart3 },
   { to: '/blocker', label: 'חוסם', icon: Shield },
   { to: '/vision', label: 'חזון', icon: BookOpen },
   { to: '/course', label: 'קורס', icon: PlayCircle },
-  { to: '/participants', label: 'משתתפים', icon: Users },
+  { to: '/participants', label: 'משתמש', icon: User },
 ];
 
 export function BottomNav() {
