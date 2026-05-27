@@ -668,17 +668,44 @@ function TreeFieldModal({
     };
   }, [open]);
 
-  if (!open) return null;
+  // Enter / exit animation lifecycle.
+  // We keep the modal mounted for ~200ms after `open` flips to false so the
+  // exit animation has time to play before the DOM is removed.
+  //   'closed'  — fully unmounted (nothing rendered)
+  //   'open'    — rendered + running the enter animation / steady state
+  //   'exiting' — rendered + running the exit animation
+  const EXIT_MS = 200;
+  const [phase, setPhase] = useState<'closed' | 'open' | 'exiting'>(
+    open ? 'open' : 'closed',
+  );
+  useEffect(() => {
+    if (open) {
+      setPhase('open');
+      return;
+    }
+    // open flipped to false — kick off the exit animation if we were visible.
+    setPhase((p) => (p === 'closed' ? 'closed' : 'exiting'));
+    const t = setTimeout(() => setPhase('closed'), EXIT_MS);
+    return () => clearTimeout(t);
+  }, [open]);
+
+  if (phase === 'closed') return null;
+
+  const isExiting = phase === 'exiting';
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className={`fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 ${
+        isExiting ? 'animate-modal-fade-out' : 'animate-modal-fade-in'
+      }`}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full max-w-md bg-surface-card rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto"
+        className={`w-full max-w-md bg-surface-card rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto ${
+          isExiting ? 'animate-modal-fall-out' : 'animate-modal-rise-in'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -132,3 +132,39 @@ body {
 .animate-bar-pulse {
   animation: bar-pulse 600ms ease-out;
 }
+
+/* ---------------------------------------------------------------------------
+ * Modal enter/exit — a soft fade for the backdrop and a subtle rise/fall
+ * (with a tiny scale) for the panel. Designed to feel gentle, not snappy.
+ * --------------------------------------------------------------------------*/
+@keyframes modal-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+.animate-modal-fade-in {
+  animation: modal-fade-in 220ms ease-out forwards;
+}
+
+@keyframes modal-fade-out {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-modal-fade-out {
+  animation: modal-fade-out 200ms ease-in forwards;
+}
+
+@keyframes modal-rise-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.animate-modal-rise-in {
+  animation: modal-rise-in 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes modal-fall-out {
+  0%   { opacity: 1; transform: translateY(0)    scale(1); }
+  100% { opacity: 0; transform: translateY(14px) scale(0.97); }
+}
+.animate-modal-fall-out {
+  animation: modal-fall-out 200ms ease-in forwards;
+}
