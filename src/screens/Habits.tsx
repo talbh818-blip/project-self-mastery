@@ -13,9 +13,11 @@ import {
   MouseSensor,
   TouchSensor,
   closestCenter,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
@@ -567,6 +569,26 @@ type DragHandleListeners = Record<string, any> | undefined;
 // dnd-kit droppable with this id is treated as an archive request.
 const ARCHIVE_DROP_ID = 'archive-zone';
 
+// Custom collision detection: prefer the archive zone whenever the user's
+// pointer/finger is actually over it. Otherwise fall back to closestCenter
+// (the dnd-kit default for vertical sortable lists).
+//
+// Why: `closestCenter` measures from the dragged ITEM's center, so a tall
+// habit row only "collides" with the small archive icon when its center
+// has been dragged all the way past it — basically requiring the user to
+// pull the whole row up to the top of the screen. `pointerWithin` is what
+// matches user intuition ("my finger is on the icon → it's selected") but
+// it returns nothing once the pointer leaves any droppable, which would
+// break the reorder behavior between rows. We use `pointerWithin` only as
+// a priority filter for the archive zone, and let `closestCenter` handle
+// the row-to-row reorder logic everywhere else.
+const hybridCollision: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args);
+  const archiveHit = pointerHits.find((c) => c.id === ARCHIVE_DROP_ID);
+  if (archiveHit) return [archiveHit];
+  return closestCenter(args);
+};
+
 // ----------------------------------------------------------------------------
 // ArchiveDropZone — the archive icon button, but ALSO a dnd-kit droppable.
 // Clicking it opens the ArchiveSheet (browse archived habits); dragging a
@@ -661,7 +683,7 @@ function SortableHabitList({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={hybridCollision}
       onDragEnd={handleDragEnd}
     >
       {/* Rendered inside DndContext so any <useDroppable> in here (e.g.,
