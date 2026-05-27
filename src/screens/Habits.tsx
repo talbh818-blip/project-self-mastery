@@ -13,6 +13,7 @@ import {
   MouseSensor,
   TouchSensor,
   closestCenter,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -321,6 +322,7 @@ export function Habits() {
           onMarkCell={handleCellClick}
           onReorder={data.reorderHabits}
           onOpenArchive={() => setArchiveOpen(true)}
+          onArchiveHabit={data.archiveHabit}
         />
       )}
       {data.status === 'ready' && viewMode === 'data' && (
@@ -472,6 +474,7 @@ function HabitsList({
   onMarkCell,
   onReorder,
   onOpenArchive,
+  onArchiveHabit,
 }: {
   slots: SlotView[];
   days: Date[];
@@ -486,6 +489,7 @@ function HabitsList({
   ) => void;
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
   onOpenArchive: () => void;
+  onArchiveHabit: (habitId: string) => Promise<void>;
 }) {
   const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
     const r = stats?.byHabit.get(habitId);
@@ -516,30 +520,25 @@ function HabitsList({
 
   return (
     <div className="space-y-2.5">
-      {/* Day labels header. Mirrors each habit row exactly so the labels
-          line up with the day cells. RTL: first flex child renders on the
-          right — the archive button sits above the habit icon tiles. */}
-      <div className="flex items-end justify-between px-3">
-        {/* Archive — tiny, subtle, above the icon column */}
-        <button
-          type="button"
-          onClick={onOpenArchive}
-          className="w-12 shrink-0 self-center flex items-center justify-center text-ink-500 hover:text-ink-300 transition-colors"
-          aria-label="ארכיון הרגלים"
-          title="ארכיון"
-        >
-          <Archive size={16} strokeWidth={1.7} />
-        </button>
-        <div className="grid gap-2" style={{gridTemplateColumns: 'repeat(7, 30px)'}}>
-          {days.map((d, i) => (
-            <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
-          ))}
-        </div>
-      </div>
-
       <SortableHabitList
         slots={sortedSlots}
         onReorder={onReorder}
+        onArchive={onArchiveHabit}
+        archiveZone={
+          // Day-labels header — lives INSIDE the DndContext so the
+          // ArchiveDropZone droppable registers correctly.
+          <div className="flex items-end justify-between px-3 mb-2.5">
+            <ArchiveDropZone onClick={onOpenArchive} />
+            <div
+              className="grid gap-2"
+              style={{ gridTemplateColumns: 'repeat(7, 30px)' }}
+            >
+              {days.map((d, i) => (
+                <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
+              ))}
+            </div>
+          </div>
+        }
         renderRow={(slot, dragHandleRef, dragListeners) => (
           <HabitRow
             slot={slot}
@@ -564,19 +563,59 @@ type DragHandleRef = (el: HTMLElement | null) => void;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DragHandleListeners = Record<string, any> | undefined;
 
+// Droppable id used by the archive-on-drag flow. Anything dropped onto a
+// dnd-kit droppable with this id is treated as an archive request.
+const ARCHIVE_DROP_ID = 'archive-zone';
+
+// ----------------------------------------------------------------------------
+// ArchiveDropZone — the archive icon button, but ALSO a dnd-kit droppable.
+// Clicking it opens the ArchiveSheet (browse archived habits); dragging a
+// habit onto it archives the habit. While a drag hovers over it, the icon
+// turns red so the user sees the drop target light up.
+// ----------------------------------------------------------------------------
+function ArchiveDropZone({ onClick }: { onClick: () => void }) {
+  const { isOver, setNodeRef } = useDroppable({ id: ARCHIVE_DROP_ID });
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      onClick={onClick}
+      className={`w-12 shrink-0 self-center flex items-center justify-center transition-all ${
+        isOver
+          ? 'text-red-400 scale-125'
+          : 'text-ink-500 hover:text-ink-300'
+      }`}
+      aria-label="ארכיון הרגלים"
+      title="ארכיון — גרור הרגל לכאן כדי לארכב"
+    >
+      <Archive size={16} strokeWidth={1.7} />
+    </button>
+  );
+}
+
 // ----------------------------------------------------------------------------
 // SortableHabitList — single SortableContext for all habits regardless of
 // type. Only the icon tile is the drag activator (long-press it to start a
 // drag); the rest of the row stays free for native vertical scrolling on
 // mobile, so the user can swipe anywhere on the list to scroll the page.
+//
+// Optional drag-to-archive: when `onArchive` is provided and the user drops
+// a habit on the ARCHIVE_DROP_ID droppable, the habit is archived instead
+// of reordered. Pass an `archiveZone` slot (e.g., the day-headers row that
+// contains <ArchiveDropZone />) to make sure the droppable lives INSIDE
+// the same DndContext as the rows.
 // ----------------------------------------------------------------------------
 function SortableHabitList({
   slots,
   onReorder,
+  onArchive,
+  archiveZone,
   renderRow,
 }: {
   slots: SlotView[];
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
+  onArchive?: (habitId: string) => Promise<void>;
+  archiveZone?: React.ReactNode;
   renderRow: (
     slot: SlotView,
     dragHandleRef: DragHandleRef,
@@ -601,7 +640,15 @@ function SortableHabitList({
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over) return;
+    // Drop on the archive zone → archive (skip reorder).
+    if (onArchive && over.id === ARCHIVE_DROP_ID) {
+      onArchive(String(active.id)).catch(() => {
+        /* error surfaces via mutationError in parent on next interaction */
+      });
+      return;
+    }
+    if (active.id === over.id) return;
     const oldIndex = slots.findIndex((s) => s.habit!.id === active.id);
     const newIndex = slots.findIndex((s) => s.habit!.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -617,6 +664,10 @@ function SortableHabitList({
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
+      {/* Rendered inside DndContext so any <useDroppable> in here (e.g.,
+          the ArchiveDropZone) is registered against the same context the
+          sortable rows belong to. */}
+      {archiveZone}
       <SortableContext
         items={slots.map((s) => s.habit!.id)}
         strategy={verticalListSortingStrategy}
@@ -639,6 +690,10 @@ function SortableHabitList({
 // Uses a render-prop so the drag handle (setActivatorNodeRef + listeners) can
 // be forwarded to just the icon tile — keeping the rest of the row free for
 // native touch scrolling.
+//
+// When this row is the one being dragged AND it currently hovers over the
+// archive drop zone, an absolutely-positioned red overlay is rendered on
+// top of the row — signaling "release to archive."
 function SortableRow({
   id,
   children,
@@ -657,11 +712,15 @@ function SortableRow({
     transform,
     transition,
     isDragging,
+    over,
   } = useSortable({ id });
+  const isOverArchive = isDragging && over?.id === ARCHIVE_DROP_ID;
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.6 : 1,
+    // Slight extra opacity drop when over archive so the dragged row reads
+    // as "tagged for removal" on top of the red overlay.
+    opacity: isDragging ? (isOverArchive ? 0.85 : 0.6) : 1,
     zIndex: isDragging ? 10 : 'auto',
     // Free up the row for native vertical scrolling on mobile. Only the icon
     // tile (the actual drag handle, child) gets `touchAction: 'none'` so
@@ -669,8 +728,14 @@ function SortableRow({
     touchAction: 'auto',
   };
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} className="relative">
       {children(setActivatorNodeRef, listeners)}
+      {isOverArchive && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-red-500 bg-red-500/30"
+        />
+      )}
     </div>
   );
 }
