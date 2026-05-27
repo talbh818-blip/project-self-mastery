@@ -530,7 +530,7 @@ function HabitsList({
         >
           <Archive size={16} strokeWidth={1.7} />
         </button>
-        <div className="grid gap-1.5" style={{gridTemplateColumns: 'repeat(7, 27px)'}}>
+        <div className="grid gap-1.5" style={{gridTemplateColumns: 'repeat(7, 28px)'}}>
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
           ))}
@@ -540,7 +540,7 @@ function HabitsList({
       <SortableHabitList
         slots={sortedSlots}
         onReorder={onReorder}
-        renderRow={(slot) => (
+        renderRow={(slot, dragHandleRef, dragListeners) => (
           <HabitRow
             slot={slot}
             days={days}
@@ -549,6 +549,8 @@ function HabitsList({
             currentStreak={stats?.byHabit.get(slot.habit!.id)?.currentStreak ?? 0}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
+            dragHandleRef={dragHandleRef}
+            dragListeners={dragListeners}
           />
         )}
       />
@@ -556,12 +558,17 @@ function HabitsList({
   );
 }
 
+// Type aliases for the drag-handle render-prop threaded through SortableRow →
+// SortableHabitList → HabitRow / MonthHabitRow.
+type DragHandleRef = (el: HTMLElement | null) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DragHandleListeners = Record<string, any> | undefined;
+
 // ----------------------------------------------------------------------------
 // SortableHabitList — single SortableContext for all habits regardless of
-// type. The ENTIRE row is the drag activator: long-press anywhere on a habit
-// card and drag up/down to reorder. Inner buttons (icon, name, day cells)
-// still receive normal taps because a quick release before the 250ms touch
-// delay cancels the drag and lets the click event through.
+// type. Only the icon tile is the drag activator (long-press it to start a
+// drag); the rest of the row stays free for native vertical scrolling on
+// mobile, so the user can swipe anywhere on the list to scroll the page.
 // ----------------------------------------------------------------------------
 function SortableHabitList({
   slots,
@@ -570,13 +577,17 @@ function SortableHabitList({
 }: {
   slots: SlotView[];
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
-  renderRow: (slot: SlotView) => React.ReactNode;
+  renderRow: (
+    slot: SlotView,
+    dragHandleRef: DragHandleRef,
+    dragListeners: DragHandleListeners,
+  ) => React.ReactNode;
 }) {
   // Explicit Mouse + Touch sensors so drag works on both desktop and mobile.
   // The unified PointerSensor often misses touch activation on iOS Safari /
   // some Android browsers because the page's scroll handler eats the event
   // before the delay elapses. TouchSensor handles touch directly and pairs
-  // with `touch-action: none` on each draggable row (set in SortableRow).
+  // nicely with `touch-action: none` on the icon tile (the activator).
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: { distance: 5 },
@@ -613,7 +624,9 @@ function SortableHabitList({
         <div className="space-y-2.5">
           {slots.map((slot) => (
             <SortableRow key={slot.habit!.id} id={slot.habit!.id}>
-              {renderRow(slot)}
+              {(dragHandleRef, dragListeners) =>
+                renderRow(slot, dragHandleRef, dragListeners)
+              }
             </SortableRow>
           ))}
         </div>
@@ -622,15 +635,19 @@ function SortableHabitList({
   );
 }
 
-// Wraps a habit row with dnd-kit sortable bindings. The wrapper div is BOTH
-// the sortable element and the drag activator — long-pressing anywhere on
-// the row triggers a drag.
+// Wraps a habit row with dnd-kit sortable bindings.
+// Uses a render-prop so the drag handle (setActivatorNodeRef + listeners) can
+// be forwarded to just the icon tile — keeping the rest of the row free for
+// native touch scrolling.
 function SortableRow({
   id,
   children,
 }: {
   id: string;
-  children: React.ReactNode;
+  children: (
+    dragHandleRef: DragHandleRef,
+    dragListeners: DragHandleListeners,
+  ) => React.ReactNode;
 }) {
   const {
     attributes,
@@ -641,26 +658,19 @@ function SortableRow({
     transition,
     isDragging,
   } = useSortable({ id });
-  // The same element is both the sortable node and its own activator,
-  // so the touch handler is attached at the row level.
-  const setRefs = (el: HTMLDivElement | null) => {
-    setNodeRef(el);
-    setActivatorNodeRef(el);
-  };
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.6 : 1,
     zIndex: isDragging ? 10 : 'auto',
-    // `touch-action: none` lets dnd-kit's TouchSensor intercept the touch
-    // before the browser kicks off a native scroll. The 250ms activation
-    // delay means quick taps on inner buttons still fire onClick normally
-    // — only a sustained hold without movement starts a drag.
-    touchAction: 'none',
+    // Free up the row for native vertical scrolling on mobile. Only the icon
+    // tile (the actual drag handle, child) gets `touchAction: 'none'` so
+    // dnd-kit can intercept the long-press there.
+    touchAction: 'auto',
   };
   return (
-    <div ref={setRefs} style={style} {...attributes} {...listeners}>
-      {children}
+    <div ref={setNodeRef} style={style} {...attributes}>
+      {children(setActivatorNodeRef, listeners)}
     </div>
   );
 }
@@ -697,6 +707,8 @@ function HabitRow({
   currentStreak,
   onShowDetail,
   onMarkCell,
+  dragHandleRef,
+  dragListeners,
 }: {
   slot: SlotView;
   days: Date[];
@@ -710,6 +722,8 @@ function HabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  dragHandleRef?: DragHandleRef;
+  dragListeners?: DragHandleListeners;
 }) {
   const habit = slot.habit!;
   // Subtle color-tinted tile, icon always white for clean contrast.
@@ -729,15 +743,19 @@ function HabitRow({
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
       {/* Top row: icon tile (its own block) + cells grid (separate block). */}
       <div className="flex items-center justify-between">
-        {/* Icon tile — a tap opens the detail sheet. The drag handle lives
-            on the outer SortableRow wrapper so long-pressing ANYWHERE on
-            the row starts a drag. */}
+        {/* Icon tile — DRAG HANDLE. A quick tap opens the detail sheet; a
+            long-press (250ms) starts a drag. `touchAction:'none'` is what
+            lets dnd-kit's TouchSensor intercept the long-press here, while
+            the rest of the row keeps `touchAction:'auto'` so the page is
+            still freely scrollable on mobile. */}
         <button
+          ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
           className="relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
-          style={iconTileStyle}
+          style={{ ...iconTileStyle, touchAction: 'none' }}
           aria-label="פרטי הרגל"
+          {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
           {/* Difficulty dot — bottom-left corner of the tile */}
@@ -752,7 +770,7 @@ function HabitRow({
           />
         </button>
 
-        <div className="grid gap-1.5" style={{gridTemplateColumns: 'repeat(7, 27px)'}}>
+        <div className="grid gap-1.5" style={{gridTemplateColumns: 'repeat(7, 28px)'}}>
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
             const future = isFuture(d, today);
@@ -959,7 +977,7 @@ function MonthHeatmap({
     <SortableHabitList
       slots={sortedSlots}
       onReorder={onReorder}
-      renderRow={(slot) => (
+      renderRow={(slot, dragHandleRef, dragListeners) => (
         <MonthHabitRow
           slot={slot}
           days={days}
@@ -967,6 +985,8 @@ function MonthHeatmap({
           habitStats={stats?.byHabit.get(slot.habit!.id) ?? null}
           onShowDetail={() => onShowDetail(slot.habit!)}
           onMarkCell={onMarkCell}
+          dragHandleRef={dragHandleRef}
+          dragListeners={dragListeners}
         />
       )}
     />
