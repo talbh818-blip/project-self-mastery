@@ -207,7 +207,7 @@ export function Habits() {
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="rounded-2xl border border-surface-border bg-surface-card px-3 sm:px-4 py-2 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 rounded-2xl border border-surface-border bg-surface-card px-3 sm:px-4 py-2 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
         >
           <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center shrink-0">
@@ -217,7 +217,7 @@ export function Habits() {
         </button>
 
         {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
-        <div className="flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
+        <div className="shrink-0 flex items-center bg-surface-card border border-surface-border rounded-2xl p-0.5">
           <button
             type="button"
             onClick={() => setViewMode('week')}
@@ -438,25 +438,29 @@ function NavBar({
   nextAriaLabel: string;
 }) {
   return (
-    <div className="flex-1 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 py-1.5">
+    <div className="flex-1 min-w-0 rounded-2xl border border-surface-border bg-surface-card flex items-center justify-between px-1 py-1.5">
       <button
         type="button"
         onClick={() => canPrev && onPrev()}
         disabled={!canPrev}
-        className="p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="shrink-0 p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label={prevAriaLabel}
       >
         <ChevronRight size={18} />
       </button>
-      <div className="text-center leading-tight">
-        <div className="text-sm font-semibold">{mainLabel}</div>
-        <div className="text-[10px] text-ink-300 mt-0.5">{subLabel}</div>
+      {/* Centre label — min-w-0 + truncate so a long subLabel (e.g. "30
+          ימים אחרונים" in data mode) clips to ellipsis instead of pushing
+          the whole toolbar wider. Keeps the +הרגל and view-toggle sizes
+          identical across week / month / data views. */}
+      <div className="text-center leading-tight min-w-0 flex-1 px-1">
+        <div className="text-sm font-semibold truncate">{mainLabel}</div>
+        <div className="text-[10px] text-ink-300 mt-0.5 truncate">{subLabel}</div>
       </div>
       <button
         type="button"
         onClick={() => canNext && onNext()}
         disabled={!canNext}
-        className="p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="shrink-0 p-1.5 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:cursor-not-allowed"
         aria-label={nextAriaLabel}
       >
         <ChevronLeft size={18} />
