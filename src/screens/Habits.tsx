@@ -212,13 +212,18 @@ export function Habits() {
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="shrink-0 h-full rounded-2xl border border-surface-border bg-surface-card px-3 sm:px-4 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="shrink-0 h-full rounded-2xl border border-surface-border bg-surface-card px-2.5 sm:px-4 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
+          title="הוסף הרגל"
         >
           <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center shrink-0">
             <Plus size={14} strokeWidth={3} />
           </span>
-          <span className="text-base font-medium">הרגל</span>
+          {/* "הרגל" label is hidden on narrow screens (<sm = 640px) so the
+              NavBar period selector gets enough room for its date label.
+              The + icon alone is recognised as "add"; aria-label/title
+              keep the action discoverable to screen readers and tooltips. */}
+          <span className="hidden sm:inline text-base font-medium">הרגל</span>
         </button>
 
         {/* View toggle (icons evoke the layout: rows for week, grid for month) */}
