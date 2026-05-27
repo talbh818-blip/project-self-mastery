@@ -866,14 +866,11 @@ function HabitRow({
             //    0 = not in a streak (has a log, or is future)
             //   1..N = Nth day in the current blank streak
             const habitStart = slot.habitStartDate;
-            // Only suppress the dash on pre-creation days when habitStart
-            // falls WITHIN the displayed week (i.e., the habit was created
-            // mid-week). When the entire visible week predates the habit,
-            // show normal dash cells so that navigating to old weeks still
-            // looks right (cells don't just vanish).
-            const habitStartInView =
-              habitStart !== null &&
-              days.some((d) => toDateString(d) >= habitStart);
+            // Days BEFORE the habit's start_date — including when the
+            // entire visible week predates the habit — render as plain
+            // neutral cells (no streak, no dash) but are STILL CLICKABLE
+            // so the user can backfill marks. DayCell handles the visual
+            // when it sees streakDepth === -1.
             let streakCount = 0;
             const cellInfos = days.map((d) => {
               const dateStr = toDateString(d);
@@ -881,7 +878,7 @@ function HabitRow({
               const effective = effectiveFor(dateStr);
               const mark = effective ?? slot.marks[dateStr];
 
-              if (habitStartInView && habitStart && dateStr < habitStart) {
+              if (habitStart && dateStr < habitStart) {
                 streakCount = 0;
                 return { dateStr, future, mark, streakDepth: -1 };
               }
@@ -982,26 +979,22 @@ function DayCell({
   const isQuant = habit.is_quantitative;
   const target = habit.quantitative_target ?? 0;
 
-  // Days before the habit existed: render as a plain invisible tile.
-  if (streakDepth === -1) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        disabled
-        className="w-full aspect-square rounded-md cursor-default"
-        style={{ backgroundColor: 'transparent' }}
-        aria-hidden="true"
-      />
-    );
-  }
+  // Days before the habit's start_date: render as a regular muted blank
+  // tile (same tint as a fresh post-start day), but with NO red streak
+  // tint and NO horizontal dash — the habit didn't exist yet, so it
+  // wasn't "missed." Still clickable so the user can backfill if they
+  // want to record they did the habit before officially starting it.
+  const isPreStart = streakDepth === -1;
 
   // Red overlay for consecutive blank days. Day 1 = barely visible;
   // day 5+ = clearly red. Interpolates linearly across 5 steps.
+  // Pre-start days are explicitly excluded — they never go red.
   const RED_OPACITIES = [0, 0.08, 0.17, 0.27, 0.38, 0.50] as const;
-  const redOpacity = streakDepth >= 5
-    ? RED_OPACITIES[5]
-    : RED_OPACITIES[streakDepth] ?? 0;
+  const redOpacity = isPreStart
+    ? 0
+    : streakDepth >= 5
+      ? RED_OPACITIES[5]
+      : RED_OPACITIES[streakDepth] ?? 0;
 
   // V (or any positive quantitative amount) → solid block of the habit's
   // color. Everything else (blank, X, auto_x) → muted empty tile.
@@ -1041,8 +1034,9 @@ function DayCell({
               : hexWithAlpha(habit.color, 0.15),
         };
     // Past blank days (not today, not future, not before creation) get a
-    // centered horizontal dash — signals the day was missed.
-    if (!disabled && !isToday && streakDepth >= 0) {
+    // centered horizontal dash — signals the day was missed. Pre-start
+    // days skip this entirely — there was no habit to miss yet.
+    if (!disabled && !isToday && !isPreStart && streakDepth >= 0) {
       content = (
         <span
           style={{
