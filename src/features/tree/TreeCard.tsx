@@ -86,8 +86,10 @@ function Sapling() {
   );
 }
 
-/** Stage 3 — young tree with layered canopy and visible roots */
-function YoungTree() {
+/** Stage 3 — young tree with layered canopy and visible roots.
+ *  Exported so other screens (e.g. the data dashboard) can reuse the
+ *  illustration as an icon. */
+export function YoungTree() {
   return (
     <svg viewBox="15 5 90 95" width="100%" height="100%" aria-hidden>
       <ellipse cx={60} cy={92} rx={32} ry={7} fill="#3D6B4F" opacity={0.45} />
@@ -285,6 +287,14 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
               }}
             />
           ))}
+          {/* Trees-planted badge — small circle pinned to the bottom-right
+              of the tree illustration (visually right in both LTR and RTL). */}
+          <span
+            className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-forest-600 text-cream-50 text-[11px] font-bold tabular-nums flex items-center justify-center shadow-md ring-2 ring-surface-card"
+            aria-label={`${treesPlanted} עצים נשתלו`}
+          >
+            {treesPlanted}
+          </span>
         </div>
 
         {/* ── Info column ─────────────────────────────────────────────── */}
@@ -299,7 +309,7 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
               {isMature ? (
                 <span className="text-forest-400 font-bold">מוכן לשתילה! 🎉</span>
               ) : (
-                <span className="text-ink-300">עוד {ptsToNext} נק׳</span>
+                <span className="text-ink-300 font-semibold">{progressPct}%</span>
               )}
             </span>
           </div>
@@ -325,17 +335,10 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
             })}
           </div>
 
-          {/* Total score + trees planted counter */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 text-[10px]">
-              <span className="text-ink-300">ניקוד:</span>
-              <span className="text-ink-100 font-semibold tabular-nums">{totalScore}</span>
-            </div>
-            {treesPlanted > 0 && (
-              <span className="text-[10px] text-forest-400 font-medium">
-                🌳 {treesPlanted} {treesPlanted === 1 ? 'עץ נשתל' : 'עצים נשתלו'}
-              </span>
-            )}
+          {/* Total score — trees-planted count now lives in the badge above. */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-ink-300">ניקוד:</span>
+            <span className="text-base text-ink-100 font-bold tabular-nums">{totalScore}</span>
           </div>
         </div>
       </div>

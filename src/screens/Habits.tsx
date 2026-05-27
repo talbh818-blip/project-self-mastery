@@ -59,7 +59,7 @@ import {
   type HabitScoreResult,
   type UserStats,
 } from '../features/habits/scoring';
-import { TreeCard, MatureTree } from '../features/tree/TreeCard';
+import { TreeCard, YoungTree } from '../features/tree/TreeCard';
 
 type ViewMode = 'week' | 'month' | 'data';
 // Data dashboard time range. Drives every KPI / chart in the data view.
@@ -1322,7 +1322,7 @@ function DataView({
         <KpiCard
           icon={
             <span className="w-8 h-8 block">
-              <MatureTree />
+              <YoungTree />
             </span>
           }
           label="עצים שנשתלו"
