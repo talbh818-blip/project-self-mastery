@@ -519,7 +519,7 @@ function HabitsList({
       {/* Day labels header. Mirrors each habit row exactly so the labels
           line up with the day cells. RTL: first flex child renders on the
           right — the archive button sits above the habit icon tiles. */}
-      <div className="flex items-end gap-2 px-3">
+      <div className="flex items-end justify-between px-3">
         {/* Archive — tiny, subtle, above the icon column */}
         <button
           type="button"
@@ -530,7 +530,7 @@ function HabitsList({
         >
           <Archive size={16} strokeWidth={1.7} />
         </button>
-        <div className="flex-1 grid grid-cols-7 gap-3">
+        <div className="grid gap-1.5" style={{gridTemplateColumns: 'repeat(7, 27px)'}}>
           {days.map((d, i) => (
             <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
           ))}
@@ -728,7 +728,7 @@ function HabitRow({
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
       {/* Top row: icon tile (its own block) + cells grid (separate block). */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between">
         {/* Icon tile — a tap opens the detail sheet. The drag handle lives
             on the outer SortableRow wrapper so long-pressing ANYWHERE on
             the row starts a drag. */}
@@ -752,7 +752,7 @@ function HabitRow({
           />
         </button>
 
-        <div className="flex-1 grid grid-cols-7 gap-3">
+        <div className="grid gap-1.5" style={{gridTemplateColumns: 'repeat(7, 27px)'}}>
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
             const future = isFuture(d, today);

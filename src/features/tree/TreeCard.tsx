@@ -233,12 +233,9 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
   const stage = stageFor(cycleScore, stageThresholds);
   const progressPct = isMature ? 100 : Math.round((cycleScore / cycleTarget) * 100);
 
-  // Next stage threshold (for "X more pts" label)
-  const nextThreshold =
-    !isMature
-      ? (stageThresholds.find((t) => t > cycleScore) ?? cycleTarget)
-      : cycleTarget;
-  const ptsToNext = isMature ? 0 : nextThreshold - cycleScore;
+  // Next stage threshold / pts remaining — reserved for future "X more pts" label
+  // const nextThreshold = !isMature ? (stageThresholds.find((t) => t > cycleScore) ?? cycleTarget) : cycleTarget;
+  // const ptsToNext = isMature ? 0 : nextThreshold - cycleScore;
 
   // ── Plant action ─────────────────────────────────────────────────────────
   const handlePlant = () => {
