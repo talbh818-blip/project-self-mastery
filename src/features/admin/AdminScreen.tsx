@@ -43,7 +43,7 @@ export function AdminScreen() {
       );
     } catch (e) {
       console.error('[admin] load failed:', e);
-      setError(e instanceof Error ? e.message : 'שגיאה בטעינה');
+      setError(describeError(e, 'שגיאה בטעינה'));
     }
   }, []);
 
@@ -57,7 +57,7 @@ export function AdminScreen() {
       await updateProfile(p.id, { blocked: !p.blocked });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה בעדכון');
+      setError(describeError(e, 'שגיאה בעדכון'));
     } finally {
       setBusy(false);
     }
@@ -77,7 +77,7 @@ export function AdminScreen() {
       await updateProfile(p.id, { trees_planted: n });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה בעדכון');
+      setError(describeError(e, 'שגיאה בעדכון'));
     } finally {
       setBusy(false);
     }
@@ -100,7 +100,7 @@ export function AdminScreen() {
       await updateProfile(p.id, { score_adjustment: n });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה בעדכון');
+      setError(describeError(e, 'שגיאה בעדכון'));
     } finally {
       setBusy(false);
     }
@@ -120,7 +120,7 @@ export function AdminScreen() {
       await deleteUserActivity(p.id);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'שגיאה במחיקה');
+      setError(describeError(e, 'שגיאה במחיקה'));
     } finally {
       setBusy(false);
     }
@@ -332,6 +332,24 @@ function ActionBtn({
       {label}
     </button>
   );
+}
+
+// Supabase errors are plain objects, not Error instances — `e instanceof Error`
+// is false for them. Pull together whatever fields look useful so the admin
+// can read the real failure (RLS denial, missing column, etc.).
+function describeError(e: unknown, fallback: string): string {
+  if (!e) return fallback;
+  if (typeof e === 'string') return e;
+  if (typeof e === 'object') {
+    const obj = e as Record<string, unknown>;
+    const msg = typeof obj.message === 'string' ? obj.message : null;
+    const code = typeof obj.code === 'string' ? obj.code : null;
+    const hint = typeof obj.hint === 'string' ? obj.hint : null;
+    const details = typeof obj.details === 'string' ? obj.details : null;
+    const parts = [msg, code && `[${code}]`, hint, details].filter(Boolean);
+    if (parts.length > 0) return parts.join(' — ');
+  }
+  return fallback;
 }
 
 function relativeFromNow(iso: string): string {
