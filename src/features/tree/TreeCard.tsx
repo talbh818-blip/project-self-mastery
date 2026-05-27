@@ -672,13 +672,13 @@ function TreeFieldModal({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="w-full sm:max-w-md bg-surface-card rounded-t-3xl sm:rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto"
+        className="w-full max-w-md bg-surface-card rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -750,6 +750,15 @@ function TreeFieldModal({
               {totalScore}
             </span>
           </div>
+
+          {/* Continue — closes the modal and returns to the habits view. */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md"
+          >
+            המשך
+          </button>
         </div>
       </div>
     </div>
