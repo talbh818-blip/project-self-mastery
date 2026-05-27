@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
+import { useCurrentProfile } from '../admin/ProfileContext';
+import { supabase } from '../../lib/supabase';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
 
@@ -166,10 +168,11 @@ type Props = {
 
 export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
   // ── Persistence ──────────────────────────────────────────────────────────
-  const storageKey = `trees-planted-${userId || 'anon'}`;
-  const [treesPlanted, setTreesPlanted] = useState<number>(
-    () => Number(localStorage.getItem(storageKey) ?? 0),
-  );
+  // trees_planted now lives on the profile row in Supabase so admin can edit
+  // it (and so it survives across devices). We mirror it into local state for
+  // snappy UI; writes go through the profile, then refresh().
+  const { profile, refresh } = useCurrentProfile();
+  const treesPlanted = profile?.trees_planted ?? 0;
 
   // ── First-time tooltip ───────────────────────────────────────────────────
   const [showTooltip, setShowTooltip] = useState<boolean>(
@@ -240,10 +243,19 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
   // const ptsToNext = isMature ? 0 : nextThreshold - cycleScore;
 
   // ── Plant action ─────────────────────────────────────────────────────────
-  const handlePlant = () => {
+  const handlePlant = async () => {
     const next = treesPlanted + 1;
-    setTreesPlanted(next);
-    localStorage.setItem(storageKey, String(next));
+    if (userId) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ trees_planted: next })
+        .eq('id', userId);
+      if (error) {
+        console.error('[TreeCard] failed to bump trees_planted:', error);
+        return;
+      }
+      await refresh();
+    }
     window.open('https://onetreeplanted.org/products/plant-trees', '_blank');
   };
 

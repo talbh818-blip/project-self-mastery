@@ -5,8 +5,10 @@ import {
   BookOpen,
   PlayCircle,
   User,
+  ShieldEllipsis,
   type LucideIcon,
 } from 'lucide-react';
+import { useCurrentProfile } from '../features/admin/ProfileContext';
 
 type NavItem = {
   to: string;
@@ -15,7 +17,7 @@ type NavItem = {
   end?: boolean;
 };
 
-const items: NavItem[] = [
+const BASE_ITEMS: NavItem[] = [
   { to: '/', label: 'הרגלים', icon: Target, end: true },
   { to: '/blocker', label: 'חוסם', icon: Shield },
   { to: '/vision', label: 'חזון', icon: BookOpen },
@@ -23,7 +25,18 @@ const items: NavItem[] = [
   { to: '/participants', label: 'משתמש', icon: User },
 ];
 
+const ADMIN_ITEM: NavItem = {
+  to: '/admin',
+  label: 'ניהול',
+  icon: ShieldEllipsis,
+};
+
 export function BottomNav() {
+  const { isAdmin } = useCurrentProfile();
+  // In RTL the first DOM child renders rightmost. "משתמש" is the last BASE
+  // item, and the spec asks for "ניהול" to sit to the LEFT of it, so we
+  // simply append the admin item at the end of the array.
+  const items = isAdmin ? [...BASE_ITEMS, ADMIN_ITEM] : BASE_ITEMS;
   return (
     <nav className="fixed bottom-0 inset-x-0 z-20 bg-surface-card/95 backdrop-blur border-t border-surface-border pb-safe">
       <ul className="flex items-stretch justify-around max-w-md mx-auto">

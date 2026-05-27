@@ -64,6 +64,7 @@ import {
 } from '../features/habits/scoring';
 import { TreeCard, YoungTree } from '../features/tree/TreeCard';
 import { Emoji } from '../components/Emoji';
+import { useCurrentProfile } from '../features/admin/ProfileContext';
 
 type ViewMode = 'week' | 'month' | 'data';
 // Data dashboard time range. Drives every KPI / chart in the data view.
@@ -82,6 +83,7 @@ const DATA_RANGE_LABEL: Record<DataRange, string> = {
 
 export function Habits() {
   const { user } = useAuth();
+  const { profile } = useCurrentProfile();
   const today = useMemo(() => new Date(), []);
   const tomorrow = useMemo(() => {
     const t = new Date(today);
@@ -159,7 +161,9 @@ export function Habits() {
     }
   };
 
-  const totalScore = data.stats?.totalScore ?? 0;
+  // Admin-applied score adjustment is added on top of the computed total so
+  // admin edits flow through to the same number the user sees everywhere.
+  const totalScore = (data.stats?.totalScore ?? 0) + (profile?.score_adjustment ?? 0);
 
   // Detect score deltas to drive the pop/float animation. We hold the
   // animation key on a ref so the FIRST render after load doesn't trigger
@@ -345,7 +349,6 @@ export function Habits() {
           stats={data.stats}
           range={dataRange}
           today={today}
-          userId={user?.id ?? ''}
           onShowDetail={setDetailHabit}
         />
       )}
@@ -1388,27 +1391,17 @@ function DataView({
   stats,
   range,
   today,
-  userId,
   onShowDetail,
 }: {
   slots: SlotView[];
   stats: UserStats | null;
   range: DataRange;
   today: Date;
-  userId: string;
   onShowDetail: (habit: Habit) => void;
 }) {
-  // Mirror TreeCard's localStorage key so the dashboard reads the same count
-  // (kept simple — the tree card already owns the write path).
-  const treesPlanted = (() => {
-    try {
-      return Number(
-        localStorage.getItem(`trees-planted-${userId || 'anon'}`) ?? 0,
-      );
-    } catch {
-      return 0;
-    }
-  })();
+  // Read trees_planted from the shared profile (Supabase-backed).
+  const { profile } = useCurrentProfile();
+  const treesPlanted = profile?.trees_planted ?? 0;
   const rangeDays = DATA_RANGE_DAYS[range];
   const rangeStart = useMemo(() => {
     const d = new Date(today);
