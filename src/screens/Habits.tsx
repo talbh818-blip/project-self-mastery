@@ -453,13 +453,24 @@ function NavBar({
       >
         <ChevronRight size={18} />
       </button>
-      {/* Centre label — min-w-0 + truncate so a long subLabel (e.g. "30
-          ימים אחרונים" in data mode) clips to ellipsis instead of pushing
-          the whole toolbar wider. Keeps the +הרגל and view-toggle sizes
-          identical across week / month / data views. */}
+      {/* Centre label — inline whiteSpace/overflow styles (not just the
+          tailwind `truncate` class) because in some build configurations
+          the class doesn't reach the bundle and the text wraps onto
+          extra lines, which then resizes the whole toolbar. Inline
+          styles can't be purged, so this is the bulletproof version. */}
       <div className="text-center leading-tight min-w-0 flex-1 px-1">
-        <div className="text-sm font-semibold truncate">{mainLabel}</div>
-        <div className="text-[10px] text-ink-300 mt-0.5 truncate">{subLabel}</div>
+        <div
+          className="text-sm font-semibold"
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {mainLabel}
+        </div>
+        <div
+          className="text-[10px] text-ink-300 mt-0.5"
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        >
+          {subLabel}
+        </div>
       </div>
       <button
         type="button"
