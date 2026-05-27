@@ -62,6 +62,27 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* ----------------------------------------------------------------------------
+ * Light theme — applied via data-theme="light" on <html>. Overrides the
+ * surface + ink tokens; forest accents stay the same so brand identity
+ * carries across both modes. Cream/off-white backgrounds with deep forest
+ * text per CLAUDE.md design language.
+ * --------------------------------------------------------------------------*/
+html[data-theme="light"] {
+  --color-surface-base:   #f6f1e8;
+  --color-surface-card:   #ffffff;
+  --color-surface-raised: #f0ead9;
+  --color-surface-border: #e1d8c2;
+
+  --color-ink-100: #1c2a22;
+  --color-ink-300: #4a6655;
+  --color-ink-500: #7aa086;
+
+  /* Slightly deeper green on light backgrounds for contrast. */
+  --color-forest-500: #3d7a52;
+  --color-forest-700: #2f6240;
+}
+
 .pb-safe {
   padding-bottom: calc(env(safe-area-inset-bottom) + 0.25rem);
 }
@@ -186,4 +207,42 @@ body {
 }
 .animate-modal-fall-out {
   animation: modal-fall-out 200ms ease-in forwards;
+}
+
+/* ---------------------------------------------------------------------------
+ * Confetti — a single particle's trajectory. The component supplies the
+ * final (dx, dy) offset in pixels and the final rotation via CSS custom
+ * properties. Each particle:
+ *   • fades in immediately,
+ *   • flies out + rotates,
+ *   • falls slightly past its peak (the +30px on dy in the final frame
+ *     gives it a tiny "gravity" feel),
+ *   • fades out toward the end.
+ * --------------------------------------------------------------------------*/
+@keyframes confetti-fly {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translate(0, 0) rotate(0deg) scale(0.4);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -50%)
+      translate(calc(var(--cf-dx) * 0.35), calc(var(--cf-dy) * 0.35))
+      rotate(calc(var(--cf-rot) * 0.25))
+      scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%)
+      translate(var(--cf-dx), var(--cf-dy))
+      rotate(var(--cf-rot))
+      scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%)
+      translate(var(--cf-dx), calc(var(--cf-dy) + 30px))
+      rotate(calc(var(--cf-rot) * 1.1))
+      scale(0.9);
+  }
 }

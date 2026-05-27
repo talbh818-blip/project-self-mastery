@@ -243,20 +243,11 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
   // const ptsToNext = isMature ? 0 : nextThreshold - cycleScore;
 
   // ── Plant action ─────────────────────────────────────────────────────────
-  const handlePlant = async () => {
-    const next = treesPlanted + 1;
-    if (userId) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ trees_planted: next })
-        .eq('id', userId);
-      if (error) {
-        console.error('[TreeCard] failed to bump trees_planted:', error);
-        return;
-      }
-      await refresh();
-    }
-    window.open('https://onetreeplanted.org/products/plant-trees', '_blank');
+  // The card-level button is now a "go to your plot" CTA. The actual
+  // confirmation + animation happens inside TreeFieldModal, where the user
+  // sees their plot first and then chooses to plant.
+  const handlePlant = () => {
+    setFieldOpen(true);
   };
 
   // Small random jitter so the floating delta badge doesn't always land in
@@ -408,8 +399,8 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
           }}
           className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-95 transition-all py-2.5 text-cream-50 text-sm font-bold flex items-center justify-center gap-2 shadow-md"
         >
-          <span>🌍</span>
-          <span>שתול עץ אמיתי באפריקה — $1</span>
+          <span>🎉</span>
+          <span>העץ שלך מוכן לשתילה!</span>
         </button>
       )}
     </div>
@@ -426,6 +417,8 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
       cycleTarget={cycleTarget}
       progressPct={progressPct}
       isMature={isMature}
+      userId={userId}
+      onPlanted={refresh}
     />
     </>
   );
@@ -469,57 +462,107 @@ const FIELD_CELLS: ReadonlyArray<[number, number]> = (() => {
   return cells;
 })();
 
+// ── Field geometry — shared across IsometricField + planting overlay ────────
+// All in arbitrary SVG units; CSS scales the whole thing to container width.
+const FIELD_CELL_W = 30;
+const FIELD_CELL_H = 15;
+const FIELD_PLATE_W = FIELD_GRID * FIELD_CELL_W * 2; // 300
+const FIELD_PLATE_H = FIELD_GRID * FIELD_CELL_H * 2; // 150
+const FIELD_WALL_H = 20;
+const FIELD_PAD_TOP = 56; // headroom so the centre tree doesn't clip
+const FIELD_TOTAL_H = FIELD_PLATE_H + FIELD_WALL_H + FIELD_PAD_TOP;
+const FIELD_ORIGIN_X = FIELD_PLATE_W / 2;
+
+/** Convert (i, j) grid coords to SVG-space (x, y). */
+function cellToScreen(i: number, j: number): [number, number] {
+  const x = FIELD_ORIGIN_X + (j - i) * FIELD_CELL_W;
+  const y = FIELD_PAD_TOP + (i + j + 1) * FIELD_CELL_H;
+  return [x, y];
+}
+
+/**
+ * Convert (i, j) grid coords to CSS percentages of the field container.
+ * Used by both the inside-SVG positioning and the overlay layer (fly-over,
+ * confetti) so they line up exactly.
+ */
+function cellToPct(i: number, j: number): { leftPct: number; topPct: number } {
+  const [x, y] = cellToScreen(i, j);
+  return {
+    leftPct: (x / FIELD_PLATE_W) * 100,
+    topPct: (y / FIELD_TOTAL_H) * 100,
+  };
+}
+
 function IsometricField({
   treesPlanted,
   currentStage,
+  forcedCenterStage,
+  hideCenter = false,
+  hideMatureIndex,
+  children,
 }: {
   treesPlanted: number;
   currentStage: Stage;
+  /** When set, the centre cell ignores `currentStage` and displays this
+   *  stage instead. Used to drive the planting replay 0→1→2→3→4. */
+  forcedCenterStage?: Stage;
+  /** When true the centre tree is not rendered at all. Used during the
+   *  "fly to target cell" phase, where the centre tree visually lifts off. */
+  hideCenter?: boolean;
+  /** When set, suppress the mature tree at FIELD_CELLS[hideMatureIndex].
+   *  Used briefly during planting so the fly-over overlay isn't shadowed by
+   *  an already-rendered mature tree (after the trees_planted commit lands). */
+  hideMatureIndex?: number;
+  /** Slot for overlays positioned in the same coordinate space — fly-over,
+   *  confetti, etc. */
+  children?: React.ReactNode;
 }) {
-  // Geometry — kept in arbitrary SVG units; CSS scales the whole thing.
-  const CELL_W = 30;
-  const CELL_H = 15;
-  const PLATE_W = FIELD_GRID * CELL_W * 2; // 300
-  const PLATE_H = FIELD_GRID * CELL_H * 2; // 150
-  const WALL_H = 20;
-  const PAD_TOP = 56; // headroom so the center tree doesn't clip
-  const TOTAL_H = PLATE_H + WALL_H + PAD_TOP;
-  const ORIGIN_X = PLATE_W / 2;
-
-  // Convert (i, j) grid coords to screen (x, y), with the diamond's top
-  // anchored at (ORIGIN_X, PAD_TOP).
-  function toScreen(i: number, j: number): [number, number] {
-    const x = ORIGIN_X + (j - i) * CELL_W;
-    const y = PAD_TOP + (i + j + 1) * CELL_H;
-    return [x, y];
-  }
-
   // Diamond corners.
-  const topPt: [number, number] = [ORIGIN_X, PAD_TOP];
-  const rightPt: [number, number] = [PLATE_W, PAD_TOP + FIELD_GRID * CELL_H];
-  const botPt: [number, number] = [ORIGIN_X, PAD_TOP + PLATE_H];
-  const leftPt: [number, number] = [0, PAD_TOP + FIELD_GRID * CELL_H];
+  const topPt: [number, number] = [FIELD_ORIGIN_X, FIELD_PAD_TOP];
+  const rightPt: [number, number] = [
+    FIELD_PLATE_W,
+    FIELD_PAD_TOP + FIELD_GRID * FIELD_CELL_H,
+  ];
+  const botPt: [number, number] = [FIELD_ORIGIN_X, FIELD_PAD_TOP + FIELD_PLATE_H];
+  const leftPt: [number, number] = [0, FIELD_PAD_TOP + FIELD_GRID * FIELD_CELL_H];
 
   // Build the list of things to render.
-  type Item = { kind: 'current' | 'mature' | 'sprout'; i: number; j: number };
-  const items: Item[] = [
-    { kind: 'current', i: FIELD_CENTER, j: FIELD_CENTER },
-  ];
+  type Item = {
+    kind: 'current' | 'mature' | 'sprout';
+    i: number;
+    j: number;
+    /** index into FIELD_CELLS (only set for non-current cells) */
+    cellIndex?: number;
+  };
+  const items: Item[] = [];
+  if (!hideCenter) {
+    items.push({ kind: 'current', i: FIELD_CENTER, j: FIELD_CENTER });
+  }
   for (let k = 0; k < FIELD_CELLS.length; k++) {
     const [i, j] = FIELD_CELLS[k];
-    items.push({ kind: k < treesPlanted ? 'mature' : 'sprout', i, j });
+    const isMatureCell = k < treesPlanted;
+    if (isMatureCell && k === hideMatureIndex) continue; // suppress during fly-over
+    items.push({
+      kind: isMatureCell ? 'mature' : 'sprout',
+      i,
+      j,
+      cellIndex: k,
+    });
   }
   // Render back-to-front so closer trees overlap farther ones correctly.
   items.sort((a, b) => a.i + a.j - (b.i + b.j));
 
+  // Which stage the centre tree should show.
+  const centreStage: Stage = forcedCenterStage ?? currentStage;
+
   return (
     <div
       className="relative w-full"
-      style={{ aspectRatio: `${PLATE_W} / ${TOTAL_H}` }}
+      style={{ aspectRatio: `${FIELD_PLATE_W} / ${FIELD_TOTAL_H}` }}
     >
       {/* Plate (background SVG) */}
       <svg
-        viewBox={`0 0 ${PLATE_W} ${TOTAL_H}`}
+        viewBox={`0 0 ${FIELD_PLATE_W} ${FIELD_TOTAL_H}`}
         className="absolute inset-0 w-full h-full"
         preserveAspectRatio="xMidYMid meet"
       >
@@ -540,12 +583,12 @@ function IsometricField({
 
         {/* Left wall */}
         <polygon
-          points={`${leftPt[0]},${leftPt[1]} ${botPt[0]},${botPt[1]} ${botPt[0]},${botPt[1] + WALL_H} ${leftPt[0]},${leftPt[1] + WALL_H}`}
+          points={`${leftPt[0]},${leftPt[1]} ${botPt[0]},${botPt[1]} ${botPt[0]},${botPt[1] + FIELD_WALL_H} ${leftPt[0]},${leftPt[1] + FIELD_WALL_H}`}
           fill="url(#iso-wall-left)"
         />
         {/* Right wall */}
         <polygon
-          points={`${botPt[0]},${botPt[1]} ${rightPt[0]},${rightPt[1]} ${rightPt[0]},${rightPt[1] + WALL_H} ${botPt[0]},${botPt[1] + WALL_H}`}
+          points={`${botPt[0]},${botPt[1]} ${rightPt[0]},${rightPt[1]} ${rightPt[0]},${rightPt[1] + FIELD_WALL_H} ${botPt[0]},${botPt[1] + FIELD_WALL_H}`}
           fill="url(#iso-wall-right)"
         />
         {/* Top grass diamond */}
@@ -560,38 +603,38 @@ function IsometricField({
         {Array.from({ length: FIELD_GRID - 1 }).map((_, k) => {
           const t = k + 1;
           // Lines from top-left edge to bottom-right edge
-          const a1 = toScreen(t, 0);
-          const a2 = toScreen(t, FIELD_GRID - 1);
+          const a1 = cellToScreen(t, 0);
+          const a2 = cellToScreen(t, FIELD_GRID - 1);
           // Lines from top-right edge to bottom-left edge
-          const b1 = toScreen(0, t);
-          const b2 = toScreen(FIELD_GRID - 1, t);
+          const b1 = cellToScreen(0, t);
+          const b2 = cellToScreen(FIELD_GRID - 1, t);
           return (
             <g key={k} stroke="#1d5934" strokeWidth={0.5} opacity={0.35}>
               <line
                 x1={a1[0]}
-                y1={a1[1] - CELL_H}
+                y1={a1[1] - FIELD_CELL_H}
                 x2={a2[0]}
-                y2={a2[1] - CELL_H}
+                y2={a2[1] - FIELD_CELL_H}
               />
               <line
                 x1={b1[0]}
-                y1={b1[1] - CELL_H}
+                y1={b1[1] - FIELD_CELL_H}
                 x2={b2[0]}
-                y2={b2[1] - CELL_H}
+                y2={b2[1] - FIELD_CELL_H}
               />
             </g>
           );
         })}
 
         {/* Soft pedestal under the centre tree to make it pop. */}
-        {(() => {
-          const [x, y] = toScreen(FIELD_CENTER, FIELD_CENTER);
+        {!hideCenter && (() => {
+          const [x, y] = cellToScreen(FIELD_CENTER, FIELD_CENTER);
           return (
             <ellipse
               cx={x}
               cy={y - 2}
-              rx={CELL_W * 1.05}
-              ry={CELL_H * 1.05}
+              rx={FIELD_CELL_W * 1.05}
+              ry={FIELD_CELL_H * 1.05}
               fill="#1d5934"
               opacity={0.4}
             />
@@ -602,7 +645,7 @@ function IsometricField({
       {/* Trees as positioned divs on top of the SVG. Sized in % of the
           plate width so they scale with the container. */}
       {items.map((t) => {
-        const [x, y] = toScreen(t.i, t.j);
+        const { leftPct, topPct } = cellToPct(t.i, t.j);
         // Bigger for the centre tree (the one currently growing), medium for
         // mature trees scattered around, tiny for "potential" sprouts.
         const sizePx =
@@ -612,9 +655,9 @@ function IsometricField({
             key={`${t.kind}-${t.i}-${t.j}`}
             className="absolute pointer-events-none"
             style={{
-              left: `${(x / PLATE_W) * 100}%`,
-              top: `${(y / TOTAL_H) * 100}%`,
-              width: `${(sizePx / PLATE_W) * 100}%`,
+              left: `${leftPct}%`,
+              top: `${topPct}%`,
+              width: `${(sizePx / FIELD_PLATE_W) * 100}%`,
               aspectRatio: '1 / 1',
               // Anchor the BOTTOM-CENTER of the tree at (x, y), since trees
               // grow upward from the soil.
@@ -622,10 +665,13 @@ function IsometricField({
               zIndex: t.kind === 'current' ? 5 : t.i + t.j,
             }}
           >
-            <FieldTreeArt kind={t.kind} currentStage={currentStage} />
+            <FieldTreeArt kind={t.kind} currentStage={centreStage} />
           </div>
         );
       })}
+
+      {/* Overlay layer (fly-over tree, confetti) — same coordinate space. */}
+      {children}
     </div>
   );
 }
@@ -645,7 +691,177 @@ function FieldTreeArt({
   return <Sprout />;
 }
 
+// ── Planting fly-over ───────────────────────────────────────────────────────
+//
+// A single mature-tree element that starts at the centre-cell position and
+// transitions to the target-cell position. We render the same `<MatureTree>`
+// art used elsewhere so the landed tree looks identical to its neighbours.
+//
+// CSS transitions handle the motion: we render at `from` first, then on the
+// next frame swap to `to`. React batches state changes, so we use a
+// requestAnimationFrame guard to ensure the browser sees the "from" position
+// before the "to" position is applied.
+
+function PlantingFlyOver({
+  from,
+  to,
+  phase,
+}: {
+  from: { leftPct: number; topPct: number };
+  to: { leftPct: number; topPct: number };
+  phase: 'flying' | 'confetti';
+}) {
+  // Once we enter 'flying', schedule the position swap on the next frame.
+  const [atTarget, setAtTarget] = useState(false);
+  useEffect(() => {
+    if (phase !== 'flying') {
+      setAtTarget(true); // already landed by the time confetti starts
+      return;
+    }
+    setAtTarget(false);
+    const id = requestAnimationFrame(() => setAtTarget(true));
+    return () => cancelAnimationFrame(id);
+  }, [phase]);
+
+  const pos = atTarget ? to : from;
+  // Centre tree displays at ~68px on a 300-unit plate (~22.7% width); mature
+  // peripheral trees at ~42px (~14%). We animate the size down to match the
+  // landed-tree size.
+  const sizeStartPct = (68 / FIELD_PLATE_W) * 100;
+  const sizeEndPct = (42 / FIELD_PLATE_W) * 100;
+  const sizePct = atTarget ? sizeEndPct : sizeStartPct;
+
+  return (
+    <div
+      className="absolute pointer-events-none"
+      style={{
+        left: `${pos.leftPct}%`,
+        top: `${pos.topPct}%`,
+        width: `${sizePct}%`,
+        aspectRatio: '1 / 1',
+        transform: 'translate(-50%, -88%)',
+        transition: `left ${PLANT_FLY_MS}ms cubic-bezier(0.34, 1.2, 0.64, 1), top ${PLANT_FLY_MS}ms cubic-bezier(0.34, 1.2, 0.64, 1), width ${PLANT_FLY_MS}ms ease-in-out`,
+        zIndex: 20,
+        filter:
+          phase === 'flying'
+            ? 'drop-shadow(0 6px 8px rgba(0,0,0,0.35))'
+            : 'none',
+      }}
+    >
+      <MatureTree />
+    </div>
+  );
+}
+
+// ── Confetti burst ──────────────────────────────────────────────────────────
+//
+// Pure-CSS celebration: ~24 absolutely-positioned coloured chips that fly
+// outward, rotate, and fade. Stable per mount (random offsets are sampled
+// once via useMemo) so React re-renders don't restart the animation.
+
+const CONFETTI_COLORS = [
+  '#FFD24C', // warm yellow
+  '#4ED371', // forest light
+  '#27AE92', // forest mid
+  '#FF7A59', // coral
+  '#5BB3FF', // sky
+  '#F2B5D4', // soft pink
+];
+const CONFETTI_COUNT = 24;
+
+type ConfettiParticle = {
+  id: number;
+  /** Final offset in pixels relative to burst origin. */
+  dxPx: number;
+  dyPx: number;
+  color: string;
+  rotateDeg: number;
+  delayMs: number;
+  sizePx: number;
+  shape: 'square' | 'circle';
+};
+
+function ConfettiBurst({
+  at,
+  durationMs,
+}: {
+  at: { leftPct: number; topPct: number };
+  durationMs: number;
+}) {
+  const particles = useMemo<ConfettiParticle[]>(() => {
+    const out: ConfettiParticle[] = [];
+    for (let i = 0; i < CONFETTI_COUNT; i++) {
+      // Even angular distribution with a bit of jitter, biased slightly upward.
+      const base = (i / CONFETTI_COUNT) * 360;
+      const jitter = (Math.random() - 0.5) * 25;
+      const angleRad = ((base + jitter) * Math.PI) / 180;
+      const distPx = 60 + Math.random() * 50; // 60–110 px outward
+      out.push({
+        id: i,
+        dxPx: Math.cos(angleRad) * distPx,
+        // Bias dy upward so chips arc up first, then gravity-style fall happens
+        // via the keyframe (we add +30px in the final frame below).
+        dyPx: Math.sin(angleRad) * distPx - 25,
+        color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        rotateDeg: Math.random() * 720 - 360,
+        delayMs: Math.random() * 80,
+        sizePx: 5 + Math.random() * 5,
+        shape: Math.random() < 0.5 ? 'square' : 'circle',
+      });
+    }
+    return out;
+  }, []);
+
+  return (
+    <div
+      className="absolute pointer-events-none"
+      style={{
+        left: `${at.leftPct}%`,
+        top: `${at.topPct - 4}%`, // burst from just above the tree base
+        width: 0,
+        height: 0,
+        zIndex: 25,
+      }}
+    >
+      {particles.map((p) => (
+        <span
+          key={p.id}
+          className="absolute"
+          style={{
+            left: 0,
+            top: 0,
+            width: `${p.sizePx}px`,
+            height: `${p.sizePx}px`,
+            backgroundColor: p.color,
+            borderRadius: p.shape === 'circle' ? '50%' : '2px',
+            // Custom properties consumed by the @keyframes confetti-fly in index.css.
+            ['--cf-dx' as string]: `${p.dxPx}px`,
+            ['--cf-dy' as string]: `${p.dyPx}px`,
+            ['--cf-rot' as string]: `${p.rotateDeg}deg`,
+            animation: `confetti-fly ${durationMs}ms cubic-bezier(0.2, 0.7, 0.4, 1) ${p.delayMs}ms forwards`,
+            opacity: 0,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 // ── Field Modal ──────────────────────────────────────────────────────────────
+
+// ── Planting animation timing ──────────────────────────────────────────────
+// All durations in ms. Tuned so the whole sequence feels celebratory but not
+// tedious — ~3.5s total from button-click to "ready to dismiss".
+const PLANT_GROW_PER_STAGE_MS = 320; // 5 stages → ~1.6s
+const PLANT_GROW_MS = PLANT_GROW_PER_STAGE_MS * 5;
+const PLANT_GROW_PAUSE_MS = 150; // brief hold on mature before take-off
+const PLANT_FLY_MS = 750;
+const PLANT_CONFETTI_MS = 1200;
+/** When during the confetti phase do we commit trees_planted++ to Supabase. */
+const PLANT_COMMIT_AT_MS = 500;
+
+type PlantingPhase = 'idle' | 'growing' | 'flying' | 'confetti';
 
 function TreeFieldModal({
   open,
@@ -658,6 +874,8 @@ function TreeFieldModal({
   cycleTarget,
   progressPct,
   isMature,
+  userId,
+  onPlanted,
 }: {
   open: boolean;
   onClose: () => void;
@@ -669,6 +887,10 @@ function TreeFieldModal({
   cycleTarget: number;
   progressPct: number;
   isMature: boolean;
+  userId: string;
+  /** Called after trees_planted has been bumped in Supabase so the parent
+   *  can refresh the profile. */
+  onPlanted: () => void | Promise<void>;
 }) {
   // Lock body scroll while the modal is open so the page underneath can't
   // bounce around (especially on mobile).
@@ -680,6 +902,118 @@ function TreeFieldModal({
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  // ── Planting choreography ────────────────────────────────────────────────
+  // `plantingPhase` drives what the IsometricField and overlay layer render
+  // during the animation. We snapshot `treesPlanted` at the moment the
+  // animation starts so the visible state doesn't jump when the Supabase
+  // increment lands mid-animation.
+  const [plantingPhase, setPlantingPhase] = useState<PlantingPhase>('idle');
+  const [growingStage, setGrowingStage] = useState<Stage>(0);
+  const [animTreesPlanted, setAnimTreesPlanted] = useState<number>(treesPlanted);
+  /** The FIELD_CELLS index where the newly-grown tree will land. Captured
+   *  at animation start so it doesn't move when treesPlanted increments
+   *  mid-animation. */
+  const [targetCellIndex, setTargetCellIndex] = useState<number>(0);
+  const hasCommittedRef = useRef<boolean>(false);
+  /** All timers currently scheduled by an in-flight planting animation —
+   *  tracked so we can clean them up if the modal closes mid-animation. */
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // While we are NOT animating, mirror the live treesPlanted into the
+  // freeze-snapshot so the field reflects reality.
+  useEffect(() => {
+    if (plantingPhase === 'idle') setAnimTreesPlanted(treesPlanted);
+  }, [treesPlanted, plantingPhase]);
+
+  // Clean up any pending timers if the modal closes / unmounts.
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+    };
+  }, []);
+
+  // Triggered by the in-modal "plant your tree" button.
+  const startPlanting = () => {
+    if (plantingPhase !== 'idle') return; // already animating
+    if (!isMature) return; // shouldn't happen — button is hidden in that case
+
+    // Snapshot the pre-plant tree count for the duration of the animation.
+    const targetIndex = treesPlanted; // FIELD_CELLS[targetIndex] is where the new tree lands
+    setAnimTreesPlanted(targetIndex);
+    setTargetCellIndex(targetIndex);
+    hasCommittedRef.current = false;
+
+    // ── Phase 1: growing replay (0 → 4) ──────────────────────────────────
+    setPlantingPhase('growing');
+    setGrowingStage(0);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let s = 1; s <= 4; s++) {
+      timers.push(
+        setTimeout(() => setGrowingStage(s as Stage), s * PLANT_GROW_PER_STAGE_MS),
+      );
+    }
+
+    // ── Phase 2: fly to target cell ──────────────────────────────────────
+    const flyAt = PLANT_GROW_MS + PLANT_GROW_PAUSE_MS;
+    timers.push(setTimeout(() => setPlantingPhase('flying'), flyAt));
+
+    // ── Phase 3: confetti burst ──────────────────────────────────────────
+    const confettiAt = flyAt + PLANT_FLY_MS;
+    timers.push(setTimeout(() => setPlantingPhase('confetti'), confettiAt));
+
+    // ── Commit trees_planted++ to Supabase mid-confetti ──────────────────
+    const commitAt = confettiAt + PLANT_COMMIT_AT_MS;
+    timers.push(
+      setTimeout(async () => {
+        if (hasCommittedRef.current) return;
+        hasCommittedRef.current = true;
+        if (userId) {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ trees_planted: targetIndex + 1 })
+            .eq('id', userId);
+          if (error) {
+            console.error('[TreeFieldModal] failed to bump trees_planted:', error);
+          } else {
+            await onPlanted();
+            // After refresh, reflect the new count in the frozen snapshot too.
+            setAnimTreesPlanted(targetIndex + 1);
+          }
+        }
+      }, commitAt),
+    );
+
+    // ── Phase 4: back to idle once confetti finishes ─────────────────────
+    const idleAt = confettiAt + PLANT_CONFETTI_MS;
+    timers.push(setTimeout(() => setPlantingPhase('idle'), idleAt));
+
+    timersRef.current = timers;
+  };
+
+  // The new tree's target cell — captured in state at animation start.
+  const [targetI, targetJ] =
+    targetCellIndex < FIELD_CELLS.length
+      ? FIELD_CELLS[targetCellIndex]
+      : FIELD_CELLS[FIELD_CELLS.length - 1]; // safety fallback if field is full
+  const targetCellPct = cellToPct(targetI, targetJ);
+  const centerCellPct = cellToPct(FIELD_CENTER, FIELD_CENTER);
+
+  // What the field should display right now.
+  const fieldTreesPlanted =
+    plantingPhase === 'idle' ? treesPlanted : animTreesPlanted;
+  const forcedCenterStage: Stage | undefined =
+    plantingPhase === 'growing' ? growingStage : undefined;
+  const hideCenter = plantingPhase === 'flying' || plantingPhase === 'confetti';
+  // After the Supabase commit lands the field would naturally render a mature
+  // tree at the target cell. During the fly-over we want the overlay to be
+  // the only thing visible there.
+  const hideMatureIndex =
+    plantingPhase === 'flying' || plantingPhase === 'confetti'
+      ? targetCellIndex
+      : undefined;
+  const isAnimating = plantingPhase !== 'idle';
 
   // Enter / exit animation lifecycle.
   // We keep the modal mounted for ~200ms after `open` flips to false so the
@@ -711,7 +1045,11 @@ function TreeFieldModal({
       className={`fixed inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 ${
         isExiting ? 'animate-modal-fade-out' : 'animate-modal-fade-in'
       }`}
-      onClick={onClose}
+      onClick={() => {
+        // Don't let the user dismiss the modal mid-planting — they'd miss
+        // the moment we just made all that fuss about.
+        if (!isAnimating) onClose();
+      }}
       role="dialog"
       aria-modal="true"
     >
@@ -726,7 +1064,8 @@ function TreeFieldModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-ink-300 hover:text-ink-100"
+            disabled={isAnimating}
+            className="p-1 text-ink-300 hover:text-ink-100 disabled:opacity-30 disabled:hover:text-ink-300"
             aria-label="סגור"
           >
             <X size={20} />
@@ -737,9 +1076,24 @@ function TreeFieldModal({
         {/* Isometric plot */}
         <div className="px-3 pb-1">
           <IsometricField
-            treesPlanted={treesPlanted}
+            treesPlanted={fieldTreesPlanted}
             currentStage={stage}
-          />
+            forcedCenterStage={forcedCenterStage}
+            hideCenter={hideCenter}
+            hideMatureIndex={hideMatureIndex}
+          >
+            {/* ── Planting overlays — same coordinate space as the field ── */}
+            {(plantingPhase === 'flying' || plantingPhase === 'confetti') && (
+              <PlantingFlyOver
+                from={centerCellPct}
+                to={targetCellPct}
+                phase={plantingPhase}
+              />
+            )}
+            {plantingPhase === 'confetti' && (
+              <ConfettiBurst at={targetCellPct} durationMs={PLANT_CONFETTI_MS} />
+            )}
+          </IsometricField>
         </div>
 
         {/* Stats */}
@@ -791,14 +1145,38 @@ function TreeFieldModal({
             </span>
           </div>
 
-          {/* Continue — closes the modal and returns to the habits view. */}
-          <button
-            type="button"
-            onClick={onClose}
-            className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md"
-          >
-            המשך
-          </button>
+          {/* Action row — when the tree is mature the user sees TWO buttons:
+              the planting CTA on the right (RTL) and the dismiss "המשך" on
+              the left. Once planted (or if the tree wasn't ready) only the
+              "המשך" button shows, full-width. */}
+          {isMature && plantingPhase === 'idle' ? (
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={startPlanting}
+                className="flex-1 rounded-xl bg-forest-500 hover:bg-forest-400 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md flex items-center justify-center gap-1.5"
+              >
+                <Emoji emoji="🌍" size={16} />
+                <span>שתול את העץ שלך</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-xl bg-surface-raised hover:bg-surface-raised/70 active:scale-[0.98] transition-all py-3 text-ink-100 text-sm font-bold shadow-md"
+              >
+                המשך
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isAnimating}
+              className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-wait disabled:active:scale-100"
+            >
+              המשך
+            </button>
+          )}
         </div>
       </div>
     </div>
