@@ -31,6 +31,10 @@ import {
   HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
+// Twemoji wrapper — turns an emoji character into a hosted SVG so it renders
+// identically on every device instead of falling back to whatever emoji font
+// the user's OS happens to have.
+import { Emoji } from '../../components/Emoji';
 
 // Whitelist of icons available to habits.
 // Catalog seed and custom-habit picker reference these names.
@@ -201,20 +205,24 @@ export function HabitIcon({ name, size = 20, strokeWidth = 1.8, className }: Pro
     const Icon = ICONS[name];
     return <Icon size={size} strokeWidth={strokeWidth} className={className} />;
   }
-  // Emoji / fallback text path — sized via font-size so it matches the box.
+  // Emoji path — routed through <Emoji /> so it renders as a Twemoji SVG and
+  // looks identical on every device, regardless of which OS emoji font the
+  // user has. Wrapped in a centered flex box so it occupies the same square
+  // a Lucide icon would, with the same baseline.
   if (name && name.trim().length > 0) {
     return (
       <span
         className={className}
         style={{
-          fontSize: size * 1.1,
+          width: size,
+          height: size,
           lineHeight: 1,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        {name}
+        <Emoji emoji={name} size={Math.round(size * 1.05)} />
       </span>
     );
   }

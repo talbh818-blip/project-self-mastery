@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { Emoji } from '../../components/Emoji';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
 
@@ -286,11 +287,11 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
           className="absolute inset-x-3 top-2 z-10 rounded-xl bg-forest-200/95 backdrop-blur-sm px-3 py-2.5 text-right shadow-lg w-[calc(100%-1.5rem)] text-start"
           aria-label="סגור הסבר"
         >
-          <p className="text-sm font-semibold text-ink-100 leading-snug">
-            🌱 הניקוד שלך משקה עץ דיגיטלי
+          <p className="text-sm font-semibold text-ink-100 leading-snug inline-flex items-center gap-1.5">
+            <Emoji emoji="🌱" size={16} /> הניקוד שלך משקה עץ דיגיטלי
           </p>
-          <p className="text-[11px] text-ink-300 mt-0.5 leading-relaxed">
-            כשהעץ יבשיל — תוכל לשתול עץ אמיתי באפריקה 🌍
+          <p className="text-[11px] text-ink-300 mt-0.5 leading-relaxed inline-flex items-center gap-1">
+            כשהעץ יבשיל — תוכל לשתול עץ אמיתי באפריקה <Emoji emoji="🌍" size={13} />
           </p>
         </button>
       )}
@@ -332,7 +333,7 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
             </span>
             <span className="text-[10px] tabular-nums">
               {isMature ? (
-                <span className="text-forest-400 font-bold">מוכן לשתילה! 🎉</span>
+                <span className="text-forest-400 font-bold inline-flex items-center gap-1">מוכן לשתילה! <Emoji emoji="🎉" size={13} /></span>
               ) : (
                 <span className="text-ink-300 font-semibold">{progressPct}%</span>
               )}
@@ -752,8 +753,8 @@ function TreeFieldModal({
               </span>
               <span>
                 {isMature ? (
-                  <span className="text-forest-400 font-bold">
-                    מוכן לשתילה! 🎉
+                  <span className="text-forest-400 font-bold inline-flex items-center gap-1">
+                    מוכן לשתילה! <Emoji emoji="🎉" size={13} />
                   </span>
                 ) : (
                   `${progressPct}%`
