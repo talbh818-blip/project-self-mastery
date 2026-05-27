@@ -881,11 +881,13 @@ function HabitRow({
                 streakCount = 0;
                 return { dateStr, future, mark, streakDepth: 0 };
               }
-              if (mark === 'V' || mark === 'X' || mark === 'auto_x') {
+              if (mark === 'V' || mark === 'X') {
+                // V = success, X = explicit failure — both reset the streak.
                 streakCount = 0;
                 return { dateStr, future, mark, streakDepth: 0 };
               }
-              // Blank (no log) after habit creation = missed day → streak grows
+              // Blank (undefined) OR auto_x (virtual, not stored in DB) =
+              // missed day → streak grows and cell turns progressively red.
               streakCount++;
               return { dateStr, future, mark, streakDepth: streakCount };
             });
