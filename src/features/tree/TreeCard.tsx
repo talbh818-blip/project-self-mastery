@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
 
@@ -255,14 +256,33 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
 
   const TreeSVGComponent = TREE_BY_STAGE[stage];
 
+  // ── Field popup state ────────────────────────────────────────────────────
+  const [fieldOpen, setFieldOpen] = useState(false);
+
   return (
-    <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative overflow-hidden">
+    <>
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label="פתח את החלקה שלי"
+      onClick={() => setFieldOpen(true)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          setFieldOpen(true);
+        }
+      }}
+      className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative overflow-hidden cursor-pointer hover:border-forest-600/50 hover:bg-surface-card/80 transition-colors text-right"
+    >
 
       {/* ── First-time tooltip ─────────────────────────────────────────── */}
       {showTooltip && (
         <button
           type="button"
-          onClick={() => setShowTooltip(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowTooltip(false);
+          }}
           className="absolute inset-x-3 top-2 z-10 rounded-xl bg-forest-200/95 backdrop-blur-sm px-3 py-2.5 text-right shadow-lg w-[calc(100%-1.5rem)] text-start"
           aria-label="סגור הסבר"
         >
@@ -369,13 +389,369 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
       {isMature && (
         <button
           type="button"
-          onClick={handlePlant}
+          onClick={(e) => {
+            e.stopPropagation();
+            handlePlant();
+          }}
           className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-95 transition-all py-2.5 text-cream-50 text-sm font-bold flex items-center justify-center gap-2 shadow-md"
         >
           <span>🌍</span>
           <span>שתול עץ אמיתי באפריקה — $1</span>
         </button>
       )}
+    </div>
+
+    {/* ── Field popup — full isometric plot of all the user's trees ── */}
+    <TreeFieldModal
+      open={fieldOpen}
+      onClose={() => setFieldOpen(false)}
+      totalScore={totalScore}
+      treesPlanted={treesPlanted}
+      stage={stage}
+      stageLabel={STAGE_LABELS[stage]}
+      cycleScore={cycleScore}
+      cycleTarget={cycleTarget}
+      progressPct={progressPct}
+      isMature={isMature}
+    />
+    </>
+  );
+}
+
+// ── Isometric Field ──────────────────────────────────────────────────────────
+//
+// A diamond-shaped grass plot in light isometric projection. The user's
+// current growing tree sits at the center; mature trees fan out from the
+// center based on how many they have already planted; every other slot
+// shows a small sprout to suggest "future plantings."
+//
+// Slot ordering is deterministic so trees stay put across re-renders.
+// Cells are sorted by distance-from-center first (so mature trees grow
+// outward as the count increases), then by angle within the same ring
+// for visual variety.
+
+const FIELD_GRID = 5;
+const FIELD_CENTER = 2;
+
+const FIELD_CELLS: ReadonlyArray<[number, number]> = (() => {
+  const cells: Array<[number, number]> = [];
+  for (let i = 0; i < FIELD_GRID; i++) {
+    for (let j = 0; j < FIELD_GRID; j++) {
+      if (i === FIELD_CENTER && j === FIELD_CENTER) continue;
+      cells.push([i, j]);
+    }
+  }
+  cells.sort((a, b) => {
+    const da = Math.hypot(a[0] - FIELD_CENTER, a[1] - FIELD_CENTER);
+    const db = Math.hypot(b[0] - FIELD_CENTER, b[1] - FIELD_CENTER);
+    if (Math.abs(da - db) < 0.05) {
+      // Same ring — sort by angle so positions don't look perfectly symmetric.
+      return (
+        Math.atan2(a[0] - FIELD_CENTER, a[1] - FIELD_CENTER) -
+        Math.atan2(b[0] - FIELD_CENTER, b[1] - FIELD_CENTER)
+      );
+    }
+    return da - db;
+  });
+  return cells;
+})();
+
+function IsometricField({
+  treesPlanted,
+  currentStage,
+}: {
+  treesPlanted: number;
+  currentStage: Stage;
+}) {
+  // Geometry — kept in arbitrary SVG units; CSS scales the whole thing.
+  const CELL_W = 30;
+  const CELL_H = 15;
+  const PLATE_W = FIELD_GRID * CELL_W * 2; // 300
+  const PLATE_H = FIELD_GRID * CELL_H * 2; // 150
+  const WALL_H = 20;
+  const PAD_TOP = 56; // headroom so the center tree doesn't clip
+  const TOTAL_H = PLATE_H + WALL_H + PAD_TOP;
+  const ORIGIN_X = PLATE_W / 2;
+
+  // Convert (i, j) grid coords to screen (x, y), with the diamond's top
+  // anchored at (ORIGIN_X, PAD_TOP).
+  function toScreen(i: number, j: number): [number, number] {
+    const x = ORIGIN_X + (j - i) * CELL_W;
+    const y = PAD_TOP + (i + j + 1) * CELL_H;
+    return [x, y];
+  }
+
+  // Diamond corners.
+  const topPt: [number, number] = [ORIGIN_X, PAD_TOP];
+  const rightPt: [number, number] = [PLATE_W, PAD_TOP + FIELD_GRID * CELL_H];
+  const botPt: [number, number] = [ORIGIN_X, PAD_TOP + PLATE_H];
+  const leftPt: [number, number] = [0, PAD_TOP + FIELD_GRID * CELL_H];
+
+  // Build the list of things to render.
+  type Item = { kind: 'current' | 'mature' | 'sprout'; i: number; j: number };
+  const items: Item[] = [
+    { kind: 'current', i: FIELD_CENTER, j: FIELD_CENTER },
+  ];
+  for (let k = 0; k < FIELD_CELLS.length; k++) {
+    const [i, j] = FIELD_CELLS[k];
+    items.push({ kind: k < treesPlanted ? 'mature' : 'sprout', i, j });
+  }
+  // Render back-to-front so closer trees overlap farther ones correctly.
+  items.sort((a, b) => a.i + a.j - (b.i + b.j));
+
+  return (
+    <div
+      className="relative w-full"
+      style={{ aspectRatio: `${PLATE_W} / ${TOTAL_H}` }}
+    >
+      {/* Plate (background SVG) */}
+      <svg
+        viewBox={`0 0 ${PLATE_W} ${TOTAL_H}`}
+        className="absolute inset-0 w-full h-full"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        <defs>
+          <linearGradient id="iso-grass" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#4DA76A" />
+            <stop offset="100%" stopColor="#236B40" />
+          </linearGradient>
+          <linearGradient id="iso-wall-left" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#8B6332" />
+            <stop offset="100%" stopColor="#4A341A" />
+          </linearGradient>
+          <linearGradient id="iso-wall-right" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#6E4E26" />
+            <stop offset="100%" stopColor="#352511" />
+          </linearGradient>
+        </defs>
+
+        {/* Left wall */}
+        <polygon
+          points={`${leftPt[0]},${leftPt[1]} ${botPt[0]},${botPt[1]} ${botPt[0]},${botPt[1] + WALL_H} ${leftPt[0]},${leftPt[1] + WALL_H}`}
+          fill="url(#iso-wall-left)"
+        />
+        {/* Right wall */}
+        <polygon
+          points={`${botPt[0]},${botPt[1]} ${rightPt[0]},${rightPt[1]} ${rightPt[0]},${rightPt[1] + WALL_H} ${botPt[0]},${botPt[1] + WALL_H}`}
+          fill="url(#iso-wall-right)"
+        />
+        {/* Top grass diamond */}
+        <polygon
+          points={`${topPt[0]},${topPt[1]} ${rightPt[0]},${rightPt[1]} ${botPt[0]},${botPt[1]} ${leftPt[0]},${leftPt[1]}`}
+          fill="url(#iso-grass)"
+          stroke="#1d5934"
+          strokeWidth={1}
+        />
+
+        {/* Subtle grid lines on the grass — gives the iso-cube feel. */}
+        {Array.from({ length: FIELD_GRID - 1 }).map((_, k) => {
+          const t = k + 1;
+          // Lines from top-left edge to bottom-right edge
+          const a1 = toScreen(t, 0);
+          const a2 = toScreen(t, FIELD_GRID - 1);
+          // Lines from top-right edge to bottom-left edge
+          const b1 = toScreen(0, t);
+          const b2 = toScreen(FIELD_GRID - 1, t);
+          return (
+            <g key={k} stroke="#1d5934" strokeWidth={0.5} opacity={0.35}>
+              <line
+                x1={a1[0]}
+                y1={a1[1] - CELL_H}
+                x2={a2[0]}
+                y2={a2[1] - CELL_H}
+              />
+              <line
+                x1={b1[0]}
+                y1={b1[1] - CELL_H}
+                x2={b2[0]}
+                y2={b2[1] - CELL_H}
+              />
+            </g>
+          );
+        })}
+
+        {/* Soft pedestal under the centre tree to make it pop. */}
+        {(() => {
+          const [x, y] = toScreen(FIELD_CENTER, FIELD_CENTER);
+          return (
+            <ellipse
+              cx={x}
+              cy={y - 2}
+              rx={CELL_W * 1.05}
+              ry={CELL_H * 1.05}
+              fill="#1d5934"
+              opacity={0.4}
+            />
+          );
+        })()}
+      </svg>
+
+      {/* Trees as positioned divs on top of the SVG. Sized in % of the
+          plate width so they scale with the container. */}
+      {items.map((t) => {
+        const [x, y] = toScreen(t.i, t.j);
+        // Bigger for the centre tree (the one currently growing), medium for
+        // mature trees scattered around, tiny for "potential" sprouts.
+        const sizePx =
+          t.kind === 'current' ? 68 : t.kind === 'mature' ? 42 : 18;
+        return (
+          <div
+            key={`${t.kind}-${t.i}-${t.j}`}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${(x / PLATE_W) * 100}%`,
+              top: `${(y / TOTAL_H) * 100}%`,
+              width: `${(sizePx / PLATE_W) * 100}%`,
+              aspectRatio: '1 / 1',
+              // Anchor the BOTTOM-CENTER of the tree at (x, y), since trees
+              // grow upward from the soil.
+              transform: 'translate(-50%, -88%)',
+              zIndex: t.kind === 'current' ? 5 : t.i + t.j,
+            }}
+          >
+            <FieldTreeArt kind={t.kind} currentStage={currentStage} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function FieldTreeArt({
+  kind,
+  currentStage,
+}: {
+  kind: 'current' | 'mature' | 'sprout';
+  currentStage: Stage;
+}) {
+  if (kind === 'current') {
+    const CurrentTree = TREE_BY_STAGE[currentStage];
+    return <CurrentTree />;
+  }
+  if (kind === 'mature') return <MatureTree />;
+  return <Sprout />;
+}
+
+// ── Field Modal ──────────────────────────────────────────────────────────────
+
+function TreeFieldModal({
+  open,
+  onClose,
+  totalScore,
+  treesPlanted,
+  stage,
+  stageLabel,
+  cycleScore,
+  cycleTarget,
+  progressPct,
+  isMature,
+}: {
+  open: boolean;
+  onClose: () => void;
+  totalScore: number;
+  treesPlanted: number;
+  stage: Stage;
+  stageLabel: string;
+  cycleScore: number;
+  cycleTarget: number;
+  progressPct: number;
+  isMature: boolean;
+}) {
+  // Lock body scroll while the modal is open so the page underneath can't
+  // bounce around (especially on mobile).
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="w-full sm:max-w-md bg-surface-card rounded-t-3xl sm:rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <header className="flex items-center justify-between px-5 pt-4 pb-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 text-ink-300 hover:text-ink-100"
+            aria-label="סגור"
+          >
+            <X size={20} />
+          </button>
+          <h2 className="text-base font-bold text-ink-100">החלקה שלי</h2>
+        </header>
+
+        {/* Isometric plot */}
+        <div className="px-3 pb-1">
+          <IsometricField
+            treesPlanted={treesPlanted}
+            currentStage={stage}
+          />
+        </div>
+
+        {/* Stats */}
+        <div className="px-5 pb-5 pt-1 space-y-3">
+          {/* Trees planted + stage label */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-baseline gap-1.5 text-ink-100">
+              <span className="text-xs text-ink-300">עצים שתולים:</span>
+              <span className="text-base font-bold tabular-nums">
+                {treesPlanted}
+              </span>
+            </div>
+            <span className="text-xs font-semibold text-ink-100 tracking-wide">
+              {stageLabel}
+            </span>
+          </div>
+
+          {/* Progress bar for the current tree */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-[11px] tabular-nums text-ink-300">
+              <span>
+                {cycleScore} / {cycleTarget}
+              </span>
+              <span>
+                {isMature ? (
+                  <span className="text-forest-400 font-bold">
+                    מוכן לשתילה! 🎉
+                  </span>
+                ) : (
+                  `${progressPct}%`
+                )}
+              </span>
+            </div>
+            <div className="relative h-2.5 rounded-full bg-surface-raised overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${
+                  isMature ? 'bg-forest-400' : 'bg-forest-600'
+                }`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Total score */}
+          <div className="flex items-center justify-center gap-2 pt-1">
+            <span className="text-sm text-ink-300">ניקוד כולל:</span>
+            <span className="text-2xl font-bold text-ink-100 tabular-nums leading-none">
+              {totalScore}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
