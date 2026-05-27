@@ -1,12 +1,14 @@
 // ============================================================================
-// <Emoji /> — render an emoji as a Twemoji SVG image instead of leaving it to
-// the OS to draw. The OS-painted glyph for "🔥" looks wildly different on
-// iOS 18, Android 8, Windows 10, etc.; using a hosted SVG locks the visual to
-// one consistent set across every device the app runs on.
+// <Emoji /> — render an emoji as a hosted PNG/SVG image instead of letting
+// the OS draw it. The OS-painted glyph for "🔥" looks wildly different on
+// iOS 18, Android 8, Windows 10, etc.; serving a hosted asset locks the
+// visual to one consistent set across every device the app runs on.
 //
-// Source:  jdecked/twemoji (the actively-maintained Twemoji fork)
-// CDN:     jsDelivr — pinned to a specific version so cache stays warm and
-//          the visual doesn't shift if upstream releases new assets.
+// Source:  Microsoft Fluent UI Emoji (the colorful 3D set).
+//          MIT-licensed, free to use commercially.
+// CDN:     emojicdn.elk.sh — a tiny redirector that takes an emoji char and
+//          a style (here: "microsoft") and returns the appropriate Fluent
+//          asset. Saves us from shipping a 1500-entry emoji → filename map.
 //
 // Replacing a `<span>{emoji}</span>` with `<Emoji emoji={emoji} size={…} />`
 // is the only thing a caller has to change.
@@ -14,29 +16,8 @@
 
 import type { CSSProperties } from 'react';
 
-// Pin the Twemoji asset version so the rendered glyph never moves under us.
-// Bump intentionally when we want updated artwork; do not use "latest".
-const TWEMOJI_VERSION = '15.1.0';
-const TWEMOJI_CDN_BASE =
-  `https://cdn.jsdelivr.net/gh/jdecked/twemoji@${TWEMOJI_VERSION}/assets/svg`;
-
-// Convert an emoji string to the dash-joined hex codepoint sequence Twemoji
-// uses for filenames. Handles:
-//   - surrogate pairs (codePointAt walks them correctly)
-//   - ZWJ-joined emoji ("👨‍👩‍👧" → "1f468-200d-1f469-200d-1f467")
-//   - the U+FE0F variation selector, which Twemoji strips from filenames
-//     unless the base codepoint requires it. We strip it across the board —
-//     that's what Twemoji's own parser does for the bulk of the catalog.
-function toTwemojiCodepoint(emoji: string): string {
-  const codepoints: string[] = [];
-  for (const ch of emoji) {
-    const cp = ch.codePointAt(0);
-    if (cp == null) continue;
-    if (cp === 0xfe0f) continue;
-    codepoints.push(cp.toString(16));
-  }
-  return codepoints.join('-');
-}
+const EMOJI_STYLE = 'microsoft'; // Microsoft Fluent 3D
+const EMOJI_CDN_BASE = 'https://emojicdn.elk.sh';
 
 type EmojiProps = {
   /** The raw emoji character(s), e.g. "🔥", "✨", "👨‍👩‍👧". */
@@ -61,8 +42,9 @@ export function Emoji({
   ariaLabel,
   style,
 }: EmojiProps) {
-  const codepoint = toTwemojiCodepoint(emoji);
-  const src = `${TWEMOJI_CDN_BASE}/${codepoint}.svg`;
+  // The CDN expects the emoji character itself in the path. encodeURIComponent
+  // turns the multibyte glyph into URL-safe percent-encoding.
+  const src = `${EMOJI_CDN_BASE}/${encodeURIComponent(emoji)}?style=${EMOJI_STYLE}`;
   const decorative = ariaLabel === '';
   return (
     <img
@@ -74,8 +56,8 @@ export function Emoji({
       draggable={false}
       className={`inline-block align-[-0.15em] ${className}`}
       style={style}
-      // If Twemoji doesn't have this codepoint for some reason, fall back to
-      // the OS emoji so the user still sees *something* recognizable.
+      // If the CDN can't serve this emoji for some reason, fall back to the
+      // OS glyph so the user still sees *something* recognizable.
       onError={(e) => {
         const img = e.currentTarget;
         const fallback = document.createElement('span');
