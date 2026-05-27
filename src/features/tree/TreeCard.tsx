@@ -2,19 +2,33 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
 
-/** Minimum cycle-score needed to enter each stage (index = stage). */
-const STAGE_THRESHOLDS = [0, 100, 250, 450, 650] as const;
+/**
+ * Cycle-score required to fully grow a tree, by tree index (0-based).
+ * First two trees have a "discount" to give early momentum; from the third
+ * tree on the cycle stabilises at 650.
+ */
+const CYCLE_TARGETS = [200, 400] as const;
+const DEFAULT_CYCLE_TARGET = 650;
 
-/** Cycle-score at which the tree is "mature" and can be planted. */
-const CYCLE_TARGET = 650;
+function cycleTargetFor(treeIndex: number): number {
+  return CYCLE_TARGETS[treeIndex] ?? DEFAULT_CYCLE_TARGET;
+}
+
+/** Relative stage thresholds as fractions of the cycle target. */
+const STAGE_RATIOS = [0, 100 / 650, 250 / 650, 450 / 650, 1] as const;
+
+/** Stage thresholds scaled to a given cycle target (index = stage). */
+function stageThresholdsFor(cycleTarget: number): number[] {
+  return STAGE_RATIOS.map((r) => Math.round(r * cycleTarget));
+}
 
 const STAGE_LABELS = ['זרע', 'שתיל', 'עץ צעיר', 'עץ גדל', 'עץ בשל'] as const;
 
 type Stage = 0 | 1 | 2 | 3 | 4;
 
-function stageFor(pts: number): Stage {
-  for (let i = STAGE_THRESHOLDS.length - 1; i >= 0; i--) {
-    if (pts >= STAGE_THRESHOLDS[i]) return i as Stage;
+function stageFor(pts: number, thresholds: number[]): Stage {
+  for (let i = thresholds.length - 1; i >= 0; i--) {
+    if (pts >= thresholds[i]) return i as Stage;
   }
   return 0;
 }
@@ -92,8 +106,10 @@ function YoungTree() {
   );
 }
 
-/** Stage 4 — full mature tree with glow and sparkle details */
-function MatureTree() {
+/** Stage 4 — full mature tree with glow and sparkle details.
+ *  Exported so other screens (e.g. the data dashboard) can reuse the
+ *  illustration as an icon. */
+export function MatureTree() {
   return (
     <svg viewBox="10 5 100 95" width="100%" height="100%" aria-hidden>
       {/* ambient glow */}
@@ -197,17 +213,29 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
   }, [scoreAnim]);
 
   // ── Tree state ───────────────────────────────────────────────────────────
+  /**
+   * Points already "spent" on prior trees. Each prior tree consumed its own
+   * (possibly discounted) cycle target, so we sum those up rather than
+   * multiplying by a single constant.
+   */
+  const pointsConsumedByPriorTrees = Array.from({ length: treesPlanted }, (_, i) =>
+    cycleTargetFor(i),
+  ).reduce((a, b) => a + b, 0);
+
+  const cycleTarget = cycleTargetFor(treesPlanted);
+  const stageThresholds = stageThresholdsFor(cycleTarget);
+
   /** Points accumulated in this planting cycle. */
-  const cycleScore = Math.max(0, totalScore - treesPlanted * CYCLE_TARGET);
-  const isMature = cycleScore >= CYCLE_TARGET;
-  const stage = stageFor(cycleScore);
-  const progressPct = isMature ? 100 : Math.round((cycleScore / CYCLE_TARGET) * 100);
+  const cycleScore = Math.max(0, totalScore - pointsConsumedByPriorTrees);
+  const isMature = cycleScore >= cycleTarget;
+  const stage = stageFor(cycleScore, stageThresholds);
+  const progressPct = isMature ? 100 : Math.round((cycleScore / cycleTarget) * 100);
 
   // Next stage threshold (for "X more pts" label)
   const nextThreshold =
     !isMature
-      ? (STAGE_THRESHOLDS.find((t) => t > cycleScore) ?? CYCLE_TARGET)
-      : CYCLE_TARGET;
+      ? (stageThresholds.find((t) => t > cycleScore) ?? cycleTarget)
+      : cycleTarget;
   const ptsToNext = isMature ? 0 : nextThreshold - cycleScore;
 
   // ── Plant action ─────────────────────────────────────────────────────────
@@ -285,8 +313,8 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
               style={{ width: `${progressPct}%` }}
             />
             {/* Stage tick marks */}
-            {STAGE_THRESHOLDS.slice(1).map((threshold) => {
-              const pct = (threshold / CYCLE_TARGET) * 100;
+            {stageThresholds.slice(1).map((threshold) => {
+              const pct = (threshold / cycleTarget) * 100;
               return (
                 <span
                   key={threshold}

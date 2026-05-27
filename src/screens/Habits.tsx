@@ -59,7 +59,7 @@ import {
   type HabitScoreResult,
   type UserStats,
 } from '../features/habits/scoring';
-import { TreeCard } from '../features/tree/TreeCard';
+import { TreeCard, MatureTree } from '../features/tree/TreeCard';
 
 type ViewMode = 'week' | 'month' | 'data';
 // Data dashboard time range. Drives every KPI / chart in the data view.
@@ -329,6 +329,7 @@ export function Habits() {
           stats={data.stats}
           range={dataRange}
           today={today}
+          userId={user?.id ?? ''}
           onShowDetail={setDetailHabit}
         />
       )}
@@ -1172,14 +1173,27 @@ function DataView({
   stats,
   range,
   today,
+  userId,
   onShowDetail,
 }: {
   slots: SlotView[];
   stats: UserStats | null;
   range: DataRange;
   today: Date;
+  userId: string;
   onShowDetail: (habit: Habit) => void;
 }) {
+  // Mirror TreeCard's localStorage key so the dashboard reads the same count
+  // (kept simple — the tree card already owns the write path).
+  const treesPlanted = (() => {
+    try {
+      return Number(
+        localStorage.getItem(`trees-planted-${userId || 'anon'}`) ?? 0,
+      );
+    } catch {
+      return 0;
+    }
+  })();
   const rangeDays = DATA_RANGE_DAYS[range];
   const rangeStart = useMemo(() => {
     const d = new Date(today);
@@ -1276,11 +1290,12 @@ function DataView({
 
   return (
     <div className="space-y-3">
-      {/* KPI row — three cards. RTL: first DOM child is rightmost. Order:
-          1) במסע כבר   (rightmost) — uses the app's compass logo
-          2) ימים מושלמים  (middle)  — ✨ emoji
-          3) הרצף הכי ארוך (leftmost)— 🔥 emoji */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* KPI row — four cards. RTL: first DOM child is rightmost. Order:
+          1) במסע כבר      (rightmost) — uses the app's compass logo
+          2) ימים מושלמים            — ✨ emoji
+          3) הרצף הכי ארוך           — 🔥 emoji
+          4) עצים שנשתלו  (leftmost) — mature-tree illustration */}
+      <div className="grid grid-cols-4 gap-2">
         <KpiCard
           icon={
             <img
@@ -1303,6 +1318,15 @@ function DataView({
           label="הרצף הכי ארוך"
           value={bestStreak}
           suffix={bestStreak === 1 ? 'יום' : 'ימים'}
+        />
+        <KpiCard
+          icon={
+            <span className="w-8 h-8 block">
+              <MatureTree />
+            </span>
+          }
+          label="עצים שנשתלו"
+          value={treesPlanted}
         />
       </div>
 
