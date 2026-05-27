@@ -16,7 +16,7 @@ export function Layout() {
           </span>
         </div>
       </header>
-      <main className="flex-1 pb-24 max-w-md mx-auto w-full px-4 pt-3">
+      <main className="flex-1 pb-24 max-w-md mx-auto w-full px-3 sm:px-4 pt-3">
         <Outlet />
       </main>
       <BottomNav />

@@ -35,6 +35,14 @@ body,
   height: 100%;
 }
 
+/* Safety net: never let any child cause horizontal page scrolling.
+   Prevents the bottom nav from being pushed off-screen when something
+   inside the page accidentally overflows on narrow viewports. */
+html,
+body {
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--color-surface-base);
   color: var(--color-ink-100);

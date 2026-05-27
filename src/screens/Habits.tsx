@@ -63,6 +63,7 @@ import {
   type UserStats,
 } from '../features/habits/scoring';
 import { TreeCard, YoungTree } from '../features/tree/TreeCard';
+import { Emoji } from '../components/Emoji';
 
 type ViewMode = 'week' | 'month' | 'data';
 // Data dashboard time range. Drives every KPI / chart in the data view.
@@ -201,15 +202,15 @@ export function Habits() {
       {/* Action row: + הרגל | view toggle | archive | period nav.
           In RTL the DOM order maps right→left, so the + button is rightmost
           and the nav box flexes to fill the leftmost space. */}
-      <div className="mb-4 flex items-stretch gap-2">
+      <div className="mb-4 flex items-stretch gap-1.5 sm:gap-2">
         <button
           type="button"
           onClick={() => nextEmptySlot && setPickerSlot(nextEmptySlot)}
           disabled={!nextEmptySlot}
-          className="rounded-2xl border border-surface-border bg-surface-card px-4 py-2 flex items-center gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded-2xl border border-surface-border bg-surface-card px-3 sm:px-4 py-2 flex items-center gap-1.5 sm:gap-2 text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           aria-label="הוסף הרגל"
         >
-          <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center">
+          <span className="w-6 h-6 rounded-full border-2 border-current flex items-center justify-center shrink-0">
             <Plus size={14} strokeWidth={3} />
           </span>
           <span className="text-base font-medium">הרגל</span>
@@ -220,7 +221,7 @@ export function Habits() {
           <button
             type="button"
             onClick={() => setViewMode('week')}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
               viewMode === 'week'
                 ? 'bg-forest-700 text-cream-50'
                 : 'text-ink-300 hover:text-ink-100'
@@ -233,7 +234,7 @@ export function Habits() {
           <button
             type="button"
             onClick={() => setViewMode('month')}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
               viewMode === 'month'
                 ? 'bg-forest-700 text-cream-50'
                 : 'text-ink-300 hover:text-ink-100'
@@ -246,7 +247,7 @@ export function Habits() {
           <button
             type="button"
             onClick={() => setViewMode('data')}
-            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
               viewMode === 'data'
                 ? 'bg-forest-700 text-cream-50'
                 : 'text-ink-300 hover:text-ink-100'
@@ -529,11 +530,11 @@ function HabitsList({
         archiveZone={
           // Day-labels header — lives INSIDE the DndContext so the
           // ArchiveDropZone droppable registers correctly.
-          <div className="flex items-end justify-between px-3 mb-2.5">
+          <div className="flex items-end justify-between gap-2 px-2 sm:px-3 mb-2.5">
             <ArchiveDropZone onClick={onOpenArchive} />
             <div
-              className="grid gap-2"
-              style={{ gridTemplateColumns: 'repeat(7, 30px)' }}
+              className="grid gap-1 sm:gap-2 flex-1 min-w-0 max-w-[260px]"
+              style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))' }}
             >
               {days.map((d, i) => (
                 <DayHeader key={i} day={d} isToday={isSameDay(d, today)} />
@@ -602,7 +603,7 @@ function ArchiveDropZone({ onClick }: { onClick: () => void }) {
       ref={setNodeRef}
       type="button"
       onClick={onClick}
-      className={`w-12 shrink-0 self-center flex items-center justify-center transition-all ${
+      className={`w-10 sm:w-12 shrink-0 self-center flex items-center justify-center transition-all ${
         isOver
           ? 'text-red-400 scale-125'
           : 'text-ink-500 hover:text-ink-300'
@@ -827,9 +828,9 @@ function HabitRow({
   const isWeekly = habit.frequency_period === 'weekly';
 
   return (
-    <div className="relative rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
+    <div className="relative rounded-2xl border border-surface-border bg-surface-card px-2 sm:px-3 py-2.5">
       {/* Top row: icon tile (its own block) + cells grid (separate block). */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         {/* Icon tile — DRAG HANDLE. A quick tap opens the detail sheet; a
             long-press (250ms) starts a drag. `touchAction:'none'` is what
             lets dnd-kit's TouchSensor intercept the long-press here, while
@@ -839,7 +840,7 @@ function HabitRow({
           ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
-          className="relative w-12 h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
+          className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
           style={{ ...iconTileStyle, touchAction: 'none' }}
           aria-label="פרטי הרגל"
           {...dragListeners}
@@ -857,7 +858,7 @@ function HabitRow({
           />
         </button>
 
-        <div className="grid gap-2" style={{gridTemplateColumns: 'repeat(7, 30px)'}}>
+        <div className="grid gap-1 sm:gap-2 flex-1 min-w-0 max-w-[260px]" style={{gridTemplateColumns: 'repeat(7, minmax(0, 1fr))'}}>
           {(() => {
             // Pre-compute per-cell info in chronological order (days[0] =
             // earliest, days[6] = latest) so each cell knows how deep it sits
@@ -947,8 +948,8 @@ function HabitRow({
         )}
         {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
         {currentStreak >= 3 && (
-          <span className="shrink-0 text-[10px] text-amber-400">
-            · 🔥 {currentStreak}
+          <span className="shrink-0 text-[10px] text-amber-400 inline-flex items-center gap-0.5">
+            · <Emoji emoji="🔥" size={11} /> {currentStreak}
           </span>
         )}
       </button>
@@ -1188,9 +1189,9 @@ function MonthHabitRow({
   const currentStreak = habitStats?.currentStreak ?? 0;
 
   return (
-    <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
+    <div className="rounded-2xl border border-surface-border bg-surface-card px-2 sm:px-3 py-2.5">
       {/* Header: icon tile (drag handle) + name/info (detail tap) side by side */}
-      <div className="flex items-center gap-2.5 mb-2">
+      <div className="flex items-center gap-2 sm:gap-2.5 mb-2">
         {/* Icon tile — DRAG HANDLE. `touchAction:'none'` lets dnd-kit
             intercept the long-press; a quick tap still fires onClick →
             opens detail. The rest of the row keeps `touchAction:'auto'`
@@ -1199,7 +1200,7 @@ function MonthHabitRow({
           ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
-          className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
+          className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
           style={{ ...iconTileStyle, touchAction: 'none' }}
           aria-label="פרטי הרגל"
           {...dragListeners}
@@ -1244,7 +1245,9 @@ function MonthHabitRow({
             <span>{monthCompletions}/{days.length} ימים</span>
             {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
             {currentStreak >= 3 && (
-              <span className="text-amber-400">· 🔥 {currentStreak}</span>
+              <span className="text-amber-400 inline-flex items-center gap-0.5">
+                · <Emoji emoji="🔥" size={11} /> {currentStreak}
+              </span>
             )}
           </div>
         </button>
@@ -1489,12 +1492,12 @@ function DataView({
           suffix={daysSinceStart === 1 ? 'יום' : 'ימים'}
         />
         <KpiCard
-          icon={<span className="text-2xl leading-none">✨</span>}
+          icon={<Emoji emoji="✨" size={28} />}
           label="ימים מושלמים"
           value={perfectDays}
         />
         <KpiCard
-          icon={<span className="text-2xl leading-none">🔥</span>}
+          icon={<Emoji emoji="🔥" size={28} />}
           label="הרצף הכי ארוך"
           value={bestStreak}
           suffix={bestStreak === 1 ? 'יום' : 'ימים'}
