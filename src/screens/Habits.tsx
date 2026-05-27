@@ -866,6 +866,14 @@ function HabitRow({
             //    0 = not in a streak (has a log, or is future)
             //   1..N = Nth day in the current blank streak
             const habitStart = slot.habitStartDate;
+            // Only suppress the dash on pre-creation days when habitStart
+            // falls WITHIN the displayed week (i.e., the habit was created
+            // mid-week). When the entire visible week predates the habit,
+            // show normal dash cells so that navigating to old weeks still
+            // looks right (cells don't just vanish).
+            const habitStartInView =
+              habitStart !== null &&
+              days.some((d) => toDateString(d) >= habitStart);
             let streakCount = 0;
             const cellInfos = days.map((d) => {
               const dateStr = toDateString(d);
@@ -873,7 +881,7 @@ function HabitRow({
               const effective = effectiveFor(dateStr);
               const mark = effective ?? slot.marks[dateStr];
 
-              if (habitStart && dateStr < habitStart) {
+              if (habitStartInView && habitStart && dateStr < habitStart) {
                 streakCount = 0;
                 return { dateStr, future, mark, streakDepth: -1 };
               }
