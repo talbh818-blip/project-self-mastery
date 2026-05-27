@@ -91,4 +91,7 @@ export type SlotView = {
   habit: Habit | null; // null = empty slot (no habit chosen yet for this week)
   marks: Record<string, LogStatus | undefined>; // date string → status
   amounts: Record<string, number | null | undefined>; // date string → amount
+  /** YYYY-MM-DD the habit was assigned to this slot — days before this date
+   *  should render as completely blank (no dash) rather than "missed". */
+  habitStartDate: string | null;
 };

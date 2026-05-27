@@ -836,25 +836,55 @@ function HabitRow({
         </button>
 
         <div className="grid gap-2" style={{gridTemplateColumns: 'repeat(7, 30px)'}}>
-          {days.map((d, i) => {
-            const isToday = isSameDay(d, today);
-            const future = isFuture(d, today);
-            const dateStr = toDateString(d);
-            const effective = effectiveFor(dateStr);
-            const mark = effective ?? slot.marks[dateStr];
-            const amount = slot.amounts[dateStr] ?? null;
-            return (
-              <DayCell
-                key={i}
-                habit={habit}
-                mark={mark}
-                amount={amount}
-                isToday={isToday}
-                disabled={future}
-                onClick={() => onMarkCell(habit, dateStr, mark, amount)}
-              />
-            );
-          })}
+          {(() => {
+            // Pre-compute per-cell info in chronological order (days[0] =
+            // earliest, days[6] = latest) so each cell knows how deep it sits
+            // in a consecutive-blank streak since the habit was created.
+            //   -1 = day is before the habit's start_date → render as blank
+            //    0 = not in a streak (has a log, or is future)
+            //   1..N = Nth day in the current blank streak
+            const habitStart = slot.habitStartDate;
+            let streakCount = 0;
+            const cellInfos = days.map((d) => {
+              const dateStr = toDateString(d);
+              const future = isFuture(d, today);
+              const effective = effectiveFor(dateStr);
+              const mark = effective ?? slot.marks[dateStr];
+
+              if (habitStart && dateStr < habitStart) {
+                streakCount = 0;
+                return { dateStr, future, mark, streakDepth: -1 };
+              }
+              if (future) {
+                streakCount = 0;
+                return { dateStr, future, mark, streakDepth: 0 };
+              }
+              if (mark === 'V' || mark === 'X' || mark === 'auto_x') {
+                streakCount = 0;
+                return { dateStr, future, mark, streakDepth: 0 };
+              }
+              // Blank (no log) after habit creation = missed day → streak grows
+              streakCount++;
+              return { dateStr, future, mark, streakDepth: streakCount };
+            });
+
+            return cellInfos.map(({ dateStr, future, mark, streakDepth }, i) => {
+              const isToday = isSameDay(days[i], today);
+              const amount = slot.amounts[dateStr] ?? null;
+              return (
+                <DayCell
+                  key={i}
+                  habit={habit}
+                  mark={mark}
+                  amount={amount}
+                  isToday={isToday}
+                  disabled={future}
+                  streakDepth={streakDepth}
+                  onClick={() => onMarkCell(habit, dateStr, mark, amount)}
+                />
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -903,6 +933,7 @@ function DayCell({
   amount,
   isToday,
   disabled,
+  streakDepth,
   onClick,
 }: {
   habit: Habit;
@@ -910,13 +941,38 @@ function DayCell({
   amount: number | null;
   isToday: boolean;
   disabled: boolean;
+  /** -1 = before habit creation (render completely empty)
+   *   0 = not in a missed streak
+   *  1+ = Nth consecutive blank day → progressively redder background */
+  streakDepth: number;
   onClick: () => void;
 }) {
   const isQuant = habit.is_quantitative;
   const target = habit.quantitative_target ?? 0;
 
+  // Days before the habit existed: render as a plain invisible tile.
+  if (streakDepth === -1) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled
+        className="w-full aspect-square rounded-md cursor-default"
+        style={{ backgroundColor: 'transparent' }}
+        aria-hidden="true"
+      />
+    );
+  }
+
+  // Red overlay for consecutive blank days. Day 1 = barely visible;
+  // day 5+ = clearly red. Interpolates linearly across 5 steps.
+  const RED_OPACITIES = [0, 0.08, 0.17, 0.27, 0.38, 0.50] as const;
+  const redOpacity = streakDepth >= 5
+    ? RED_OPACITIES[5]
+    : RED_OPACITIES[streakDepth] ?? 0;
+
   // V (or any positive quantitative amount) → solid block of the habit's
-  // color. Everything else (blank, X, auto_x) → muted empty tile. No glyphs.
+  // color. Everything else (blank, X, auto_x) → muted empty tile.
   let style: React.CSSProperties;
   let content: React.ReactNode = null;
   if (isQuant && amount && amount > 0) {
@@ -946,18 +1002,24 @@ function DayCell({
           border: '1px solid rgba(122,160,134,0.45)',
         }
       : {
-          backgroundColor: hexWithAlpha(habit.color, 0.15),
+          // Red tint overlaid on the usual muted habit color for missed streaks.
+          backgroundColor:
+            redOpacity > 0
+              ? `rgba(220,38,38,${redOpacity})`
+              : hexWithAlpha(habit.color, 0.15),
         };
-    // Past days (not today, not future) that were never marked get a
+    // Past blank days (not today, not future, not before creation) get a
     // centered horizontal dash — signals the day was missed.
-    if (!disabled && !isToday) {
+    if (!disabled && !isToday && streakDepth >= 0) {
       content = (
         <span
           style={{
             display: 'block',
             width: '55%',
             height: '2px',
-            backgroundColor: 'rgba(255,255,255,0.5)',
+            backgroundColor: redOpacity > 0
+              ? `rgba(255,160,160,${0.5 + redOpacity * 0.8})`
+              : 'rgba(255,255,255,0.5)',
             borderRadius: '1px',
           }}
         />
