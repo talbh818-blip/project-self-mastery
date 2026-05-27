@@ -1000,6 +1000,8 @@ function MonthHabitRow({
   habitStats,
   onShowDetail,
   onMarkCell,
+  dragHandleRef,
+  dragListeners,
 }: {
   slot: SlotView;
   days: Date[];
@@ -1012,6 +1014,8 @@ function MonthHabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  dragHandleRef?: DragHandleRef;
+  dragListeners?: DragHandleListeners;
 }) {
   const habit = slot.habit!;
   const iconTileStyle: React.CSSProperties = {
@@ -1032,17 +1036,20 @@ function MonthHabitRow({
 
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-      {/* Header: icon tile + name/info side by side. The drag handle lives
-          on the outer SortableRow wrapper, so a long-press anywhere on the
-          card (icon, name, the heatmap strip below) starts a drag. */}
+      {/* Header: icon tile (drag handle) + name/info (detail tap) side by side */}
       <div className="flex items-center gap-2.5 mb-2">
-        {/* Icon tile — tap opens detail sheet. */}
+        {/* Icon tile — DRAG HANDLE. `touchAction:'none'` lets dnd-kit
+            intercept the long-press; a quick tap still fires onClick →
+            opens detail. The rest of the row keeps `touchAction:'auto'`
+            so the page is freely scrollable on mobile. */}
         <button
+          ref={dragHandleRef}
           type="button"
           onClick={onShowDetail}
           className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity"
-          style={iconTileStyle}
+          style={{ ...iconTileStyle, touchAction: 'none' }}
           aria-label="פרטי הרגל"
+          {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
           {/* Difficulty dot — same position as the week view (bottom-left
