@@ -90,7 +90,7 @@ export function Layout() {
       )}
       <main
         ref={mainRef}
-        className="flex-1 pb-24 max-w-md mx-auto w-full px-3 sm:px-4 pt-3 min-h-screen"
+        className="flex-1 pb-24 max-w-md mx-auto w-full px-3 sm:px-4 pt-5 min-h-screen"
       >
         <Outlet />
       </main>
