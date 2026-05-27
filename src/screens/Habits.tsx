@@ -539,10 +539,10 @@ function HabitsList({
         archiveZone={
           // Day-labels header — lives INSIDE the DndContext so the
           // ArchiveDropZone droppable registers correctly.
-          {/* Outer layout uses CSS Grid (not flex) so the icon column and
-              the 7-day column align identically across the day-headers row
-              and every habit row below, no matter what RTL/flex quirks the
-              browser applies. */}
+          // Outer layout uses CSS Grid (not flex) so the icon column and
+          // the 7-day column align identically across the day-headers row
+          // and every habit row below, no matter what RTL/flex quirks the
+          // browser applies.
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-2 px-2 sm:px-3 mb-2.5">
             <ArchiveDropZone onClick={onOpenArchive} />
             <div
