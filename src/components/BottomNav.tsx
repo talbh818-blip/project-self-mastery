@@ -4,7 +4,8 @@ import {
   Shield,
   BookOpen,
   PlayCircle,
-  User,
+  Users,
+  UserCircle,
   ShieldEllipsis,
   type LucideIcon,
 } from 'lucide-react';
@@ -22,7 +23,8 @@ const BASE_ITEMS: NavItem[] = [
   { to: '/blocker', label: 'חוסם', icon: Shield },
   { to: '/vision', label: 'חזון', icon: BookOpen },
   { to: '/course', label: 'קורס', icon: PlayCircle },
-  { to: '/participants', label: 'משתמש', icon: User },
+  { to: '/participants', label: 'משתתפים', icon: Users },
+  { to: '/user', label: 'משתמש', icon: UserCircle },
 ];
 
 const ADMIN_ITEM: NavItem = {

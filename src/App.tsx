@@ -9,6 +9,9 @@ import { Blocker } from './screens/Blocker';
 import { Vision } from './screens/Vision';
 import { Course } from './screens/Course';
 import { Participants } from './screens/Participants';
+import { User } from './screens/User';
+import { PrivacyPolicy } from './screens/PrivacyPolicy';
+import { TermsOfUse } from './screens/TermsOfUse';
 import { Admin } from './screens/Admin';
 
 export default function App() {
@@ -24,6 +27,9 @@ export default function App() {
               <Route path="vision" element={<Vision />} />
               <Route path="course" element={<Course />} />
               <Route path="participants" element={<Participants />} />
+              <Route path="user" element={<User />} />
+              <Route path="privacy" element={<PrivacyPolicy />} />
+              <Route path="terms" element={<TermsOfUse />} />
               <Route element={<AdminRoute />}>
                 <Route path="admin" element={<Admin />} />
               </Route>

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { ProfileProvider } from '../features/admin/ProfileContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
+import { ThemeProvider } from '../hooks/useTheme';
 
 // Routes where the brand header (compass + app name) is hidden. The Habits
 // screen is content-dense on mobile, so the header is omitted there; other
@@ -76,6 +77,7 @@ export function Layout() {
 
   return (
     <ProfileProvider>
+    <ThemeProvider>
     <BlockedGate>
     <div className="min-h-screen flex flex-col bg-surface-base">
       {showBrandHeader && (
@@ -101,6 +103,7 @@ export function Layout() {
       <BottomNav />
     </div>
     </BlockedGate>
+    </ThemeProvider>
     </ProfileProvider>
   );
 }

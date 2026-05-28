@@ -21,6 +21,21 @@
     />
   </head>
   <body>
+    <script>
+      // Apply stored theme before React mounts so there's no flash of the
+      // wrong palette. Profile-backed theme takes over once it loads.
+      (function () {
+        try {
+          var t = localStorage.getItem('app-theme');
+          document.documentElement.setAttribute(
+            'data-theme',
+            t === 'light' ? 'light' : 'dark',
+          );
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
