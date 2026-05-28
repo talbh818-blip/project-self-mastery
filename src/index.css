@@ -229,31 +229,22 @@ html[data-theme="light"] {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  /* Two stacked diagonal bands with HARD edges, like the highlight on a
-     cartoon "SHINY" sticker:
-       1. Outer wider band — soft white, sets the lighter zone
-       2. Inner narrow band — brighter, sits over the outer band
-     Each gradient steps from transparent → opaque in 0% width so the
-     band edges are crisp instead of feathered. */
-  background-image:
-    linear-gradient(
-      110deg,
-      transparent 47.5%,
-      rgba(255, 255, 255, 0.85) 47.5%,
-      rgba(255, 255, 255, 0.85) 51%,
-      transparent 51%
-    ),
-    linear-gradient(
-      110deg,
-      transparent 40%,
-      rgba(255, 255, 255, 0.28) 40%,
-      rgba(255, 255, 255, 0.28) 58%,
-      transparent 58%
-    );
+  /* A single diagonal stripe — one clean white band with HARD edges (the
+     0%-width transitions in the gradient stops). The previous two-band
+     stack created visible edges at every transition and read as ghosting;
+     one solid band is crisper and more like the SHINY reference. */
+  background-image: linear-gradient(
+    110deg,
+    transparent 46%,
+    rgba(255, 255, 255, 0.78) 46%,
+    rgba(255, 255, 255, 0.78) 54%,
+    transparent 54%
+  );
   transform: translateX(-160%);
-  /* 4.2s cycle with the motion stretched across most of it so the
-     ease-in-out curve has room to breathe — slow ramp in, slow ramp out. */
-  animation: btn-shimmer-sweep 4.2s ease-in-out infinite;
+  /* 4.2s cycle. Custom cubic-bezier gives a more pronounced
+     ease-in / ease-out than the keyword `ease-in-out` — slow ramp at
+     both ends, fast through the middle. */
+  animation: btn-shimmer-sweep 4.2s cubic-bezier(0.72, 0, 0.28, 1) infinite;
 }
 /* Make sure the button's actual content sits on top of the shimmer band. */
 .btn-shimmer > * {
