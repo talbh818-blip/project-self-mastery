@@ -238,7 +238,9 @@ html[data-theme="light"] {
     transparent 70%
   );
   transform: translateX(-160%);
-  animation: btn-shimmer-sweep 2.6s ease-in-out infinite;
+  /* 4.2s cycle with the motion stretched across most of it so the
+     ease-in-out curve has room to breathe — slow ramp in, slow ramp out. */
+  animation: btn-shimmer-sweep 4.2s ease-in-out infinite;
 }
 /* Make sure the button's actual content sits on top of the shimmer band. */
 .btn-shimmer > * {
@@ -246,10 +248,12 @@ html[data-theme="light"] {
   z-index: 1;
 }
 @keyframes btn-shimmer-sweep {
-  0%, 28% {
+  0%, 8% {
+    /* Brief rest hidden off-screen to the left. */
     transform: translateX(-160%);
   }
-  62%, 100% {
+  82%, 100% {
+    /* Brief rest hidden off-screen to the right before the next loop. */
     transform: translateX(160%);
   }
 }
