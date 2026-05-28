@@ -397,7 +397,7 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
             e.stopPropagation();
             handlePlant();
           }}
-          className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-95 transition-all py-2.5 text-cream-50 text-sm font-bold flex items-center justify-center gap-2 shadow-md animate-plant-cta-glow"
+          className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-95 transition-all py-2.5 text-cream-50 text-sm font-bold flex items-center justify-center gap-2 shadow-md btn-shimmer"
         >
           <span>🎉</span>
           <span>העץ שלך מוכן לשתילה!</span>
@@ -973,10 +973,10 @@ function TreeFieldModal({
           >
             <X size={20} />
           </button>
-          <h2 className="flex-1 text-[14px] font-semibold text-ink-100 leading-snug text-center pt-0.5">
+          <h2 className="flex-1 text-[16px] font-semibold text-ink-100 leading-snug text-center pt-0.5">
             <span className="block">על כל עץ דיגיטלי שתשתול כאן</span>
             <span className="block">
-              ישתל עץ אמיתי באפריקה <Emoji emoji="🌱" size={14} />
+              ישתל עץ אמיתי באפריקה <Emoji emoji="🌱" size={16} />
             </span>
           </h2>
           {/* Spacer the same width as the close button so the title is
@@ -1047,7 +1047,7 @@ function TreeFieldModal({
               <button
                 type="button"
                 onClick={startPlanting}
-                className="flex-1 rounded-xl bg-forest-500 hover:bg-forest-400 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md flex items-center justify-center gap-1.5 animate-plant-cta-glow"
+                className="flex-1 rounded-xl bg-forest-500 hover:bg-forest-400 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md flex items-center justify-center gap-1.5 btn-shimmer"
               >
                 <Emoji emoji="🌍" size={16} />
                 <span>שתול את העץ שלך</span>

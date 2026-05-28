@@ -210,24 +210,48 @@ html[data-theme="light"] {
 }
 
 /* ---------------------------------------------------------------------------
- * Plant CTA glow — a soft, slow pulse that draws the eye when the user's
- * tree is ready to plant. Used on both the card-level "ready to plant"
- * button and the in-modal "שתול את העץ שלך" button.
+ * Plant CTA shimmer — a cartoony diagonal light band that sweeps across the
+ * button left → right on a loop, like the highlight on a sticker / coin /
+ * polished metal. Used on both the card-level "ready to plant" button and
+ * the in-modal "שתול את העץ שלך" button.
+ *
+ * The element needs `position: relative` and `overflow: hidden`. The
+ * .btn-shimmer class applies those automatically.
  * --------------------------------------------------------------------------*/
-@keyframes plant-cta-glow {
-  0%, 100% {
-    box-shadow:
-      0 0 0 0   rgba(78, 211, 113, 0.45),
-      0 0 12px 0 rgba(78, 211, 113, 0.55);
-  }
-  50% {
-    box-shadow:
-      0 0 0 7px rgba(78, 211, 113, 0),
-      0 0 24px 5px rgba(78, 211, 113, 0.80);
-  }
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate; /* keep the ::before in front of the bg but behind text */
 }
-.animate-plant-cta-glow {
-  animation: plant-cta-glow 1.8s ease-in-out infinite;
+.btn-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.22) 44%,
+    rgba(255, 255, 255, 0.55) 50%,
+    rgba(255, 255, 255, 0.22) 56%,
+    transparent 70%
+  );
+  transform: translateX(-160%);
+  animation: btn-shimmer-sweep 2.6s ease-in-out infinite;
+}
+/* Make sure the button's actual content sits on top of the shimmer band. */
+.btn-shimmer > * {
+  position: relative;
+  z-index: 1;
+}
+@keyframes btn-shimmer-sweep {
+  0%, 28% {
+    transform: translateX(-160%);
+  }
+  62%, 100% {
+    transform: translateX(160%);
+  }
 }
 
 /* ---------------------------------------------------------------------------
