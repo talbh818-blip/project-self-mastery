@@ -210,6 +210,60 @@ html[data-theme="light"] {
 }
 
 /* ---------------------------------------------------------------------------
+ * Plant CTA glow — a soft, slow pulse that draws the eye when the user's
+ * tree is ready to plant. Used on both the card-level "ready to plant"
+ * button and the in-modal "שתול את העץ שלך" button.
+ * --------------------------------------------------------------------------*/
+@keyframes plant-cta-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0   rgba(78, 211, 113, 0.45),
+      0 0 12px 0 rgba(78, 211, 113, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px rgba(78, 211, 113, 0),
+      0 0 24px 5px rgba(78, 211, 113, 0.80);
+  }
+}
+.animate-plant-cta-glow {
+  animation: plant-cta-glow 1.8s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * Bottom-confetti rise — Duolingo-style success burst from the screen edge.
+ * Each particle gets its custom (--cf-dx, --cf-dy, --cf-rot) so the visual
+ * variance is rich while the animation is one shared keyframe.
+ * --------------------------------------------------------------------------*/
+@keyframes confetti-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) rotate(0deg) scale(0.35);
+  }
+  10% {
+    opacity: 1;
+    transform:
+      translate(calc(-50% + var(--cf-dx) * 0.2), calc(var(--cf-dy) * 0.2))
+      rotate(calc(var(--cf-rot) * 0.2))
+      scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform:
+      translate(calc(-50% + var(--cf-dx) * 0.85), calc(var(--cf-dy) * 0.85))
+      rotate(calc(var(--cf-rot) * 0.85))
+      scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--cf-dx)), var(--cf-dy))
+      rotate(var(--cf-rot))
+      scale(0.85);
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Confetti — a single particle's trajectory. The component supplies the
  * final (dx, dy) offset in pixels and the final rotation via CSS custom
  * properties. Each particle:
