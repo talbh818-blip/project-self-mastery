@@ -871,14 +871,37 @@ function TreeFieldModal({
     // Commit trees_planted++ to Supabase right away. The IsometricField
     // re-renders with the new tree count and centre cycleScore resets, so
     // the user immediately sees the next tree starting from a sprout.
-    if (userId) {
-      const { error } = await supabase
+    //
+    // We chain .select().maybeSingle() so we can verify the write actually
+    // landed — without it, a silently-blocked RLS update returns
+    // { data: null, error: null } and the UI never reflects reality.
+    if (!userId) {
+      console.warn(
+        '[TreeFieldModal] no userId — skipping DB write. Confetti will play but trees_planted will NOT increment.',
+      );
+    } else {
+      const targetCount = treesPlanted + 1;
+      const { data: updated, error } = await supabase
         .from('profiles')
-        .update({ trees_planted: treesPlanted + 1 })
-        .eq('id', userId);
+        .update({ trees_planted: targetCount })
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
       if (error) {
         console.error('[TreeFieldModal] failed to bump trees_planted:', error);
+      } else if (!updated) {
+        // RLS silently rejected the write, or the row doesn't exist.
+        console.warn(
+          '[TreeFieldModal] UPDATE returned no row — RLS blocked or userId mismatch. userId=',
+          userId,
+        );
       } else {
+        console.log(
+          '[TreeFieldModal] trees_planted bumped',
+          treesPlanted,
+          '→',
+          updated.trees_planted,
+        );
         await onPlanted();
       }
     }
@@ -950,9 +973,11 @@ function TreeFieldModal({
           >
             <X size={20} />
           </button>
-          <h2 className="flex-1 text-[12px] sm:text-xs font-semibold text-ink-100 leading-snug text-center pt-1">
-            על כל עץ דיגיטלי שתשתול כאן — ישתל עץ אמיתי באפריקה{' '}
-            <Emoji emoji="🌱" size={13} />
+          <h2 className="flex-1 text-[14px] font-semibold text-ink-100 leading-snug text-center pt-0.5">
+            <span className="block">על כל עץ דיגיטלי שתשתול כאן</span>
+            <span className="block">
+              ישתל עץ אמיתי באפריקה <Emoji emoji="🌱" size={14} />
+            </span>
           </h2>
           {/* Spacer the same width as the close button so the title is
               visually centred inside the modal. */}
