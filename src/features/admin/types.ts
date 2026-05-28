@@ -1,5 +1,11 @@
-// Row shape of public.profiles. Keep in sync with migrations 0011 + 0012.
+// Row shape of public.profiles. Keep in sync with migrations 0011 + 0012 + 0013.
 export type Theme = 'dark' | 'light';
+
+/**
+ * One entry per planted tree, stored on profiles.tree_placements (jsonb).
+ * (di, dj) are row/column offsets from the grid centre — see migration 0013.
+ */
+export type TreePlacement = { di: number; dj: number };
 
 export type Profile = {
   id: string;
@@ -11,6 +17,10 @@ export type Profile = {
   phone: string | null;
   theme: Theme;
   trees_planted: number;
+  /** Ordered: index k is the k-th tree the user planted. May be SHORTER
+   *  than trees_planted for legacy users; the client falls back to the
+   *  default cell order for the surplus. */
+  tree_placements: TreePlacement[];
   score_adjustment: number;
   blocked: boolean;
   last_seen_at: string | null;
