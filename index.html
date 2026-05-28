@@ -19,6 +19,31 @@
       href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <!-- ===============================================================
+         Emoji CDN — Microsoft Fluent UI Emoji 3D PNGs via jsDelivr.
+         Pre-warm the connection and pre-cache the few emojis that appear
+         in time-sensitive flows (plant CTA + modal header). Without this
+         the 🌍/🌱/🎉 PNGs trickle in 0.5–1s after the button shows up.
+         =============================================================== -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="preload"
+      as="image"
+      href="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Globe%20showing%20europe-africa/3D/globe_showing_europe-africa_3d.png"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Seedling/3D/seedling_3d.png"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      as="image"
+      href="https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/Party%20popper/3D/party_popper_3d.png"
+      crossorigin
+    />
   </head>
   <body>
     <script>

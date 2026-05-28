@@ -21,7 +21,10 @@ export const EMOJI_TO_FLUENT_NAME: Record<string, string> = {
   '✨': 'Sparkles',
   '🎉': 'Party popper',
   '🌱': 'Seedling',
-  '🌍': 'Globe showing Europe-Africa',
+  // Note the LOWERCASE "europe" — that's how the directory is actually named
+  // in microsoft/fluentui-emoji. With "Europe-Africa" the CDN returns 403 and
+  // every render falls back to emojicdn, adding ~0.5–1s of perceived delay.
+  '🌍': 'Globe showing europe-africa',
   '🌲': 'Evergreen tree',
   '🌳': 'Deciduous tree',
   '🌟': 'Glowing star',
