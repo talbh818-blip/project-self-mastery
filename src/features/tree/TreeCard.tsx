@@ -646,10 +646,24 @@ function IsometricField({
           plate width so they scale with the container. */}
       {items.map((t) => {
         const { leftPct, topPct } = cellToPct(t.i, t.j);
-        // Bigger for the centre tree (the one currently growing), medium for
-        // mature trees scattered around, tiny for "potential" sprouts.
+        // Size by role and (for the centre tree) by growth stage. Without
+        // staging the centre, a sapling at stage 1 rendered larger than the
+        // surrounding planted mature trees, which felt visually inverted.
+        // Mapping: sprout → small, then ramp up so the centre tree only
+        // overtakes the planted mature trees (42px) once it's a young tree.
+        const CENTER_SIZE_BY_STAGE: Record<Stage, number> = {
+          0: 26, // Sprout
+          1: 36, // Seedling
+          2: 46, // Sapling
+          3: 56, // YoungTree
+          4: 64, // MatureTree — biggest so the user feels "ready to plant"
+        };
         const sizePx =
-          t.kind === 'current' ? 68 : t.kind === 'mature' ? 42 : 18;
+          t.kind === 'current'
+            ? CENTER_SIZE_BY_STAGE[centreStage]
+            : t.kind === 'mature'
+              ? 42
+              : 18;
         return (
           <div
             key={`${t.kind}-${t.i}-${t.j}`}
