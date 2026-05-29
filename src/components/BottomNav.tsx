@@ -1,10 +1,8 @@
 import { NavLink } from 'react-router-dom';
 import {
   Target,
-  Shield,
   BookOpen,
   PlayCircle,
-  Users,
   UserCircle,
   ShieldEllipsis,
   type LucideIcon,
@@ -20,10 +18,8 @@ type NavItem = {
 
 const BASE_ITEMS: NavItem[] = [
   { to: '/', label: 'הרגלים', icon: Target, end: true },
-  { to: '/blocker', label: 'חוסם', icon: Shield },
   { to: '/vision', label: 'חזון', icon: BookOpen },
   { to: '/course', label: 'קורס', icon: PlayCircle },
-  { to: '/participants', label: 'משתתפים', icon: Users },
   { to: '/user', label: 'משתמש', icon: UserCircle },
 ];
 

@@ -5,10 +5,8 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './features/admin/AdminRoute';
 import { Login } from './screens/Login';
 import { Habits } from './screens/Habits';
-import { Blocker } from './screens/Blocker';
 import { Vision } from './screens/Vision';
 import { Course } from './screens/Course';
-import { Participants } from './screens/Participants';
 import { User } from './screens/User';
 import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { TermsOfUse } from './screens/TermsOfUse';
@@ -23,10 +21,8 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route index element={<Habits />} />
-              <Route path="blocker" element={<Blocker />} />
               <Route path="vision" element={<Vision />} />
               <Route path="course" element={<Course />} />
-              <Route path="participants" element={<Participants />} />
               <Route path="user" element={<User />} />
               <Route path="privacy" element={<PrivacyPolicy />} />
               <Route path="terms" element={<TermsOfUse />} />
