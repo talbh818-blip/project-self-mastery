@@ -95,17 +95,24 @@ export function Vision() {
         ))}
       </div>
 
-      {/* Period navigator */}
-      <div className="flex items-center justify-between bg-surface-card rounded-2xl px-2 py-1.5">
-        {/* Visual: prev (older) on the right in RTL, next (newer) on the left. */}
+      {/* Period navigator.
+          RTL convention (Hebrew calendars / Google Hebrew etc.):
+            • RIGHT side = previous period (older)  → chevron points right (►)
+            • LEFT  side = next     period (newer)  → chevron points left  (◄)
+          With `dir="rtl"` on the parent + default flex order, the DOM's
+          first child renders on the right and the last child on the left,
+          so we place "previous" first and "next" last. */}
+      <div
+        dir="rtl"
+        className="flex items-center justify-between bg-surface-card rounded-2xl px-2 py-1.5"
+      >
         <button
           type="button"
-          onClick={() => goto(1)}
-          disabled={isFuturePeriod(scope, addPeriod(scope, periodKey, 1))}
-          aria-label="התקופה הבאה"
-          className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+          onClick={() => goto(-1)}
+          aria-label="התקופה הקודמת"
+          className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100 transition-colors"
         >
-          <ChevronLeft size={18} />
+          <ChevronRight size={18} />
         </button>
 
         <button
@@ -124,11 +131,12 @@ export function Vision() {
 
         <button
           type="button"
-          onClick={() => goto(-1)}
-          aria-label="התקופה הקודמת"
-          className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100 transition-colors"
+          onClick={() => goto(1)}
+          disabled={isFuturePeriod(scope, addPeriod(scope, periodKey, 1))}
+          aria-label="התקופה הבאה"
+          className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
         >
-          <ChevronRight size={18} />
+          <ChevronLeft size={18} />
         </button>
       </div>
 
