@@ -166,7 +166,7 @@ grant select, insert, update, delete on public.course_books  to authenticated;
 grant select, insert, update, delete on public.course_videos to authenticated;
 
 -- ---------------------------------------------------------------------------
--- 5. Seed — 12 well-known self-development titles.
+-- 5. Seed — 10 well-known self-development titles.
 -- ----------------------------------------------------------------------------
 -- These are inserted with cover_url = NULL so they render as placeholder cards
 -- until the admin pastes a real cover URL. They start with no videos, so they
@@ -187,9 +187,7 @@ from (values
   ('עבודה עמוקה',                            'Cal Newport',           70),
   ('האדם מחפש משמעות',                    'Viktor Frankl',         80),
   ('האגו הוא האויב',                         'Ryan Holiday',          90),
-  ('איך לרכוש ידידים ולהשפיע על אנשים', 'Dale Carnegie',        100),
-  ('חשוב והתעשר',                            'Napoleon Hill',        110),
-  ('תזרים',                                    'Mihaly Csikszentmihalyi', 120)
+  ('איך לרכוש ידידים ולהשפיע על אנשים', 'Dale Carnegie',        100)
 ) as v(title, author, sort_order)
 where not exists (
   select 1 from public.course_books b
