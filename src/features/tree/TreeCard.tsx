@@ -1323,11 +1323,11 @@ function TreeFieldModal({
       ];
       padded.push(cellToPlacement(nextGrid, ni, nj));
 
-      // Bump the floor by the cycle target the user just completed, so the
-      // next cycle's progress meter starts from zero. The floor is what
-      // decouples "tree count" from "progress math" — admin edits to
-      // trees_planted leave it untouched.
-      const newFloor = cycleScoreFloor + cycleTarget;
+      // Planting always resets the meter to 0 — any score above the cycle
+      // target is forfeited (no carry-over). This matches the user's mental
+      // model ("after I plant, I start fresh") and prevents rapid-fire
+      // planting when the user has banked score worth several cycles.
+      const newFloor = totalScore;
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
