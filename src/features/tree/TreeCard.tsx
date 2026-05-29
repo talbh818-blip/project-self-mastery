@@ -606,13 +606,35 @@ const LONG_PRESS_MS = 500;
 /** Movement (in CSS px) that cancels a pending long-press before it fires. */
 const LONG_PRESS_CANCEL_THRESHOLD_PX = 8;
 
-type DragState = {
-  /** Index in `placements` of the tree being dragged. */
-  treeIndex: number;
-  /** Live pointer position in container-% coordinates. */
-  leftPct: number;
-  topPct: number;
-};
+/**
+ * One unified interaction state machine for the long-press → drag gesture.
+ *
+ *   pressing  — finger is down on a mature tree, waiting for the long-press
+ *               timer to fire OR for movement that cancels it.
+ *   dragging  — long-press fired; the tree follows the pointer.
+ *
+ * Listeners are attached at the DOCUMENT level (not on tree elements), so
+ * release works regardless of what's underneath the pointer — including
+ * empty grass with `pointer-events: none` sprout placeholders. The previous
+ * per-tree approach relied on `setPointerCapture` from inside a setTimeout,
+ * which some browsers silently reject; that left drop-on-empty-grass dead.
+ */
+type Interaction =
+  | {
+      phase: 'pressing';
+      treeIndex: number;
+      startX: number;
+      startY: number;
+      pointerId: number;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  | {
+      phase: 'dragging';
+      treeIndex: number;
+      leftPct: number;
+      topPct: number;
+      pointerId: number;
+    };
 
 function IsometricField({
   treesPlanted,
@@ -662,16 +684,26 @@ function IsometricField({
   }, [treesPlanted, placements, grid]);
 
   // ── Drag state machine ──────────────────────────────────────────────────
-  const [drag, setDrag] = useState<DragState | null>(null);
+  const [interaction, setInteraction] = useState<Interaction | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  // Pending long-press timer + pointer-tracking refs.
-  const pressRef = useRef<{
-    treeIndex: number;
-    startX: number;
-    startY: number;
-    timer: ReturnType<typeof setTimeout> | null;
-    pointerId: number;
-  } | null>(null);
+
+  // Mirror of the latest interaction so document listeners can read it
+  // without re-attaching every time the drag position updates.
+  const interactionRef = useRef<Interaction | null>(null);
+  interactionRef.current = interaction;
+
+  // Mirror of render-derived values so the listeners can compute snap /
+  // commit logic with the latest props/state (without restarting listeners).
+  const gridRef = useRef(grid);
+  const centerRef = useRef(center);
+  const treesPlantedRef = useRef(treesPlanted);
+  const resolvedCellsRef = useRef(resolvedCells);
+  const onPlacementsChangeRef = useRef(onPlacementsChange);
+  gridRef.current = grid;
+  centerRef.current = center;
+  treesPlantedRef.current = treesPlanted;
+  resolvedCellsRef.current = resolvedCells;
+  onPlacementsChangeRef.current = onPlacementsChange;
 
   /**
    * Convert a pointer client position into container-% coords + the nearest
@@ -679,38 +711,43 @@ function IsometricField({
    */
   function pointerToContainerPct(clientX: number, clientY: number) {
     const rect = containerRef.current?.getBoundingClientRect();
+    const g = gridRef.current;
+    const c = centerRef.current;
     if (!rect || rect.width === 0 || rect.height === 0) {
-      return { leftPct: 50, topPct: 50, i: center, j: center };
+      return { leftPct: 50, topPct: 50, i: c, j: c };
     }
     const leftPct = ((clientX - rect.left) / rect.width) * 100;
     const topPct = ((clientY - rect.top) / rect.height) * 100;
-    const [i, j] = pctToNearestCell(grid, leftPct, topPct);
+    const [i, j] = pctToNearestCell(g, leftPct, topPct);
     return { leftPct, topPct, i, j };
   }
 
-  // Start a pending long-press on a mature tree. Movement before the timer
-  // fires cancels (allows page scroll); fire → enter drag state.
+  // Start a pending long-press on a mature tree. Document listeners (set up
+  // in the effect below) take over from here for move + release.
   function handleTreePointerDown(
     treeIndex: number,
     e: React.PointerEvent<HTMLDivElement>,
   ) {
     if (!onPlacementsChange) return; // drag disabled (e.g. during animations)
-    // Don't capture pointer until we actually enter drag — that way a
-    // quick tap doesn't steal the scroll.
+    // Bail if we're already in an interaction — defends against weird
+    // multi-touch scenarios.
+    if (interactionRef.current) return;
+
     const startX = e.clientX;
     const startY = e.clientY;
     const pointerId = e.pointerId;
     const timer = setTimeout(() => {
-      // Long-press fired — promote to drag.
-      const target = e.currentTarget as HTMLDivElement;
-      try {
-        target.setPointerCapture(pointerId);
-      } catch {
-        // best-effort; some browsers refuse after async delay
-      }
+      // Long-press fired — promote to dragging. Use the original press
+      // coordinates so the tree appears where the user pressed (the user
+      // can have drifted within the cancel threshold during the press).
       const { leftPct, topPct } = pointerToContainerPct(startX, startY);
-      setDrag({ treeIndex, leftPct, topPct });
-      // Light haptic if available.
+      setInteraction({
+        phase: 'dragging',
+        treeIndex,
+        leftPct,
+        topPct,
+        pointerId,
+      });
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         try {
           navigator.vibrate?.(15);
@@ -719,83 +756,121 @@ function IsometricField({
         }
       }
     }, LONG_PRESS_MS);
-    pressRef.current = { treeIndex, startX, startY, timer, pointerId };
+
+    setInteraction({
+      phase: 'pressing',
+      treeIndex,
+      startX,
+      startY,
+      pointerId,
+      timer,
+    });
   }
 
-  function handleTreePointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const press = pressRef.current;
-    if (press && press.pointerId === e.pointerId) {
-      const dx = e.clientX - press.startX;
-      const dy = e.clientY - press.startY;
-      if (Math.hypot(dx, dy) > LONG_PRESS_CANCEL_THRESHOLD_PX && !drag) {
-        // Moved before long-press fired — treat as scroll, cancel.
-        if (press.timer) clearTimeout(press.timer);
-        pressRef.current = null;
+  // Document-level listeners handle move + release + cancel for the whole
+  // gesture. They read the latest interaction via interactionRef so they
+  // don't get torn down on every pointermove during a drag.
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      const current = interactionRef.current;
+      if (!current || e.pointerId !== current.pointerId) return;
+
+      if (current.phase === 'pressing') {
+        const dx = e.clientX - current.startX;
+        const dy = e.clientY - current.startY;
+        if (Math.hypot(dx, dy) > LONG_PRESS_CANCEL_THRESHOLD_PX) {
+          // Moved before long-press fired — cancel and let the page scroll.
+          clearTimeout(current.timer);
+          setInteraction(null);
+        }
         return;
       }
-    }
-    if (drag) {
+
+      // Dragging: prevent the page from scrolling while the user moves the
+      // tree, and update the floating-tree position.
       e.preventDefault();
       const { leftPct, topPct } = pointerToContainerPct(e.clientX, e.clientY);
-      setDrag({ ...drag, leftPct, topPct });
-    }
-  }
+      setInteraction({ ...current, leftPct, topPct });
+    };
 
-  function commitDrop(e: React.PointerEvent<HTMLDivElement>) {
-    if (!drag) return;
-    const { i: targetI, j: targetJ } = pointerToContainerPct(
-      e.clientX,
-      e.clientY,
-    );
-    const sourceIndex = drag.treeIndex;
+    const onPointerUp = (e: PointerEvent) => {
+      const current = interactionRef.current;
+      if (!current || e.pointerId !== current.pointerId) return;
 
-    // Reject the centre — reserved for the growing tree.
-    if (targetI === center && targetJ === center) {
-      setDrag(null);
-      return;
-    }
+      if (current.phase === 'pressing') {
+        // Released before long-press fired — just a tap, nothing to commit.
+        clearTimeout(current.timer);
+        setInteraction(null);
+        return;
+      }
 
-    // Build the new placements array. Always pad up to treesPlanted with
-    // current resolved cells so a partial-placements user "fills in" any
-    // missing entries with their default positions on the first edit.
-    const next: TreePlacement[] = [];
-    for (let k = 0; k < treesPlanted; k++) {
-      const [i, j] = resolvedCells[k];
-      next.push(cellToPlacement(grid, i, j));
-    }
+      // Dragging → commit drop.
+      const g = gridRef.current;
+      const c = centerRef.current;
+      const tp = treesPlantedRef.current;
+      const rc = resolvedCellsRef.current;
+      const onPlacementsChange = onPlacementsChangeRef.current;
+      const { i: targetI, j: targetJ } = pointerToContainerPct(
+        e.clientX,
+        e.clientY,
+      );
+      const sourceIndex = current.treeIndex;
+      setInteraction(null);
 
-    // Find if another tree currently occupies the target cell.
-    const occupant = next.findIndex(
-      (p, idx) =>
-        idx !== sourceIndex && p.di + center === targetI && p.dj + center === targetJ,
-    );
+      // Reject drop on the centre — it's reserved for the growing tree.
+      if (targetI === c && targetJ === c) return;
 
-    if (occupant >= 0) {
-      // Swap: occupant takes source's old cell, source takes target.
-      const sourcePlacement = next[sourceIndex];
-      next[occupant] = sourcePlacement;
-    }
-    next[sourceIndex] = cellToPlacement(grid, targetI, targetJ);
+      // Build a full placements array — pad missing entries with their
+      // currently-resolved cells so a partial-placements user is filled in
+      // on first edit.
+      const next: TreePlacement[] = [];
+      for (let k = 0; k < tp; k++) {
+        const [i, j] = rc[k];
+        next.push(cellToPlacement(g, i, j));
+      }
 
-    setDrag(null);
-    onPlacementsChange?.(next);
-  }
+      const sourceCur = next[sourceIndex];
+      if (
+        sourceCur &&
+        sourceCur.di + c === targetI &&
+        sourceCur.dj + c === targetJ
+      ) {
+        // Dropped on the same cell — no-op. Avoid a useless write.
+        return;
+      }
 
-  function handleTreePointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const press = pressRef.current;
-    if (press && press.pointerId === e.pointerId && press.timer) {
-      clearTimeout(press.timer);
-    }
-    pressRef.current = null;
-    if (drag) commitDrop(e);
-  }
+      const occupant = next.findIndex(
+        (p, idx) =>
+          idx !== sourceIndex && p.di + c === targetI && p.dj + c === targetJ,
+      );
+      if (occupant >= 0) {
+        // Swap: occupant takes source's old cell.
+        next[occupant] = next[sourceIndex];
+      }
+      next[sourceIndex] = cellToPlacement(g, targetI, targetJ);
 
-  function handleTreePointerCancel() {
-    const press = pressRef.current;
-    if (press?.timer) clearTimeout(press.timer);
-    pressRef.current = null;
-    setDrag(null);
-  }
+      onPlacementsChange?.(next);
+    };
+
+    const onPointerCancel = (e: PointerEvent) => {
+      const current = interactionRef.current;
+      if (!current || e.pointerId !== current.pointerId) return;
+      if (current.phase === 'pressing') clearTimeout(current.timer);
+      setInteraction(null);
+    };
+
+    document.addEventListener('pointermove', onPointerMove, { passive: false });
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerCancel);
+    return () => {
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerCancel);
+    };
+  }, []);
+
+  // Derived: are we currently dragging a tree?
+  const drag = interaction?.phase === 'dragging' ? interaction : null;
 
   // Build the list of things to render.
   type Item = {
@@ -987,11 +1062,6 @@ function IsometricField({
               t.kind === 'mature'
                 ? (e) => handleTreePointerDown(t.keyIndex, e)
                 : undefined
-            }
-            onPointerMove={t.kind === 'mature' ? handleTreePointerMove : undefined}
-            onPointerUp={t.kind === 'mature' ? handleTreePointerUp : undefined}
-            onPointerCancel={
-              t.kind === 'mature' ? handleTreePointerCancel : undefined
             }
             style={{
               left: `${liveLeft}%`,
