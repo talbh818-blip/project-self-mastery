@@ -105,6 +105,7 @@ export function Vision() {
           // resetKey forces the editor to re-mount when the period changes,
           // so it loads the right initial document.
           resetKey={`${scope}:${periodKey}`}
+          scope={scope}
           initialContent={entry?.content ?? null}
           placeholder={PLACEHOLDERS[scope]}
           saveStatus={status}

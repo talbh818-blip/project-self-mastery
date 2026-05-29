@@ -9,22 +9,48 @@
 // The formatting toolbar is rendered FIXED at the bottom of the viewport,
 // just above the bottom-nav (.vision-toolbar-fixed handles the geometry).
 // The save status badge ("שומר…" / "נשמר") rides on the same row so the
-// user has one consolidated control strip while writing — the same place
-// Google Docs Mobile puts its keyboard accessory.
+// user has one consolidated control strip while writing.
+//
+// Assist mode: when enabled, two extra controls appear in the toolbar —
+// the assist toggle itself (💡) and "+ שאלה" which injects a question.
+// The first time Assist is turned on against an empty doc, we auto-inject
+// STARTER_QUESTION_COUNT questions so the user has something to react to.
 // ============================================================================
-import { useEffect } from 'react';
-import { useEditor, EditorContent, type Editor, type Content } from '@tiptap/react';
+import { useEffect, useRef } from 'react';
+import {
+  useEditor,
+  EditorContent,
+  type Editor,
+  type Content,
+} from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Bold, List, ListOrdered, Highlighter, CheckCircle2 } from 'lucide-react';
+import {
+  Bold,
+  List,
+  ListOrdered,
+  Highlighter,
+  CheckCircle2,
+  Lightbulb,
+  Plus,
+} from 'lucide-react';
 import type { SaveStatus } from './useVisionEntry';
+import { useAssistMode } from './useAssistMode';
+import { VisionQuestionNode } from './VisionQuestion';
+import {
+  pickQuestion,
+  STARTER_QUESTION_COUNT,
+  type VisionQuestion,
+} from './questions';
+import type { VisionScope } from './period';
 
 type Props = {
   /** Initial Tiptap JSON document. `null`/empty object → blank doc. */
   initialContent: unknown;
   /** Resets the editor when this changes (e.g. switching period). */
   resetKey: string;
+  scope: VisionScope;
   placeholder?: string;
   readOnly?: boolean;
   saveStatus: SaveStatus;
@@ -41,6 +67,7 @@ const HIGHLIGHT_COLORS = [
 export function VisionEditor({
   initialContent,
   resetKey,
+  scope,
   placeholder,
   readOnly,
   saveStatus,
@@ -54,6 +81,7 @@ export function VisionEditor({
         Placeholder.configure({
           placeholder: placeholder ?? 'התחל לכתוב…',
         }),
+        VisionQuestionNode,
       ],
       content: normaliseContent(initialContent) as Content,
       editable: !readOnly,
@@ -79,6 +107,39 @@ export function VisionEditor({
     editor.setEditable(!readOnly);
   }, [editor, readOnly]);
 
+  const { enabled: assistOn, toggle: toggleAssist } = useAssistMode();
+
+  // First time Assist activates on this period — if the doc is empty, seed
+  // it with a few starter questions so the user has something to react to.
+  // We use a ref to make sure we only seed once per (editor, scope, on→true).
+  const seededForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!editor) return;
+    if (!assistOn) return;
+    const key = `${resetKey}`;
+    if (seededForRef.current === key) return;
+    if (!isDocEmpty(editor)) {
+      seededForRef.current = key; // mark seen even if non-empty
+      return;
+    }
+    const used = new Set<string>();
+    const picks: VisionQuestion[] = [];
+    for (let i = 0; i < STARTER_QUESTION_COUNT; i++) {
+      const q = pickQuestion(scope, used);
+      used.add(q.id);
+      picks.push(q);
+    }
+    const content = picks.flatMap((q) => [
+      {
+        type: 'visionQuestion',
+        attrs: { questionId: q.id, scope, text: q.text },
+      },
+      { type: 'paragraph' },
+    ]);
+    editor.chain().focus().insertContent(content).run();
+    seededForRef.current = key;
+  }, [assistOn, editor, scope, resetKey]);
+
   if (!editor) {
     return (
       <div className="vision-editor">
@@ -87,13 +148,35 @@ export function VisionEditor({
     );
   }
 
+  const insertOneQuestion = () => {
+    if (!editor) return;
+    const used = new Set<string>();
+    editor.state.doc.descendants((n) => {
+      if (n.type.name !== 'visionQuestion') return;
+      const id = n.attrs?.questionId;
+      if (typeof id === 'string' && id) used.add(id);
+    });
+    const q = pickQuestion(scope, used);
+    editor
+      .chain()
+      .focus()
+      .insertVisionQuestion({ questionId: q.id, scope, text: q.text })
+      .run();
+  };
+
   return (
     <div className="vision-editor">
       <EditorContent editor={editor} />
       {!readOnly && (
         <div className="vision-toolbar-fixed">
           <div className="max-w-md mx-auto px-3">
-            <Toolbar editor={editor} saveStatus={saveStatus} />
+            <Toolbar
+              editor={editor}
+              saveStatus={saveStatus}
+              assistOn={assistOn}
+              onToggleAssist={toggleAssist}
+              onInsertQuestion={insertOneQuestion}
+            />
           </div>
         </div>
       )}
@@ -104,9 +187,15 @@ export function VisionEditor({
 function Toolbar({
   editor,
   saveStatus,
+  assistOn,
+  onToggleAssist,
+  onInsertQuestion,
 }: {
   editor: Editor;
   saveStatus: SaveStatus;
+  assistOn: boolean;
+  onToggleAssist: () => void;
+  onInsertQuestion: () => void;
 }) {
   return (
     <div
@@ -115,6 +204,7 @@ function Toolbar({
         flex items-center gap-1 p-1.5
         rounded-2xl bg-surface-card border border-surface-border
         shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]
+        overflow-x-auto
       "
     >
       <ToolButton
@@ -162,6 +252,34 @@ function Toolbar({
           />
         );
       })}
+
+      <div className="mx-1 h-5 w-px bg-surface-border shrink-0" aria-hidden />
+
+      {/* Assist toggle — lit up when active */}
+      <ToolButton
+        active={assistOn}
+        onClick={onToggleAssist}
+        label="מצב מודרך — שאלות מנחות"
+      >
+        <Lightbulb size={16} />
+      </ToolButton>
+
+      {/* Only visible when assist is on. Inserts one fresh question. */}
+      {assistOn && (
+        <button
+          type="button"
+          onClick={onInsertQuestion}
+          aria-label="הוסף שאלה מנחה"
+          className="
+            shrink-0 inline-flex items-center gap-1 px-2 h-8 rounded-lg
+            text-[12px] font-medium text-cream-50 bg-forest-700
+            hover:bg-forest-600 transition-colors
+          "
+        >
+          <Plus size={13} strokeWidth={2.4} />
+          שאלה
+        </button>
+      )}
 
       {/* Push save status to the LEFT (visual end in RTL). */}
       <div className="grow" />
@@ -231,4 +349,17 @@ function normaliseContent(value: unknown): unknown {
   const v = value as Record<string, unknown>;
   if (Object.keys(v).length === 0) return null;
   return value;
+}
+
+/**
+ * "Empty" = no real content. We consider a single empty paragraph empty
+ * (Tiptap inserts one by default) but anything beyond it counts.
+ */
+function isDocEmpty(editor: Editor): boolean {
+  const doc = editor.state.doc;
+  if (doc.childCount === 0) return true;
+  if (doc.childCount > 1) return false;
+  const first = doc.firstChild;
+  if (!first) return true;
+  return first.type.name === 'paragraph' && first.content.size === 0;
 }

@@ -372,6 +372,61 @@ html[data-theme="light"] {
   color: inherit;
 }
 
+/* Vision Assist question block — looks like a prompt sticker laid over the
+   notebook. Bold text on the right, two action buttons (↻ swap, ✕ delete)
+   that fade in on hover (always visible on touch devices via the no-hover
+   media query). */
+.vision-editor .vision-question {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: var(--color-forest-100);
+  border: 1px solid var(--color-forest-200);
+  border-radius: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  margin: 0.6em 0;
+  color: var(--color-ink-100);
+}
+.vision-editor .vision-question__text {
+  font-weight: 700;
+  line-height: 1.45;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+.vision-editor .vision-question__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  opacity: 0;
+  transition: opacity 140ms;
+  flex-shrink: 0;
+}
+.vision-editor .vision-question:hover .vision-question__actions,
+.vision-editor .vision-question:focus-within .vision-question__actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  /* Touch devices: hover never fires, so keep actions visible at low opacity */
+  .vision-editor .vision-question__actions { opacity: 0.55; }
+}
+.vision-editor .vision-question__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--color-ink-300);
+  cursor: pointer;
+  background: transparent;
+}
+.vision-editor .vision-question__btn:hover {
+  color: var(--color-ink-100);
+  background: var(--color-surface-raised);
+}
+
 /* Placeholder — shown when the doc is empty (first child is empty). */
 .vision-editor .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
