@@ -305,6 +305,52 @@ html[data-theme="light"] {
  *     gives it a tiny "gravity" feel),
  *   • fades out toward the end.
  * --------------------------------------------------------------------------*/
+/* ---------------------------------------------------------------------------
+ * Tiptap editor — vision/journaling surface. RTL, generous line-height,
+ * notebook feel. Lists, marks, and the placeholder are styled here because
+ * Tiptap renders into a plain `.ProseMirror` element (not a React tree we
+ * can apply utility classes to).
+ * --------------------------------------------------------------------------*/
+.vision-editor .ProseMirror {
+  direction: rtl;
+  text-align: right;
+  min-height: 60vh;
+  outline: none;
+  color: var(--color-ink-100);
+  line-height: 1.75;
+  font-size: 1rem;
+}
+.vision-editor .ProseMirror > * + * {
+  margin-top: 0.6em;
+}
+.vision-editor .ProseMirror ul,
+.vision-editor .ProseMirror ol {
+  padding-inline-start: 1.25rem;
+  margin: 0.5em 0;
+}
+.vision-editor .ProseMirror ul { list-style: disc; }
+.vision-editor .ProseMirror ol { list-style: decimal; }
+.vision-editor .ProseMirror li > p { margin: 0; }
+.vision-editor .ProseMirror strong { font-weight: 700; color: var(--color-ink-100); }
+
+/* Highlight marks — Tiptap multicolor highlight stores the color in
+   `style="background-color: ..."` on the <mark>. We just make sure the
+   text on top stays readable. */
+.vision-editor .ProseMirror mark {
+  padding: 0 0.1em;
+  border-radius: 2px;
+  color: inherit;
+}
+
+/* Placeholder — shown when the doc is empty (first child is empty). */
+.vision-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: right; /* RTL: placeholder hugs the right side */
+  color: var(--color-ink-500);
+  pointer-events: none;
+  height: 0;
+}
+
 @keyframes confetti-fly {
   0% {
     opacity: 0;
