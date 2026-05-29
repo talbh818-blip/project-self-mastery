@@ -129,22 +129,53 @@ html[data-theme="light"] {
  * --------------------------------------------------------------------------*/
 .shelf-scroll {
   direction: rtl;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-surface-border) transparent;
+  /* `auto` keeps the thumb visible on desktop; `thin` sometimes evaluates to
+     "hidden until hover" in certain Firefox builds. */
+  scrollbar-width: auto;
+  scrollbar-color: var(--color-ink-500) var(--color-surface-card);
   -webkit-overflow-scrolling: touch;
+  /* Belt-and-suspenders: ensure horizontal panning gestures aren't silently
+     swallowed by an iOS parent overflow rule. */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 .shelf-scroll::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
+  -webkit-appearance: none;
 }
 .shelf-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-surface-card);
+  border-radius: 6px;
 }
 .shelf-scroll::-webkit-scrollbar-thumb {
-  background: var(--color-surface-border);
-  border-radius: 4px;
+  background: var(--color-ink-500);
+  border-radius: 6px;
+  border: 2px solid var(--color-surface-card);
 }
 .shelf-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-500);
+  background: var(--color-ink-300);
+}
+
+/* Soft fade on the LEFT edge of an RTL horizontal scroller — a visual
+   "more content this way" hint. The parent wraps the scroller with this
+   class; ::after is absolutely positioned over the scroll viewport with
+   pointer-events: none so it doesn't eat clicks or swipes. */
+.shelf-scroll-wrap {
+  position: relative;
+}
+.shelf-scroll-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 12px; /* leaves the scrollbar visible underneath the gradient */
+  left: 0;
+  width: 32px;
+  pointer-events: none;
+  background: linear-gradient(
+    to left,
+    transparent 0%,
+    var(--color-surface-base) 100%
+  );
 }
 
 /* ----------------------------------------------------------------------------
