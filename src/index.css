@@ -415,12 +415,19 @@ html[data-theme="light"] {
    `style="background-color: ..."` on the <mark>. The four highlight
    palette colors (yellow / orange / blue / red) are all light pastels;
    on the dark theme our default ink-100 (#d4e8da) would melt into them.
-   Force a dark text color so the contrast stays readable in BOTH themes
-   without depending on theme tokens. */
+   Force a dark text color so the contrast stays readable in BOTH themes.
+
+   We also explicitly target <strong> nested inside <mark> (and vice
+   versa) because the .ProseMirror strong rule sets its own color, which
+   would otherwise win over `mark`'s color for the bold case. */
+.vision-editor .ProseMirror mark,
+.vision-editor .ProseMirror mark strong,
+.vision-editor .ProseMirror strong mark {
+  color: #1c2a22;
+}
 .vision-editor .ProseMirror mark {
   padding: 0 0.1em;
   border-radius: 2px;
-  color: #1c2a22;
 }
 
 /* Task list (checklist) — Tiptap renders <ul data-type="taskList"> with

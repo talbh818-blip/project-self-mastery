@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import type { SaveStatus } from './useVisionEntry';
 import { useAssistMode } from './useAssistMode';
+import { useKeyboardInset } from './useKeyboardInset';
 import { VisionQuestionNode } from './VisionQuestion';
 import { DateBar } from './DateBar';
 import {
@@ -200,16 +201,41 @@ export function VisionEditor({
       />
       <EditorContent editor={editor} />
       {!readOnly && (
-        <div className="vision-toolbar-fixed">
-          <div className="max-w-md mx-auto px-3">
-            <Toolbar
-              editor={editor}
-              assistOn={assistOn}
-              onInsertQuestion={insertOneQuestion}
-            />
-          </div>
-        </div>
+        <ToolbarShell>
+          <Toolbar
+            editor={editor}
+            assistOn={assistOn}
+            onInsertQuestion={insertOneQuestion}
+          />
+        </ToolbarShell>
       )}
+    </div>
+  );
+}
+
+/**
+ * Wraps the fixed-bottom toolbar in a positioner that floats above the
+ * on-screen keyboard when one is open. When there's no keyboard, the
+ * CSS class drives the bottom offset (above the bottom-nav).
+ */
+function ToolbarShell({ children }: { children: React.ReactNode }) {
+  const kbInset = useKeyboardInset();
+  // 100px threshold so we don't react to the browser address-bar shrinking
+  // (which can also reduce visual viewport height by ~50px on iOS Safari
+  // without an actual keyboard being open).
+  const kbOpen = kbInset > 100;
+  return (
+    <div
+      className="vision-toolbar-fixed"
+      style={
+        kbOpen
+          ? // +6 px so the toolbar's bottom edge isn't flush against the
+            // keyboard's top edge — small breathing room reads as polish.
+            { bottom: `${kbInset + 6}px` }
+          : undefined
+      }
+    >
+      <div className="max-w-md mx-auto px-3">{children}</div>
     </div>
   );
 }

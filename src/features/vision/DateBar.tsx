@@ -74,7 +74,11 @@ export function DateBar({
         {/* Spacer pushes the assist + save controls to the visual LEFT. */}
         <div className="grow" />
 
-        {/* Assist toggle — emoji to make it pop. Subtle off / lit on. */}
+        {/* Assist toggle — the emoji is always at full opacity (it's a
+            real button, not a hint). Both states have a visible chip
+            background so the user can read it as "tap me". The ON state
+            picks up a forest-tinted fill + ring so it stands out as
+            active. */}
         <button
           type="button"
           onClick={onToggleAssist}
@@ -85,8 +89,8 @@ export function DateBar({
             shrink-0 inline-flex items-center justify-center
             w-7 h-7 rounded-lg transition-all
             ${assistOn
-              ? 'bg-forest-700/20 ring-1 ring-forest-700/40'
-              : 'opacity-50 hover:opacity-100'}
+              ? 'bg-forest-700/25 ring-1 ring-forest-700'
+              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300'}
           `}
         >
           <Emoji emoji="💡" size={16} ariaLabel="" />
