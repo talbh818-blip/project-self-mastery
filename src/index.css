@@ -412,13 +412,47 @@ html[data-theme="light"] {
 .vision-editor .ProseMirror strong { font-weight: 700; color: var(--color-ink-100); }
 
 /* Highlight marks — Tiptap multicolor highlight stores the color in
-   `style="background-color: ..."` on the <mark>. We just make sure the
-   text on top stays readable. */
+   `style="background-color: ..."` on the <mark>. The four highlight
+   palette colors (yellow / orange / blue / red) are all light pastels;
+   on the dark theme our default ink-100 (#d4e8da) would melt into them.
+   Force a dark text color so the contrast stays readable in BOTH themes
+   without depending on theme tokens. */
 .vision-editor .ProseMirror mark {
   padding: 0 0.1em;
   border-radius: 2px;
-  color: inherit;
+  color: #1c2a22;
 }
+
+/* Task list (checklist) — Tiptap renders <ul data-type="taskList"> with
+   <li data-type="taskItem"><label><input type="checkbox" /></label>... */
+.vision-editor .ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0.25rem;
+}
+.vision-editor .ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin: 0.3em 0;
+}
+.vision-editor .ProseMirror ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.3em;
+  user-select: none;
+}
+.vision-editor .ProseMirror ul[data-type="taskList"] li > label > input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-forest-700);
+  cursor: pointer;
+}
+.vision-editor .ProseMirror ul[data-type="taskList"] li[data-checked="true"] > div p {
+  color: var(--color-ink-500);
+  text-decoration: line-through;
+}
+
+/* Hide the scrollbar on the date-picker wheels (Chromium / WebKit). */
+.vision-wheel::-webkit-scrollbar { display: none; }
 
 /* Vision Assist question block — looks like a prompt sticker laid over the
    notebook. Bold text on the right, two action buttons (↻ swap, ✕ delete)

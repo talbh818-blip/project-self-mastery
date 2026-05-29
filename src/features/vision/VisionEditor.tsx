@@ -6,14 +6,22 @@
 // there. Every keystroke fires `onChange(json)` so the parent can debounce
 // and persist to Supabase.
 //
-// The formatting toolbar is rendered FIXED at the bottom of the viewport,
-// just above the bottom-nav (.vision-toolbar-fixed handles the geometry).
-// The save status badge ("שומר…" / "נשמר") rides on the same row so the
-// user has one consolidated control strip while writing.
+// LAYOUT:
+//   • DateBar (top of card): doc date + Assist toggle + save status
+//   • EditorContent: the writing surface
+//   • Fixed toolbar (above bottom-nav): bold, list-cycle button, highlight
+//     colors, and the "+ שאלה" CTA when Assist is on. Save status used to
+//     live here — it moved up to the DateBar so the toolbar can stay
+//     focused on formatting.
 //
-// Assist mode: when enabled, two extra controls appear in the toolbar —
-// the assist toggle itself (💡) and "+ שאלה" which injects a question.
-// The first time Assist is turned on against an empty doc, we auto-inject
+// LIST BUTTON: a single control that cycles through
+//     none → bullets → numbered → checklist → none
+// because three separate buttons cluttered the toolbar and made the
+// difference between modes feel less discoverable than a single
+// progressively-changing icon.
+//
+// ASSIST MODE: when the toggle (in DateBar) is on AND this is the first
+// time we've seen the toggle on for an empty doc, we auto-inject
 // STARTER_QUESTION_COUNT questions so the user has something to react to.
 // ============================================================================
 import { useEffect, useRef } from 'react';
@@ -26,13 +34,14 @@ import {
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Placeholder from '@tiptap/extension-placeholder';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
 import {
   Bold,
   List,
   ListOrdered,
+  ListChecks,
   Highlighter,
-  CheckCircle2,
-  Lightbulb,
   Plus,
 } from 'lucide-react';
 import type { SaveStatus } from './useVisionEntry';
@@ -68,6 +77,8 @@ const HIGHLIGHT_COLORS = [
   { label: 'אדום', color: '#fecaca' },
 ];
 
+type ListMode = 'none' | 'bullet' | 'ordered' | 'task';
+
 export function VisionEditor({
   initialContent,
   resetKey,
@@ -87,6 +98,8 @@ export function VisionEditor({
         Placeholder.configure({
           placeholder: placeholder ?? 'התחל לכתוב…',
         }),
+        TaskList,
+        TaskItem.configure({ nested: true }),
         VisionQuestionNode,
       ],
       content: normaliseContent(initialContent) as Content,
@@ -148,14 +161,20 @@ export function VisionEditor({
 
   if (!editor) {
     return (
-      <div className="vision-editor">
+      <div className="vision-editor vision-page">
+        <DateBar
+          value={documentDate}
+          onChange={onDateChange}
+          assistOn={assistOn}
+          onToggleAssist={toggleAssist}
+          saveStatus={saveStatus}
+        />
         <p className="text-ink-300 text-sm">טוען עורך…</p>
       </div>
     );
   }
 
   const insertOneQuestion = () => {
-    if (!editor) return;
     const used = new Set<string>();
     editor.state.doc.descendants((n) => {
       if (n.type.name !== 'visionQuestion') return;
@@ -172,16 +191,20 @@ export function VisionEditor({
 
   return (
     <div className="vision-editor vision-page">
-      <DateBar value={documentDate} onChange={onDateChange} />
+      <DateBar
+        value={documentDate}
+        onChange={onDateChange}
+        assistOn={assistOn}
+        onToggleAssist={toggleAssist}
+        saveStatus={saveStatus}
+      />
       <EditorContent editor={editor} />
       {!readOnly && (
         <div className="vision-toolbar-fixed">
           <div className="max-w-md mx-auto px-3">
             <Toolbar
               editor={editor}
-              saveStatus={saveStatus}
               assistOn={assistOn}
-              onToggleAssist={toggleAssist}
               onInsertQuestion={insertOneQuestion}
             />
           </div>
@@ -193,17 +216,44 @@ export function VisionEditor({
 
 function Toolbar({
   editor,
-  saveStatus,
   assistOn,
-  onToggleAssist,
   onInsertQuestion,
 }: {
   editor: Editor;
-  saveStatus: SaveStatus;
   assistOn: boolean;
-  onToggleAssist: () => void;
   onInsertQuestion: () => void;
 }) {
+  const listMode = currentListMode(editor);
+  const ListIcon = iconForListMode(listMode);
+  const nextLabel = nextListLabel(listMode);
+
+  const cycleList = () => {
+    switch (listMode) {
+      case 'none':
+        editor.chain().focus().toggleBulletList().run();
+        break;
+      case 'bullet':
+        // bullet → ordered (Tiptap converts between the two list types
+        // when you call the other toggle while inside one).
+        editor.chain().focus().toggleOrderedList().run();
+        break;
+      case 'ordered':
+        // ordered → task. Need to leave the ordered list first, then
+        // wrap into a task list. `toggleOrderedList` undoes the current
+        // ordered list; `toggleTaskList` wraps the resulting paragraph.
+        editor
+          .chain()
+          .focus()
+          .toggleOrderedList()
+          .toggleTaskList()
+          .run();
+        break;
+      case 'task':
+        editor.chain().focus().toggleTaskList().run();
+        break;
+    }
+  };
+
   return (
     <div
       dir="rtl"
@@ -223,19 +273,14 @@ function Toolbar({
       </ToolButton>
 
       <ToolButton
-        active={editor.isActive('bulletList')}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        label="רשימה עם נקודות"
+        active={listMode !== 'none'}
+        onClick={cycleList}
+        label={nextLabel}
       >
-        <List size={16} />
-      </ToolButton>
-
-      <ToolButton
-        active={editor.isActive('orderedList')}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        label="רשימה ממוספרת"
-      >
-        <ListOrdered size={16} />
+        {/* RTL flip: Lucide list icons draw bullets on the left + lines on
+            the right. In RTL we want bullets on the right, so we mirror
+            horizontally. Symmetric icons (Bold, etc.) skip the flip. */}
+        <ListIcon size={16} className="scale-x-[-1]" />
       </ToolButton>
 
       <div className="mx-1 h-5 w-px bg-surface-border shrink-0" aria-hidden />
@@ -260,62 +305,26 @@ function Toolbar({
         );
       })}
 
-      <div className="mx-1 h-5 w-px bg-surface-border shrink-0" aria-hidden />
-
-      {/* Assist toggle — lit up when active */}
-      <ToolButton
-        active={assistOn}
-        onClick={onToggleAssist}
-        label="מצב מודרך — שאלות מנחות"
-      >
-        <Lightbulb size={16} />
-      </ToolButton>
-
-      {/* Only visible when assist is on. Inserts one fresh question. */}
+      {/* "+ שאלה" only when assist is on — toggle itself lives in DateBar */}
       {assistOn && (
-        <button
-          type="button"
-          onClick={onInsertQuestion}
-          aria-label="הוסף שאלה מנחה"
-          className="
-            shrink-0 inline-flex items-center gap-1 px-2 h-8 rounded-lg
-            text-[12px] font-medium text-cream-50 bg-forest-700
-            hover:bg-forest-600 transition-colors
-          "
-        >
-          <Plus size={13} strokeWidth={2.4} />
-          שאלה
-        </button>
+        <>
+          <div className="mx-1 h-5 w-px bg-surface-border shrink-0" aria-hidden />
+          <button
+            type="button"
+            onClick={onInsertQuestion}
+            aria-label="הוסף שאלה מנחה"
+            className="
+              shrink-0 inline-flex items-center gap-1 px-2 h-8 rounded-lg
+              text-[12px] font-medium text-cream-50 bg-forest-700
+              hover:bg-forest-600 transition-colors
+            "
+          >
+            <Plus size={13} strokeWidth={2.4} />
+            שאלה
+          </button>
+        </>
       )}
-
-      {/* Push save status to the LEFT (visual end in RTL). */}
-      <div className="grow" />
-      <SaveBadge status={saveStatus} />
     </div>
-  );
-}
-
-function SaveBadge({ status }: { status: SaveStatus }) {
-  if (status === 'idle') return null;
-  const text =
-    status === 'pending' || status === 'saving'
-      ? 'שומר…'
-      : status === 'saved'
-        ? 'נשמר'
-        : 'שגיאה';
-  const color =
-    status === 'error'
-      ? 'text-red-400'
-      : status === 'saved'
-        ? 'text-forest-500'
-        : 'text-ink-300';
-  return (
-    <span
-      className={`text-[11px] ${color} flex items-center gap-1 shrink-0 pl-1`}
-    >
-      {status === 'saved' && <CheckCircle2 size={11} />}
-      {text}
-    </span>
   );
 }
 
@@ -346,6 +355,45 @@ function ToolButton({
       {children}
     </button>
   );
+}
+
+// ─── List mode helpers ──────────────────────────────────────────────────────
+
+function currentListMode(editor: Editor): ListMode {
+  if (editor.isActive('bulletList')) return 'bullet';
+  if (editor.isActive('orderedList')) return 'ordered';
+  if (editor.isActive('taskList')) return 'task';
+  return 'none';
+}
+
+function iconForListMode(mode: ListMode) {
+  // Show the icon of the CURRENT mode so the button reflects the doc state.
+  // 'none' falls back to the plain bullet icon (which is also what clicking
+  // it will produce — the "next action" hint matches the affordance).
+  switch (mode) {
+    case 'bullet':
+      return List;
+    case 'ordered':
+      return ListOrdered;
+    case 'task':
+      return ListChecks;
+    case 'none':
+    default:
+      return List;
+  }
+}
+
+function nextListLabel(mode: ListMode): string {
+  switch (mode) {
+    case 'none':
+      return 'רשימה עם נקודות';
+    case 'bullet':
+      return 'רשימה ממוספרת';
+    case 'ordered':
+      return 'רשימת משימות';
+    case 'task':
+      return 'בטל רשימה';
+  }
 }
 
 // Tiptap rejects empty objects; an empty document is `{ type: 'doc', content: [] }`.
