@@ -45,7 +45,7 @@ export function BottomNav() {
               end={end}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-2 px-1 text-[11px] transition-colors ${
-                  isActive ? 'text-forest-500' : 'text-ink-300'
+                  isActive ? 'text-forest-500' : 'text-ink-100'
                 }`
               }
             >
