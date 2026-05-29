@@ -118,6 +118,11 @@ const HEB_MONTHS = [
   'דצמבר',
 ];
 
+const HEB_MONTHS_SHORT = [
+  'ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יוני',
+  'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳',
+];
+
 export function formatPeriodLabel(scope: VisionScope, key: string): string {
   const start = parsePeriodStart(scope, key);
   switch (scope) {
@@ -136,6 +141,94 @@ export function formatPeriodLabel(scope: VisionScope, key: string): string {
       return `${startStr} – ${endStr} ${end.getFullYear()}`;
     }
   }
+}
+
+// ─── Compact tab labels ─────────────────────────────────────────────────────
+// Tab title is fixed per scope; the subtitle is short enough to fit beneath
+// the title on a phone-width tab (≈110px).
+
+export const SCOPE_TITLES: Record<VisionScope, string> = {
+  yearly: 'חזון שנתי',
+  monthly: 'חודשי',
+  weekly: 'שבועי',
+};
+
+/**
+ * Subtitle for the per-scope tab. Current period shows a concrete identifier
+ * (year / month name / day range); past periods use a relative phrase
+ * ("שנה שעברה", "לפני שנתיים", "שבוע שעבר", "לפני שבועיים", …).
+ */
+export function formatScopeSubtitle(
+  scope: VisionScope,
+  key: string,
+  now: Date,
+): string {
+  const todayKey = getPeriodKey(scope, now);
+  if (key === todayKey) {
+    // CURRENT period — concrete label
+    const start = parsePeriodStart(scope, key);
+    if (scope === 'yearly') return `שנת ${key}`;
+    if (scope === 'monthly') return HEB_MONTHS[start.getMonth()];
+    // weekly → day-range "25–31 מאי" (or "30 אפר׳ – 6 מאי" across month boundary)
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    if (start.getMonth() === end.getMonth()) {
+      return `${start.getDate()}–${end.getDate()} ${HEB_MONTHS_SHORT[start.getMonth()]}`;
+    }
+    return `${start.getDate()} ${HEB_MONTHS_SHORT[start.getMonth()]} – ${end.getDate()} ${HEB_MONTHS_SHORT[end.getMonth()]}`;
+  }
+
+  // PAST or FUTURE — relative phrase. Diff is computed in the scope's units.
+  const diff = periodDiff(scope, key, todayKey);
+
+  if (scope === 'yearly') {
+    if (diff === -1) return 'שנה שעברה';
+    if (diff === 1) return 'שנה הבאה';
+    if (diff === -2) return 'לפני שנתיים';
+    if (diff === 2) return 'בעוד שנתיים';
+    if (diff < 0) return `לפני ${-diff} שנים`;
+    return `בעוד ${diff} שנים`;
+  }
+
+  if (scope === 'monthly') {
+    if (diff === -1) return 'חודש שעבר';
+    if (diff === 1) return 'חודש הבא';
+    if (diff === -2) return 'לפני חודשיים';
+    if (diff === 2) return 'בעוד חודשיים';
+    if (diff < 0) return `לפני ${-diff} חודשים`;
+    return `בעוד ${diff} חודשים`;
+  }
+
+  // weekly
+  if (diff === -1) return 'שבוע שעבר';
+  if (diff === 1) return 'שבוע הבא';
+  if (diff === -2) return 'לפני שבועיים';
+  if (diff === 2) return 'בעוד שבועיים';
+  if (diff < 0) return `לפני ${-diff} שבועות`;
+  return `בעוד ${diff} שבועות`;
+}
+
+/**
+ * Signed difference in scope-units between two period keys (a - b).
+ *   yearly:  years
+ *   monthly: months
+ *   weekly:  weeks (computed from start-of-week timestamps)
+ */
+function periodDiff(scope: VisionScope, a: string, b: string): number {
+  const aDate = parsePeriodStart(scope, a);
+  const bDate = parsePeriodStart(scope, b);
+  if (scope === 'yearly') {
+    return aDate.getFullYear() - bDate.getFullYear();
+  }
+  if (scope === 'monthly') {
+    return (
+      (aDate.getFullYear() - bDate.getFullYear()) * 12 +
+      (aDate.getMonth() - bDate.getMonth())
+    );
+  }
+  // weekly — round to nearest whole week to absorb any DST hour shift
+  const ms = aDate.getTime() - bDate.getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24 * 7));
 }
 
 // ─── ISO-week internals ─────────────────────────────────────────────────────

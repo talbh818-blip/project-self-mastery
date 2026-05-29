@@ -1,32 +1,32 @@
 // ============================================================================
 // Vision screen — yearly / monthly / weekly journaling.
 // ----------------------------------------------------------------------------
-// Single control strip at the top: three tabs (שנתי / חודשי / שבועי) where
-// the active tab expands to show its current period label flanked by left
-// and right chevrons that navigate within that scope. Inactive tabs collapse
-// to just the scope name. Clicking an inactive tab activates it (and keeps
-// whatever period was last viewed there).
+// One row of three EQUAL-WIDTH tabs. Each tab carries:
+//   • its scope title       ("חזון שנתי" / "חודשי" / "שבועי")
+//   • its current period as a subtitle ("שנת 2026" / "מאי" / "25–31 מאי")
+//   • a right and left chevron so the user can scrub through periods WITHOUT
+//     having to activate that tab first — the inactive tab's subtitle
+//     updates in place when its chevrons are tapped.
+//   • Tapping the centre (label) of an inactive tab activates it.
+//   • Tapping the centre of the active tab snaps back to "now".
 //
-// The editor below auto-saves; the save indicator is rendered inside the
-// editor's fixed bottom toolbar (not here).
+// The editor below auto-saves; the save indicator rides inside the editor's
+// fixed bottom toolbar (not here).
 // ============================================================================
 import { useMemo, useState, type MouseEvent } from 'react';
 import { ChevronRight, ChevronLeft, Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import {
+  SCOPE_TITLES,
   addPeriod,
-  formatPeriodLabel,
+  formatScopeSubtitle,
   getPeriodKey,
   isFuturePeriod,
   type VisionScope,
 } from '../features/vision/period';
 
-const TABS: { scope: VisionScope; label: string }[] = [
-  { scope: 'yearly', label: 'שנתי' },
-  { scope: 'monthly', label: 'חודשי' },
-  { scope: 'weekly', label: 'שבועי' },
-];
+const TAB_ORDER: VisionScope[] = ['yearly', 'monthly', 'weekly'];
 
 const PLACEHOLDERS: Record<VisionScope, string> = {
   yearly: 'מה החזון שלך לשנה הזו? מה הכי חשוב לך להשיג?',
@@ -76,20 +76,21 @@ export function Vision() {
         role="tablist"
         aria-label="רמת חזון"
         dir="rtl"
-        className="flex bg-surface-card rounded-2xl p-1 gap-1"
+        // h-14 + items-stretch: every tab is the same height regardless
+        // of how long its subtitle happens to be.
+        className="flex items-stretch gap-1.5 h-14"
       >
-        {TABS.map((t) => (
+        {TAB_ORDER.map((s) => (
           <ScopeTab
-            key={t.scope}
-            scope={t.scope}
-            label={t.label}
-            active={scope === t.scope}
-            periodKey={periodByScope[t.scope]}
+            key={s}
+            scope={s}
+            active={scope === s}
+            periodKey={periodByScope[s]}
             today={today}
-            onActivate={() => setScope(t.scope)}
-            onPrev={() => gotoIn(t.scope, -1)}
-            onNext={() => gotoIn(t.scope, 1)}
-            onJumpToNow={() => jumpToNowIn(t.scope)}
+            onActivate={() => setScope(s)}
+            onPrev={() => gotoIn(s, -1)}
+            onNext={() => gotoIn(s, 1)}
+            onJumpToNow={() => jumpToNowIn(s)}
           />
         ))}
       </div>
@@ -118,7 +119,6 @@ export function Vision() {
 
 type ScopeTabProps = {
   scope: VisionScope;
-  label: string;
   active: boolean;
   periodKey: string;
   today: Date;
@@ -130,7 +130,6 @@ type ScopeTabProps = {
 
 function ScopeTab({
   scope,
-  label,
   active,
   periodKey,
   today,
@@ -142,24 +141,15 @@ function ScopeTab({
   const isCurrent = periodKey === getPeriodKey(scope, today);
   const nextIsFuture = isFuturePeriod(scope, addPeriod(scope, periodKey, 1));
 
-  // Inactive: a single button that activates the tab on tap.
-  if (!active) {
-    return (
-      <button
-        type="button"
-        role="tab"
-        aria-selected={false}
-        onClick={onActivate}
-        className="flex-1 py-2 rounded-xl text-sm font-medium text-ink-300 hover:text-ink-100 transition-colors min-w-0"
-      >
-        {label}
-      </button>
-    );
-  }
+  // Centre label tap: when inactive, switching activates this tab. When
+  // active and the user has scrolled away from "now", snap back. When
+  // active and already on "now", do nothing (the button stays clickable
+  // but has no visible effect).
+  const onCentreClick = () => {
+    if (!active) onActivate();
+    else if (!isCurrent) onJumpToNow();
+  };
 
-  // Active: chevron–label–chevron triplet. Chevrons stopPropagation so the
-  // outer container can't accidentally swallow them, and the centre label
-  // jumps back to "now" when the user has drifted from the current period.
   const stop = (fn: () => void) => (e: MouseEvent) => {
     e.stopPropagation();
     fn();
@@ -168,41 +158,62 @@ function ScopeTab({
   return (
     <div
       role="tab"
-      aria-selected
-      // flex-[2] gives the active tab roughly twice the width of an
-      // inactive sibling so the period label fits without truncation.
-      className="flex-[2] flex items-center bg-forest-700 text-cream-50 rounded-xl min-w-0"
+      aria-selected={active}
+      className={`flex-1 min-w-0 flex items-stretch rounded-2xl border transition-colors ${
+        active
+          ? 'bg-forest-700 text-cream-50 border-forest-700'
+          : 'bg-surface-card text-ink-300 border-surface-border'
+      }`}
     >
+      {/* Right chevron — moves to PREVIOUS period.
+          In RTL DOM order, the first child renders on the right. */}
       <button
         type="button"
         onClick={stop(onPrev)}
-        aria-label="התקופה הקודמת"
-        className="shrink-0 w-8 h-8 flex items-center justify-center text-cream-50/90 hover:text-cream-50"
+        aria-label={`${SCOPE_TITLES[scope]} — קודם`}
+        className={`shrink-0 w-7 flex items-center justify-center transition-opacity ${
+          active
+            ? 'text-cream-50/85 hover:text-cream-50'
+            : 'text-ink-500 hover:text-ink-100'
+        }`}
       >
-        <ChevronRight size={16} />
+        <ChevronRight size={14} />
       </button>
 
+      {/* Centre — title + subtitle, vertically centred. */}
       <button
         type="button"
-        onClick={stop(onJumpToNow)}
-        disabled={isCurrent}
-        title={isCurrent ? '' : 'חזרה לתקופה הנוכחית'}
-        className="flex-1 min-w-0 truncate text-center text-sm font-medium py-1.5 px-1"
+        onClick={onCentreClick}
+        className="flex-1 min-w-0 flex flex-col items-center justify-center px-0.5 leading-tight"
+        title={active && !isCurrent ? 'חזרה לתקופה הנוכחית' : undefined}
       >
-        {formatPeriodLabel(scope, periodKey)}
-        {!isCurrent && (
-          <span className="text-cream-50/60 text-xs mr-1">↺</span>
-        )}
+        <span
+          className={`text-[11px] font-semibold ${active ? '' : 'text-ink-100'}`}
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}
+        >
+          {SCOPE_TITLES[scope]}
+        </span>
+        <span
+          className={`text-[10px] mt-0.5 ${active ? 'text-cream-50/80' : 'text-ink-300'}`}
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}
+        >
+          {formatScopeSubtitle(scope, periodKey, today)}
+        </span>
       </button>
 
+      {/* Left chevron — moves to NEXT period (disabled when next is future). */}
       <button
         type="button"
         onClick={stop(onNext)}
         disabled={nextIsFuture}
-        aria-label="התקופה הבאה"
-        className="shrink-0 w-8 h-8 flex items-center justify-center text-cream-50/90 hover:text-cream-50 disabled:opacity-30"
+        aria-label={`${SCOPE_TITLES[scope]} — הבא`}
+        className={`shrink-0 w-7 flex items-center justify-center transition-opacity disabled:opacity-25 ${
+          active
+            ? 'text-cream-50/85 hover:text-cream-50'
+            : 'text-ink-500 hover:text-ink-100'
+        }`}
       >
-        <ChevronLeft size={16} />
+        <ChevronLeft size={14} />
       </button>
     </div>
   );
