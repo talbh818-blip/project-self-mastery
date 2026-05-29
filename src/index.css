@@ -399,13 +399,17 @@ html[data-theme="light"] {
  * Vision page — the card-like surface that holds the date bar + editor.
  * Distinct from the page background (`surface-base`) so the user reads it
  * as "this is the paper I write on", not "this is just more background".
+ *
+ * No min-height: the card hugs its content so the bottom edge sits just
+ * below the last line of writing (one line of breathing room comes from
+ * the ProseMirror padding-bottom below). Empty docs still feel
+ * "page-shaped" thanks to ProseMirror's own min-height.
  * --------------------------------------------------------------------------*/
 .vision-page {
   background-color: var(--color-surface-card);
   border: 1px solid var(--color-surface-border);
   border-radius: 1rem;
   padding: 1rem 1.1rem;
-  min-height: 70vh;
 }
 
 /* ---------------------------------------------------------------------------
@@ -414,20 +418,35 @@ html[data-theme="light"] {
  * Tiptap renders into a plain `.ProseMirror` element (not a React tree we
  * can apply utility classes to).
  *
- * padding-bottom = enough space below the last paragraph so the cursor
- * doesn't get hidden behind the fixed toolbar at the very bottom of the
- * viewport (the toolbar is ~58 px above the nav, nav adds another 53 px+
- * safe-area, so reserve ≈ 130 px to be safe).
+ * min-height keeps an empty doc looking like a comfortable writing surface
+ * (not a thin strip), but is modest enough that one or two lines of text
+ * don't leave a huge unused void below them.
+ *
+ * padding-bottom is intentionally tight (~one line). The job of keeping
+ * the cursor visible above the fixed toolbar on a long document is done
+ * by `scroll-padding-bottom` on <html> below — that lets the browser's
+ * native scrollIntoView do the right thing automatically.
  * --------------------------------------------------------------------------*/
 .vision-editor .ProseMirror {
   direction: rtl;
   text-align: right;
-  min-height: 55vh;
-  padding-bottom: 8rem;
+  min-height: 22vh;
+  padding-bottom: 1.5rem;
   outline: none;
   color: var(--color-ink-100);
   line-height: 1.75;
   font-size: 1rem;
+}
+
+/* When typing near the bottom of a long document, browsers natively scroll
+   the caret into view. Without this hint, "in view" means "above the
+   layout-viewport bottom" — so the fixed toolbar can still cover the caret.
+   `scroll-padding-bottom` tells the browser to treat the bottom ~130 px as
+   "do not park content here", so the auto-scroll lands the caret above the
+   toolbar. Drives the same effect that 8rem of padding-bottom on the
+   editor was hacking around. */
+html {
+  scroll-padding-bottom: 8rem;
 }
 .vision-editor .ProseMirror > * + * {
   margin-top: 0.6em;
