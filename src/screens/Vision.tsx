@@ -1,15 +1,19 @@
 // ============================================================================
 // Vision screen — yearly / monthly / weekly journaling.
 // ----------------------------------------------------------------------------
-// Three tabs at the top switch between scopes. Inside each scope, the user
-// navigates between periods with arrow buttons (and can jump back to "now").
-// Future periods are locked (nothing to reflect on yet). The editor inside
-// is Tiptap; every keystroke auto-saves through `useVisionEntry`.
+// Single control strip at the top: three tabs (שנתי / חודשי / שבועי) where
+// the active tab expands to show its current period label flanked by left
+// and right chevrons that navigate within that scope. Inactive tabs collapse
+// to just the scope name. Clicking an inactive tab activates it (and keeps
+// whatever period was last viewed there).
+//
+// The editor below auto-saves; the save indicator is rendered inside the
+// editor's fixed bottom toolbar (not here).
 // ============================================================================
-import { useMemo, useState } from 'react';
-import { ChevronRight, ChevronLeft, Lock, CheckCircle2 } from 'lucide-react';
+import { useMemo, useState, type MouseEvent } from 'react';
+import { ChevronRight, ChevronLeft, Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
-import { useVisionEntry, type SaveStatus } from '../features/vision/useVisionEntry';
+import { useVisionEntry } from '../features/vision/useVisionEntry';
 import {
   addPeriod,
   formatPeriodLabel,
@@ -46,98 +50,48 @@ export function Vision() {
 
   const periodKey = periodByScope[scope];
   const locked = isFuturePeriod(scope, periodKey);
-  const isCurrentPeriod = periodKey === getPeriodKey(scope, today);
 
   const { entry, loading, status, scheduleSave } = useVisionEntry(
     scope,
     periodKey,
   );
 
-  const goto = (delta: number) =>
+  const gotoIn = (target: VisionScope, delta: number) =>
     setPeriodByScope((prev) => ({
       ...prev,
-      [scope]: addPeriod(scope, prev[scope], delta),
+      [target]: addPeriod(target, prev[target], delta),
     }));
 
-  const jumpToNow = () =>
+  const jumpToNowIn = (target: VisionScope) =>
     setPeriodByScope((prev) => ({
       ...prev,
-      [scope]: getPeriodKey(scope, today),
+      [target]: getPeriodKey(target, today),
     }));
 
   return (
-    <section className="pt-1 pb-6 space-y-3">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-2xl font-semibold text-ink-100">חזון</h1>
-        <SaveBadge status={status} />
-      </header>
-
-      {/* Tabs */}
+    // -mt-3 tightens the gap with the global brand header (Layout's pt-5
+    // makes the page feel like it floats too far from the compass title).
+    <section className="-mt-3 pb-6 space-y-3">
       <div
         role="tablist"
         aria-label="רמת חזון"
+        dir="rtl"
         className="flex bg-surface-card rounded-2xl p-1 gap-1"
       >
         {TABS.map((t) => (
-          <button
+          <ScopeTab
             key={t.scope}
-            role="tab"
-            aria-selected={scope === t.scope}
-            onClick={() => setScope(t.scope)}
-            className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${
-              scope === t.scope
-                ? 'bg-forest-700 text-cream-50'
-                : 'text-ink-300 hover:text-ink-100'
-            }`}
-          >
-            {t.label}
-          </button>
+            scope={t.scope}
+            label={t.label}
+            active={scope === t.scope}
+            periodKey={periodByScope[t.scope]}
+            today={today}
+            onActivate={() => setScope(t.scope)}
+            onPrev={() => gotoIn(t.scope, -1)}
+            onNext={() => gotoIn(t.scope, 1)}
+            onJumpToNow={() => jumpToNowIn(t.scope)}
+          />
         ))}
-      </div>
-
-      {/* Period navigator.
-          RTL convention (Hebrew calendars / Google Hebrew etc.):
-            • RIGHT side = previous period (older)  → chevron points right (►)
-            • LEFT  side = next     period (newer)  → chevron points left  (◄)
-          With `dir="rtl"` on the parent + default flex order, the DOM's
-          first child renders on the right and the last child on the left,
-          so we place "previous" first and "next" last. */}
-      <div
-        dir="rtl"
-        className="flex items-center justify-between bg-surface-card rounded-2xl px-2 py-1.5"
-      >
-        <button
-          type="button"
-          onClick={() => goto(-1)}
-          aria-label="התקופה הקודמת"
-          className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100 transition-colors"
-        >
-          <ChevronRight size={18} />
-        </button>
-
-        <button
-          type="button"
-          onClick={jumpToNow}
-          disabled={isCurrentPeriod}
-          className="flex-1 mx-1 px-3 py-1.5 text-sm text-ink-100 font-medium rounded-xl hover:bg-surface-raised disabled:hover:bg-transparent transition-colors text-center"
-          aria-label="חזרה לתקופה הנוכחית"
-          title={isCurrentPeriod ? '' : 'חזרה לתקופה הנוכחית'}
-        >
-          {formatPeriodLabel(scope, periodKey)}
-          {!isCurrentPeriod && (
-            <span className="text-ink-500 text-xs mr-2">↺</span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => goto(1)}
-          disabled={isFuturePeriod(scope, addPeriod(scope, periodKey, 1))}
-          aria-label="התקופה הבאה"
-          className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
-        >
-          <ChevronLeft size={18} />
-        </button>
       </div>
 
       {/* Body */}
@@ -152,6 +106,7 @@ export function Vision() {
           resetKey={`${scope}:${periodKey}`}
           initialContent={entry?.content ?? null}
           placeholder={PLACEHOLDERS[scope]}
+          saveStatus={status}
           onChange={scheduleSave}
         />
       )}
@@ -159,30 +114,97 @@ export function Vision() {
   );
 }
 
-function SaveBadge({ status }: { status: SaveStatus }) {
-  if (status === 'idle') return null;
-  const text = (() => {
-    switch (status) {
-      case 'pending':
-      case 'saving':
-        return 'שומר…';
-      case 'saved':
-        return 'נשמר';
-      case 'error':
-        return 'שגיאה בשמירה';
-    }
-  })();
-  const color =
-    status === 'error'
-      ? 'text-red-400'
-      : status === 'saved'
-        ? 'text-forest-500'
-        : 'text-ink-300';
+// ─── Tab ────────────────────────────────────────────────────────────────────
+
+type ScopeTabProps = {
+  scope: VisionScope;
+  label: string;
+  active: boolean;
+  periodKey: string;
+  today: Date;
+  onActivate: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onJumpToNow: () => void;
+};
+
+function ScopeTab({
+  scope,
+  label,
+  active,
+  periodKey,
+  today,
+  onActivate,
+  onPrev,
+  onNext,
+  onJumpToNow,
+}: ScopeTabProps) {
+  const isCurrent = periodKey === getPeriodKey(scope, today);
+  const nextIsFuture = isFuturePeriod(scope, addPeriod(scope, periodKey, 1));
+
+  // Inactive: a single button that activates the tab on tap.
+  if (!active) {
+    return (
+      <button
+        type="button"
+        role="tab"
+        aria-selected={false}
+        onClick={onActivate}
+        className="flex-1 py-2 rounded-xl text-sm font-medium text-ink-300 hover:text-ink-100 transition-colors min-w-0"
+      >
+        {label}
+      </button>
+    );
+  }
+
+  // Active: chevron–label–chevron triplet. Chevrons stopPropagation so the
+  // outer container can't accidentally swallow them, and the centre label
+  // jumps back to "now" when the user has drifted from the current period.
+  const stop = (fn: () => void) => (e: MouseEvent) => {
+    e.stopPropagation();
+    fn();
+  };
+
   return (
-    <span className={`text-xs ${color} flex items-center gap-1`}>
-      {status === 'saved' && <CheckCircle2 size={12} />}
-      {text}
-    </span>
+    <div
+      role="tab"
+      aria-selected
+      // flex-[2] gives the active tab roughly twice the width of an
+      // inactive sibling so the period label fits without truncation.
+      className="flex-[2] flex items-center bg-forest-700 text-cream-50 rounded-xl min-w-0"
+    >
+      <button
+        type="button"
+        onClick={stop(onPrev)}
+        aria-label="התקופה הקודמת"
+        className="shrink-0 w-8 h-8 flex items-center justify-center text-cream-50/90 hover:text-cream-50"
+      >
+        <ChevronRight size={16} />
+      </button>
+
+      <button
+        type="button"
+        onClick={stop(onJumpToNow)}
+        disabled={isCurrent}
+        title={isCurrent ? '' : 'חזרה לתקופה הנוכחית'}
+        className="flex-1 min-w-0 truncate text-center text-sm font-medium py-1.5 px-1"
+      >
+        {formatPeriodLabel(scope, periodKey)}
+        {!isCurrent && (
+          <span className="text-cream-50/60 text-xs mr-1">↺</span>
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={stop(onNext)}
+        disabled={nextIsFuture}
+        aria-label="התקופה הבאה"
+        className="shrink-0 w-8 h-8 flex items-center justify-center text-cream-50/90 hover:text-cream-50 disabled:opacity-30"
+      >
+        <ChevronLeft size={16} />
+      </button>
+    </div>
   );
 }
 

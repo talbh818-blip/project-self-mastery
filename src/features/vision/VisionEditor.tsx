@@ -6,16 +6,19 @@
 // there. Every keystroke fires `onChange(json)` so the parent can debounce
 // and persist to Supabase.
 //
-// Toolbar = Google-Docs-style strip: bold, bullet list, numbered list, and
-// four highlighter colors. Buttons reflect the current mark/node so the
-// user can tell what's active under the cursor.
+// The formatting toolbar is rendered FIXED at the bottom of the viewport,
+// just above the bottom-nav (.vision-toolbar-fixed handles the geometry).
+// The save status badge ("שומר…" / "נשמר") rides on the same row so the
+// user has one consolidated control strip while writing — the same place
+// Google Docs Mobile puts its keyboard accessory.
 // ============================================================================
 import { useEffect } from 'react';
 import { useEditor, EditorContent, type Editor, type Content } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Highlight from '@tiptap/extension-highlight';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Bold, List, ListOrdered, Highlighter } from 'lucide-react';
+import { Bold, List, ListOrdered, Highlighter, CheckCircle2 } from 'lucide-react';
+import type { SaveStatus } from './useVisionEntry';
 
 type Props = {
   /** Initial Tiptap JSON document. `null`/empty object → blank doc. */
@@ -24,6 +27,7 @@ type Props = {
   resetKey: string;
   placeholder?: string;
   readOnly?: boolean;
+  saveStatus: SaveStatus;
   onChange: (json: unknown) => void;
 };
 
@@ -39,6 +43,7 @@ export function VisionEditor({
   resetKey,
   placeholder,
   readOnly,
+  saveStatus,
   onChange,
 }: Props) {
   const editor = useEditor(
@@ -84,21 +89,33 @@ export function VisionEditor({
 
   return (
     <div className="vision-editor">
-      {!readOnly && <Toolbar editor={editor} />}
       <EditorContent editor={editor} />
+      {!readOnly && (
+        <div className="vision-toolbar-fixed">
+          <div className="max-w-md mx-auto px-3">
+            <Toolbar editor={editor} saveStatus={saveStatus} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({
+  editor,
+  saveStatus,
+}: {
+  editor: Editor;
+  saveStatus: SaveStatus;
+}) {
   return (
     <div
-      className="
-        flex flex-wrap items-center gap-1 mb-3 p-1.5
-        rounded-xl bg-surface-card border border-surface-border
-        sticky top-0 z-10
-      "
       dir="rtl"
+      className="
+        flex items-center gap-1 p-1.5
+        rounded-2xl bg-surface-card border border-surface-border
+        shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]
+      "
     >
       <ToolButton
         active={editor.isActive('bold')}
@@ -124,41 +141,56 @@ function Toolbar({ editor }: { editor: Editor }) {
         <ListOrdered size={16} />
       </ToolButton>
 
-      <div className="mx-1 h-5 w-px bg-surface-border" aria-hidden />
+      <div className="mx-1 h-5 w-px bg-surface-border shrink-0" aria-hidden />
 
-      <div className="flex items-center gap-1">
-        <Highlighter size={14} className="text-ink-300" aria-hidden />
-        {HIGHLIGHT_COLORS.map((h) => {
-          const active = editor.isActive('highlight', { color: h.color });
-          return (
-            <button
-              key={h.color}
-              type="button"
-              aria-label={`הדגשה ${h.label}`}
-              onClick={() =>
-                editor.chain().focus().toggleHighlight({ color: h.color }).run()
-              }
-              className={`
-                w-6 h-6 rounded-md border transition
-                ${active ? 'border-forest-500 ring-2 ring-forest-500/40' : 'border-surface-border hover:border-ink-300'}
-              `}
-              style={{ backgroundColor: h.color }}
-            />
-          );
-        })}
-        {editor.isActive('highlight') && (
+      <Highlighter size={14} className="text-ink-300 shrink-0" aria-hidden />
+      {HIGHLIGHT_COLORS.map((h) => {
+        const active = editor.isActive('highlight', { color: h.color });
+        return (
           <button
+            key={h.color}
             type="button"
+            aria-label={`הדגשה ${h.label}`}
             onClick={() =>
-              editor.chain().focus().unsetHighlight().run()
+              editor.chain().focus().toggleHighlight({ color: h.color }).run()
             }
-            className="text-xs text-ink-300 hover:text-ink-100 px-1.5 py-0.5"
-          >
-            נקה
-          </button>
-        )}
-      </div>
+            className={`
+              shrink-0 w-6 h-6 rounded-md border transition
+              ${active ? 'border-forest-500 ring-2 ring-forest-500/40' : 'border-surface-border hover:border-ink-300'}
+            `}
+            style={{ backgroundColor: h.color }}
+          />
+        );
+      })}
+
+      {/* Push save status to the LEFT (visual end in RTL). */}
+      <div className="grow" />
+      <SaveBadge status={saveStatus} />
     </div>
+  );
+}
+
+function SaveBadge({ status }: { status: SaveStatus }) {
+  if (status === 'idle') return null;
+  const text =
+    status === 'pending' || status === 'saving'
+      ? 'שומר…'
+      : status === 'saved'
+        ? 'נשמר'
+        : 'שגיאה';
+  const color =
+    status === 'error'
+      ? 'text-red-400'
+      : status === 'saved'
+        ? 'text-forest-500'
+        : 'text-ink-300';
+  return (
+    <span
+      className={`text-[11px] ${color} flex items-center gap-1 shrink-0 pl-1`}
+    >
+      {status === 'saved' && <CheckCircle2 size={11} />}
+      {text}
+    </span>
   );
 }
 
@@ -180,7 +212,7 @@ function ToolButton({
       aria-label={label}
       aria-pressed={active}
       className={`
-        w-8 h-8 flex items-center justify-center rounded-lg transition-colors
+        shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors
         ${active
           ? 'bg-forest-700 text-cream-50'
           : 'text-ink-300 hover:bg-surface-raised hover:text-ink-100'}

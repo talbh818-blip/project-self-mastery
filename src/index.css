@@ -306,15 +306,45 @@ html[data-theme="light"] {
  *   • fades out toward the end.
  * --------------------------------------------------------------------------*/
 /* ---------------------------------------------------------------------------
+ * Vision floating toolbar — docked above the bottom-nav.
+ *
+ * Bottom-nav internal height (icon + label + py-2) ≈ 53 px, plus iOS
+ * safe-area inset (the nav has pb-safe → up to 34 px on a notch device).
+ * Pin the toolbar's bottom edge above the nav with:
+ *   bottom = env(safe-area-inset-bottom) + 53px
+ * z-index 15 — below the nav's z-20 so any visual overlap defaults to the
+ * nav winning, but with the math above there shouldn't be any.
+ * pointer-events:none on the wrapper means the screen edges (gutter)
+ * stay click-through; the inner panel re-enables clicks for itself.
+ * --------------------------------------------------------------------------*/
+.vision-toolbar-fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 53px);
+  z-index: 15;
+  pointer-events: none;
+}
+.vision-toolbar-fixed > * {
+  pointer-events: auto;
+}
+
+/* ---------------------------------------------------------------------------
  * Tiptap editor — vision/journaling surface. RTL, generous line-height,
  * notebook feel. Lists, marks, and the placeholder are styled here because
  * Tiptap renders into a plain `.ProseMirror` element (not a React tree we
  * can apply utility classes to).
+ *
+ * padding-bottom = enough space below the last paragraph so the cursor
+ * doesn't get hidden behind the fixed toolbar at the very bottom of the
+ * viewport (the toolbar is ~58 px above the nav, nav adds another 53 px+
+ * safe-area, so reserve ≈ 130 px to be safe).
  * --------------------------------------------------------------------------*/
 .vision-editor .ProseMirror {
   direction: rtl;
   text-align: right;
   min-height: 60vh;
+  padding-bottom: 8rem;
   outline: none;
   color: var(--color-ink-100);
   line-height: 1.75;
