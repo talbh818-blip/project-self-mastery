@@ -60,7 +60,7 @@ export function DateBar({
           type="button"
           onClick={() => setPickerOpen(true)}
           className="
-            inline-flex items-center gap-1.5
+            inline-flex items-center gap-1.5 shrink-0
             text-[12px] text-ink-300 hover:text-ink-100
             transition-colors min-w-0
           "
@@ -71,13 +71,10 @@ export function DateBar({
           <span className="truncate">{formatHebrew(value)}</span>
         </button>
 
-        {/* Spacer pushes the assist + save controls to the visual LEFT. */}
-        <div className="grow" />
-
-        {/* Assist toggle — emoji + label. Always full opacity so the
-            button reads as "tap me" in both states. The ON state picks
-            up a forest-tinted fill + ring; OFF state uses a neutral
-            surface chip with a hover-hint border. */}
+        {/* Assist toggle — sits right next to the date (RTL: visually
+            immediately to the LEFT of the date). Always full-opacity emoji
+            + label so it reads as a real button. ON state gets the forest
+            ring; OFF state uses a neutral surface chip. */}
         <button
           type="button"
           onClick={onToggleAssist}
@@ -95,6 +92,9 @@ export function DateBar({
           <Emoji emoji="💡" size={14} ariaLabel="" />
           <span>כתיבה מודרכת</span>
         </button>
+
+        {/* Spacer pushes the save badge to the visual LEFT. */}
+        <div className="grow" />
 
         {/* Save status — LEFT-most in RTL */}
         <SaveBadge status={saveStatus} />
