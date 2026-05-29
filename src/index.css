@@ -9,7 +9,7 @@
 
   /* Text — light with greenish tint */
   --color-ink-100: #d4e8da;
-  --color-ink-200: #b1c9b8; /* mid-tone for secondary UI (e.g. inactive nav items) — sits between primary and muted */
+  --color-ink-200: #acc8b4; /* mid-tone for secondary UI (e.g. inactive nav items) — sits between primary and muted, nudged 5% toward forest-500 for a subtle brand-green cast */
   --color-ink-300: #7aa086;
   --color-ink-500: #4a6655;
 
@@ -76,7 +76,7 @@ html[data-theme="light"] {
   --color-surface-border: #e1d8c2;
 
   --color-ink-100: #1c2a22;
-  --color-ink-200: #33483b; /* mid-tone, matches the dark-theme counterpart slot */
+  --color-ink-200: #344b3c; /* mid-tone, matches the dark-theme counterpart slot, with the same 5% forest-green nudge */
   --color-ink-300: #4a6655;
   --color-ink-500: #7aa086;
 
