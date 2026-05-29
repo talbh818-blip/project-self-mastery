@@ -223,19 +223,17 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
 
   // ── Tree state ───────────────────────────────────────────────────────────
   /**
-   * Points already "spent" on prior trees. Each prior tree consumed its own
-   * (possibly discounted) cycle target, so we sum those up rather than
-   * multiplying by a single constant.
+   * Score the user has already spent on PLANTED trees (DB-persisted).
+   * Only the planting action moves this; admin edits to trees_planted
+   * leave it alone, so the progress meter doesn't snap to 0 when an admin
+   * gifts a user some trees. See migration 0014.
    */
-  const pointsConsumedByPriorTrees = Array.from({ length: treesPlanted }, (_, i) =>
-    cycleTargetFor(i),
-  ).reduce((a, b) => a + b, 0);
-
+  const cycleScoreFloor = profile?.cycle_score_floor ?? 0;
   const cycleTarget = cycleTargetFor(treesPlanted);
   const stageThresholds = stageThresholdsFor(cycleTarget);
 
   /** Points accumulated in this planting cycle. */
-  const cycleScore = Math.max(0, totalScore - pointsConsumedByPriorTrees);
+  const cycleScore = Math.max(0, totalScore - cycleScoreFloor);
   const isMature = cycleScore >= cycleTarget;
   const stage = stageFor(cycleScore, stageThresholds);
   const progressPct = isMature ? 100 : Math.round((cycleScore / cycleTarget) * 100);
@@ -414,6 +412,7 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
       totalScore={totalScore}
       treesPlanted={treesPlanted}
       treePlacements={treePlacements}
+      cycleScoreFloor={cycleScoreFloor}
       stage={stage}
       stageLabel={STAGE_LABELS[stage]}
       cycleScore={cycleScore}
@@ -1159,6 +1158,7 @@ function TreeFieldModal({
   totalScore,
   treesPlanted,
   treePlacements,
+  cycleScoreFloor,
   stage,
   stageLabel,
   cycleScore,
@@ -1173,6 +1173,7 @@ function TreeFieldModal({
   totalScore: number;
   treesPlanted: number;
   treePlacements: TreePlacement[];
+  cycleScoreFloor: number;
   stage: Stage;
   stageLabel: string;
   cycleScore: number;
@@ -1252,11 +1253,17 @@ function TreeFieldModal({
       ];
       padded.push(cellToPlacement(nextGrid, ni, nj));
 
+      // Bump the floor by the cycle target the user just completed, so the
+      // next cycle's progress meter starts from zero. The floor is what
+      // decouples "tree count" from "progress math" — admin edits to
+      // trees_planted leave it untouched.
+      const newFloor = cycleScoreFloor + cycleTarget;
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
           trees_planted: targetCount,
           tree_placements: padded,
+          cycle_score_floor: newFloor,
         })
         .eq('id', userId)
         .select()

@@ -1,4 +1,4 @@
-// Row shape of public.profiles. Keep in sync with migrations 0011 + 0012 + 0013.
+// Row shape of public.profiles. Keep in sync with migrations 0011–0014.
 export type Theme = 'dark' | 'light';
 
 /**
@@ -21,6 +21,12 @@ export type Profile = {
    *  than trees_planted for legacy users; the client falls back to the
    *  default cell order for the surplus. */
   tree_placements: TreePlacement[];
+  /** Score baseline at the most recent plant (migration 0014). The
+   *  progress meter toward the next tree is `totalScore - cycle_score_floor`.
+   *  Only the planting action moves this — admin edits to trees_planted
+   *  do NOT touch it, so the meter doesn't reset when an admin tweaks
+   *  the count. */
+  cycle_score_floor: number;
   score_adjustment: number;
   blocked: boolean;
   last_seen_at: string | null;
