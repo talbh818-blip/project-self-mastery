@@ -1,17 +1,16 @@
 // ============================================================================
 // Vision screen — yearly / monthly / weekly journaling.
 // ----------------------------------------------------------------------------
-// One row of three EQUAL-WIDTH tabs. Each tab carries:
-//   • its scope title       ("חזון שנתי" / "חודשי" / "שבועי")
-//   • its current period as a subtitle ("שנת 2026" / "מאי" / "25–31 מאי")
-//   • a right and left chevron so the user can scrub through periods WITHOUT
-//     having to activate that tab first — the inactive tab's subtitle
-//     updates in place when its chevrons are tapped.
-//   • Tapping the centre (label) of an inactive tab activates it.
-//   • Tapping the centre of the active tab snaps back to "now".
+// One row of three EQUAL-WIDTH tabs. Each tab carries its scope title (large)
+// + a per-period subtitle (small). Chevrons are revealed ONLY on the active
+// tab — inactive tabs stay clean and minimal so the eye is drawn to where
+// the user is currently navigating.
 //
-// The editor below auto-saves; the save indicator rides inside the editor's
-// fixed bottom toolbar (not here).
+// HIERARCHY: monthly is scoped to the year shown on the yearly tab; weekly
+// is scoped to the month shown on the monthly tab. The chevron buttons are
+// disabled at the edges. When the user navigates a PARENT scope to a new
+// period, children CASCADE-CLAMP into bounds (monthly preserves its
+// month-of-year, weekly snaps to the first week of the new month).
 // ============================================================================
 import { useMemo, useState, type MouseEvent } from 'react';
 import { ChevronRight, ChevronLeft, Lock } from 'lucide-react';
@@ -20,9 +19,12 @@ import { useVisionEntry } from '../features/vision/useVisionEntry';
 import {
   SCOPE_TITLES,
   addPeriod,
+  clampMonthlyToYear,
+  clampWeeklyToMonth,
   formatScopeSubtitle,
   getPeriodKey,
   isFuturePeriod,
+  isOutsideParent,
   type VisionScope,
 } from '../features/vision/period';
 
@@ -34,15 +36,15 @@ const PLACEHOLDERS: Record<VisionScope, string> = {
   weekly: 'מה המיקוד שלך לשבוע הזה?',
 };
 
+type PeriodMap = Record<VisionScope, string>;
+
 export function Vision() {
   const [scope, setScope] = useState<VisionScope>('yearly');
 
   // Per-scope period key. Each tab remembers where the user was so switching
   // back doesn't snap to "now" and lose their place.
   const today = useMemo(() => new Date(), []);
-  const [periodByScope, setPeriodByScope] = useState<
-    Record<VisionScope, string>
-  >(() => ({
+  const [periodByScope, setPeriodByScope] = useState<PeriodMap>(() => ({
     yearly: getPeriodKey('yearly', today),
     monthly: getPeriodKey('monthly', today),
     weekly: getPeriodKey('weekly', today),
@@ -56,17 +58,27 @@ export function Vision() {
     periodKey,
   );
 
+  // Cascade-clamping setter: when the user moves a parent scope, child
+  // scopes follow so they don't end up "stuck" in an out-of-bounds period.
+  // Monthly preserves month-of-year; weekly snaps to first week of new month.
+  const setPeriod = (target: VisionScope, nextKey: string) => {
+    setPeriodByScope((prev) => {
+      const next: PeriodMap = { ...prev, [target]: nextKey };
+      if (target === 'yearly') {
+        next.monthly = clampMonthlyToYear(prev.monthly, nextKey);
+        next.weekly = clampWeeklyToMonth(prev.weekly, next.monthly);
+      } else if (target === 'monthly') {
+        next.weekly = clampWeeklyToMonth(prev.weekly, nextKey);
+      }
+      return next;
+    });
+  };
+
   const gotoIn = (target: VisionScope, delta: number) =>
-    setPeriodByScope((prev) => ({
-      ...prev,
-      [target]: addPeriod(target, prev[target], delta),
-    }));
+    setPeriod(target, addPeriod(target, periodByScope[target], delta));
 
   const jumpToNowIn = (target: VisionScope) =>
-    setPeriodByScope((prev) => ({
-      ...prev,
-      [target]: getPeriodKey(target, today),
-    }));
+    setPeriod(target, getPeriodKey(target, today));
 
   return (
     // -mt-3 tightens the gap with the global brand header (Layout's pt-5
@@ -76,9 +88,9 @@ export function Vision() {
         role="tablist"
         aria-label="רמת חזון"
         dir="rtl"
-        // h-14 + items-stretch: every tab is the same height regardless
-        // of how long its subtitle happens to be.
-        className="flex items-stretch gap-1.5 h-14"
+        // h-12 matches the Habits screen's action-row height so the visual
+        // language carries across screens.
+        className="flex items-stretch gap-1.5 h-12"
       >
         {TAB_ORDER.map((s) => (
           <ScopeTab
@@ -87,6 +99,8 @@ export function Vision() {
             active={scope === s}
             periodKey={periodByScope[s]}
             today={today}
+            parentScope={parentScopeFor(s)}
+            parentKey={parentKeyFor(s, periodByScope)}
             onActivate={() => setScope(s)}
             onPrev={() => gotoIn(s, -1)}
             onNext={() => gotoIn(s, 1)}
@@ -116,6 +130,19 @@ export function Vision() {
   );
 }
 
+function parentScopeFor(scope: VisionScope): VisionScope | null {
+  if (scope === 'monthly') return 'yearly';
+  if (scope === 'weekly') return 'monthly';
+  return null;
+}
+function parentKeyFor(
+  scope: VisionScope,
+  periods: PeriodMap,
+): string | null {
+  const parent = parentScopeFor(scope);
+  return parent ? periods[parent] : null;
+}
+
 // ─── Tab ────────────────────────────────────────────────────────────────────
 
 type ScopeTabProps = {
@@ -123,6 +150,8 @@ type ScopeTabProps = {
   active: boolean;
   periodKey: string;
   today: Date;
+  parentScope: VisionScope | null;
+  parentKey: string | null;
   onActivate: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -134,18 +163,24 @@ function ScopeTab({
   active,
   periodKey,
   today,
+  parentScope,
+  parentKey,
   onActivate,
   onPrev,
   onNext,
   onJumpToNow,
 }: ScopeTabProps) {
   const isCurrent = periodKey === getPeriodKey(scope, today);
-  const nextIsFuture = isFuturePeriod(scope, addPeriod(scope, periodKey, 1));
+  const prevKey = addPeriod(scope, periodKey, -1);
+  const nextKey = addPeriod(scope, periodKey, 1);
+  const prevDisabled = isOutsideParent(scope, prevKey, parentScope, parentKey);
+  const nextDisabled =
+    isFuturePeriod(scope, nextKey) ||
+    isOutsideParent(scope, nextKey, parentScope, parentKey);
 
   // Centre label tap: when inactive, switching activates this tab. When
   // active and the user has scrolled away from "now", snap back. When
-  // active and already on "now", do nothing (the button stays clickable
-  // but has no visible effect).
+  // active and already on "now", do nothing.
   const onCentreClick = () => {
     if (!active) onActivate();
     else if (!isCurrent) onJumpToNow();
@@ -166,20 +201,19 @@ function ScopeTab({
           : 'bg-surface-card text-ink-300 border-surface-border'
       }`}
     >
-      {/* Right chevron — moves to PREVIOUS period.
-          In RTL DOM order, the first child renders on the right. */}
-      <button
-        type="button"
-        onClick={stop(onPrev)}
-        aria-label={`${SCOPE_TITLES[scope]} — קודם`}
-        className={`shrink-0 w-7 flex items-center justify-center transition-opacity ${
-          active
-            ? 'text-cream-50/85 hover:text-cream-50'
-            : 'text-ink-500 hover:text-ink-100'
-        }`}
-      >
-        <ChevronRight size={14} />
-      </button>
+      {/* Right chevron — moves to PREVIOUS period. Visible only on the
+          active tab. In RTL DOM order the first child renders rightmost. */}
+      {active ? (
+        <button
+          type="button"
+          onClick={stop(onPrev)}
+          disabled={prevDisabled}
+          aria-label={`${SCOPE_TITLES[scope]} — קודם`}
+          className="shrink-0 w-6 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
+        >
+          <ChevronRight size={16} />
+        </button>
+      ) : null}
 
       {/* Centre — title + subtitle, vertically centred. */}
       <button
@@ -189,7 +223,7 @@ function ScopeTab({
         title={active && !isCurrent ? 'חזרה לתקופה הנוכחית' : undefined}
       >
         <span
-          className={`text-[11px] font-semibold ${active ? '' : 'text-ink-100'}`}
+          className={`text-sm font-semibold ${active ? '' : 'text-ink-100'}`}
           style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}
         >
           {SCOPE_TITLES[scope]}
@@ -202,20 +236,20 @@ function ScopeTab({
         </span>
       </button>
 
-      {/* Left chevron — moves to NEXT period (disabled when next is future). */}
-      <button
-        type="button"
-        onClick={stop(onNext)}
-        disabled={nextIsFuture}
-        aria-label={`${SCOPE_TITLES[scope]} — הבא`}
-        className={`shrink-0 w-7 flex items-center justify-center transition-opacity disabled:opacity-25 ${
-          active
-            ? 'text-cream-50/85 hover:text-cream-50'
-            : 'text-ink-500 hover:text-ink-100'
-        }`}
-      >
-        <ChevronLeft size={14} />
-      </button>
+      {/* Left chevron — moves to NEXT period. Visible only on the active
+          tab. Disabled when the next period would be future OR outside
+          the parent scope's current period. */}
+      {active ? (
+        <button
+          type="button"
+          onClick={stop(onNext)}
+          disabled={nextDisabled}
+          aria-label={`${SCOPE_TITLES[scope]} — הבא`}
+          className="shrink-0 w-6 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
+        >
+          <ChevronLeft size={16} />
+        </button>
+      ) : null}
     </div>
   );
 }

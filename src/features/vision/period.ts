@@ -155,7 +155,7 @@ export const SCOPE_TITLES: Record<VisionScope, string> = {
 
 /**
  * Subtitle for the per-scope tab. Current period shows a concrete identifier
- * (year / month name / day range); past periods use a relative phrase
+ * (year number / month name / day range); past periods use a relative phrase
  * ("שנה שעברה", "לפני שנתיים", "שבוע שעבר", "לפני שבועיים", …).
  */
 export function formatScopeSubtitle(
@@ -167,7 +167,7 @@ export function formatScopeSubtitle(
   if (key === todayKey) {
     // CURRENT period — concrete label
     const start = parsePeriodStart(scope, key);
-    if (scope === 'yearly') return `שנת ${key}`;
+    if (scope === 'yearly') return key; // just the year number, e.g. "2026"
     if (scope === 'monthly') return HEB_MONTHS[start.getMonth()];
     // weekly → day-range "25–31 מאי" (or "30 אפר׳ – 6 מאי" across month boundary)
     const end = new Date(start);
@@ -206,6 +206,68 @@ export function formatScopeSubtitle(
   if (diff === 2) return 'בעוד שבועיים';
   if (diff < 0) return `לפני ${-diff} שבועות`;
   return `בעוד ${diff} שבועות`;
+}
+
+// ─── Hierarchical bounds (yearly → monthly → weekly) ────────────────────────
+// The three scopes form a containment hierarchy: monthly tabs are scoped to
+// the year shown on the yearly tab, and weekly tabs are scoped to the month
+// shown on the monthly tab. The helpers below answer two questions:
+//   • isOutsideParent — disable the chevron when the next/prev period would
+//     leave the parent's bounds.
+//   • clampToParent  — when the parent changes, snap the child back into
+//     bounds. Monthly preserves its month-of-year (May 2026 → May 2025).
+//     Weekly falls back to the week containing the 1st of the new month
+//     when it would otherwise leave the month entirely.
+
+/** True when `key` lies entirely outside the period currently shown by the
+ *  given parent (yearly for monthly, monthly for weekly). */
+export function isOutsideParent(
+  scope: VisionScope,
+  key: string,
+  parentScope: VisionScope | null,
+  parentKey: string | null,
+): boolean {
+  if (!parentScope || !parentKey) return false;
+  if (scope === 'monthly' && parentScope === 'yearly') {
+    return parsePeriodStart('monthly', key).getFullYear() !== Number(parentKey);
+  }
+  if (scope === 'weekly' && parentScope === 'monthly') {
+    const weekStart = parsePeriodStart('weekly', key);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    const monthStart = parsePeriodStart('monthly', parentKey);
+    const monthEnd = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + 1,
+      0,
+    );
+    return weekEnd < monthStart || weekStart > monthEnd;
+  }
+  return false;
+}
+
+/** Move a monthly key into the given year, preserving the month-of-year. */
+export function clampMonthlyToYear(
+  monthlyKey: string,
+  yearKey: string,
+): string {
+  const start = parsePeriodStart('monthly', monthlyKey);
+  if (String(start.getFullYear()) === yearKey) return monthlyKey;
+  const next = new Date(Number(yearKey), start.getMonth(), 1);
+  return getPeriodKey('monthly', next);
+}
+
+/** If the weekly key still touches the given month, keep it. Otherwise jump
+ *  to the week containing the 1st of that month. */
+export function clampWeeklyToMonth(
+  weeklyKey: string,
+  monthlyKey: string,
+): string {
+  if (!isOutsideParent('weekly', weeklyKey, 'monthly', monthlyKey)) {
+    return weeklyKey;
+  }
+  const monthStart = parsePeriodStart('monthly', monthlyKey);
+  return getPeriodKey('weekly', monthStart);
 }
 
 /**
