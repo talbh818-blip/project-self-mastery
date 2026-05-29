@@ -154,22 +154,41 @@ export const SCOPE_TITLES: Record<VisionScope, string> = {
 };
 
 /**
- * Subtitle for the per-scope tab. Current period shows a concrete identifier
- * (year number / month name / day range); past periods use a relative phrase
- * ("שנה שעברה", "לפני שנתיים", "שבוע שעבר", "לפני שבועיים", …).
+ * Subtitle for the per-scope tab.
+ *
+ * Rules per scope (concrete, not relative — the user explicitly preferred
+ * a concrete reference over "שבוע שעבר" / "לפני חודשיים" phrasing):
+ *   yearly   → just the year number, e.g. "2026". Past/future years use a
+ *              relative phrase ("שנה שעברה", "לפני שנתיים", …) because the
+ *              year IS the identifier and showing the same value as the
+ *              title would be redundant.
+ *   monthly  → the Hebrew month name ("מאי", "אפריל", …) regardless of
+ *              past / current / future.
+ *   weekly   → "שבוע N של [month]", where N is the week's position within
+ *              the parent month. Requires `parentKey` (the monthly tab's
+ *              current key); falls back to a date-range when missing.
  */
 export function formatScopeSubtitle(
   scope: VisionScope,
   key: string,
   now: Date,
+  parentKey: string | null = null,
 ): string {
-  const todayKey = getPeriodKey(scope, now);
-  if (key === todayKey) {
-    // CURRENT period — concrete label
-    const start = parsePeriodStart(scope, key);
-    if (scope === 'yearly') return key; // just the year number, e.g. "2026"
-    if (scope === 'monthly') return HEB_MONTHS[start.getMonth()];
-    // weekly → day-range "25–31 מאי" (or "30 אפר׳ – 6 מאי" across month boundary)
+  const start = parsePeriodStart(scope, key);
+
+  if (scope === 'monthly') {
+    return HEB_MONTHS[start.getMonth()];
+  }
+
+  if (scope === 'weekly') {
+    if (parentKey) {
+      const n = weekOfMonth(key, parentKey);
+      const monthName =
+        HEB_MONTHS[parsePeriodStart('monthly', parentKey).getMonth()];
+      return `שבוע ${n} של ${monthName}`;
+    }
+    // Defensive fallback — should be unreachable in practice because the
+    // Vision screen always supplies the parent (monthly) key for weekly.
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
     if (start.getMonth() === end.getMonth()) {
@@ -178,34 +197,40 @@ export function formatScopeSubtitle(
     return `${start.getDate()} ${HEB_MONTHS_SHORT[start.getMonth()]} – ${end.getDate()} ${HEB_MONTHS_SHORT[end.getMonth()]}`;
   }
 
-  // PAST or FUTURE — relative phrase. Diff is computed in the scope's units.
-  const diff = periodDiff(scope, key, todayKey);
+  // scope === 'yearly'
+  const todayKey = getPeriodKey('yearly', now);
+  if (key === todayKey) return key;
+  const diff = periodDiff('yearly', key, todayKey);
+  if (diff === -1) return 'שנה שעברה';
+  if (diff === 1) return 'שנה הבאה';
+  if (diff === -2) return 'לפני שנתיים';
+  if (diff === 2) return 'בעוד שנתיים';
+  if (diff < 0) return `לפני ${-diff} שנים`;
+  return `בעוד ${diff} שנים`;
+}
 
-  if (scope === 'yearly') {
-    if (diff === -1) return 'שנה שעברה';
-    if (diff === 1) return 'שנה הבאה';
-    if (diff === -2) return 'לפני שנתיים';
-    if (diff === 2) return 'בעוד שנתיים';
-    if (diff < 0) return `לפני ${-diff} שנים`;
-    return `בעוד ${diff} שנים`;
-  }
-
-  if (scope === 'monthly') {
-    if (diff === -1) return 'חודש שעבר';
-    if (diff === 1) return 'חודש הבא';
-    if (diff === -2) return 'לפני חודשיים';
-    if (diff === 2) return 'בעוד חודשיים';
-    if (diff < 0) return `לפני ${-diff} חודשים`;
-    return `בעוד ${diff} חודשים`;
-  }
-
-  // weekly
-  if (diff === -1) return 'שבוע שעבר';
-  if (diff === 1) return 'שבוע הבא';
-  if (diff === -2) return 'לפני שבועיים';
-  if (diff === 2) return 'בעוד שבועיים';
-  if (diff < 0) return `לפני ${-diff} שבועות`;
-  return `בעוד ${diff} שבועות`;
+/**
+ * Position of `weekKey` within the parent `monthKey`, 1-indexed.
+ *
+ * The first week is the one containing the 1st of the month (which may
+ * actually start in the previous month — ISO weeks straddle month
+ * boundaries). Subsequent weeks are sequential Mondays.
+ *
+ * Result is `Math.max(1, …)` as a defensive cap; in practice cascade
+ * clamping ensures the supplied week is always within the month.
+ */
+function weekOfMonth(weekKey: string, monthKey: string): number {
+  const monthStart = parsePeriodStart('monthly', monthKey);
+  const firstWeekStart = parsePeriodStart(
+    'weekly',
+    getPeriodKey('weekly', monthStart),
+  );
+  const targetStart = parsePeriodStart('weekly', weekKey);
+  const diffWeeks = Math.round(
+    (targetStart.getTime() - firstWeekStart.getTime()) /
+      (1000 * 60 * 60 * 24 * 7),
+  );
+  return Math.max(1, diffWeeks + 1);
 }
 
 // ─── Hierarchical bounds (yearly → monthly → weekly) ────────────────────────

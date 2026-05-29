@@ -53,10 +53,13 @@ export function Vision() {
   const periodKey = periodByScope[scope];
   const locked = isFuturePeriod(scope, periodKey);
 
-  const { entry, loading, status, scheduleSave } = useVisionEntry(
-    scope,
-    periodKey,
-  );
+  const { entry, loading, status, scheduleSave, setDocumentDate } =
+    useVisionEntry(scope, periodKey);
+
+  // Default the DateBar to today when there's no entry yet. The first save
+  // (or first date pick) will persist this through the upsert path.
+  const todayIso = useMemo(() => toIsoDate(today), [today]);
+  const documentDate = entry?.document_date ?? todayIso;
 
   // Cascade-clamping setter: when the user moves a parent scope, child
   // scopes follow so they don't end up "stuck" in an out-of-bounds period.
@@ -123,6 +126,8 @@ export function Vision() {
           initialContent={entry?.content ?? null}
           placeholder={PLACEHOLDERS[scope]}
           saveStatus={status}
+          documentDate={documentDate}
+          onDateChange={(iso) => void setDocumentDate(iso)}
           onChange={scheduleSave}
         />
       )}
@@ -141,6 +146,14 @@ function parentKeyFor(
 ): string | null {
   const parent = parentScopeFor(scope);
   return parent ? periods[parent] : null;
+}
+
+/** Local-date ISO ('YYYY-MM-DD') — sidesteps timezone drift from `toISOString()`. */
+function toIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 // ─── Tab ────────────────────────────────────────────────────────────────────
@@ -232,7 +245,7 @@ function ScopeTab({
           className={`text-[10px] mt-0.5 ${active ? 'text-cream-50/80' : 'text-ink-300'}`}
           style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}
         >
-          {formatScopeSubtitle(scope, periodKey, today)}
+          {formatScopeSubtitle(scope, periodKey, today, parentKey)}
         </span>
       </button>
 

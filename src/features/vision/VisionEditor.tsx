@@ -38,6 +38,7 @@ import {
 import type { SaveStatus } from './useVisionEntry';
 import { useAssistMode } from './useAssistMode';
 import { VisionQuestionNode } from './VisionQuestion';
+import { DateBar } from './DateBar';
 import {
   pickQuestion,
   STARTER_QUESTION_COUNT,
@@ -54,6 +55,9 @@ type Props = {
   placeholder?: string;
   readOnly?: boolean;
   saveStatus: SaveStatus;
+  /** ISO 'YYYY-MM-DD' — date stamped at the top of the entry. */
+  documentDate: string;
+  onDateChange: (iso: string) => void;
   onChange: (json: unknown) => void;
 };
 
@@ -71,6 +75,8 @@ export function VisionEditor({
   placeholder,
   readOnly,
   saveStatus,
+  documentDate,
+  onDateChange,
   onChange,
 }: Props) {
   const editor = useEditor(
@@ -165,7 +171,8 @@ export function VisionEditor({
   };
 
   return (
-    <div className="vision-editor">
+    <div className="vision-editor vision-page">
+      <DateBar value={documentDate} onChange={onDateChange} />
       <EditorContent editor={editor} />
       {!readOnly && (
         <div className="vision-toolbar-fixed">

@@ -11,6 +11,9 @@ export type VisionEntry = {
   period_key: string;
   content: unknown; // Tiptap JSON document (or {} when freshly created)
   visibility: 'private' | 'public' | 'specific';
+  /** Date stamped at the top of the entry. Defaults (DB-side) to the date
+   *  the row was first inserted; the user can override via the DateBar. */
+  document_date: string; // 'YYYY-MM-DD'
   created_at: string;
   updated_at: string;
 };

@@ -330,6 +330,19 @@ html[data-theme="light"] {
 }
 
 /* ---------------------------------------------------------------------------
+ * Vision page — the card-like surface that holds the date bar + editor.
+ * Distinct from the page background (`surface-base`) so the user reads it
+ * as "this is the paper I write on", not "this is just more background".
+ * --------------------------------------------------------------------------*/
+.vision-page {
+  background-color: var(--color-surface-card);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem;
+  min-height: 70vh;
+}
+
+/* ---------------------------------------------------------------------------
  * Tiptap editor — vision/journaling surface. RTL, generous line-height,
  * notebook feel. Lists, marks, and the placeholder are styled here because
  * Tiptap renders into a plain `.ProseMirror` element (not a React tree we
@@ -343,7 +356,7 @@ html[data-theme="light"] {
 .vision-editor .ProseMirror {
   direction: rtl;
   text-align: right;
-  min-height: 60vh;
+  min-height: 55vh;
   padding-bottom: 8rem;
   outline: none;
   color: var(--color-ink-100);

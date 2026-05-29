@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { fetchVisionEntry, type VisionEntry } from './queries';
-import { upsertVisionEntry } from './mutations';
+import { updateVisionEntryDate, upsertVisionEntry } from './mutations';
 import type { VisionScope } from './period';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -113,6 +113,9 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
               period_key: periodKey,
               content: draft.content,
               visibility: 'private',
+              document_date: new Date(draft.updatedAt)
+                .toISOString()
+                .slice(0, 10),
               created_at: new Date(draft.updatedAt).toISOString(),
               updated_at: new Date(draft.updatedAt).toISOString(),
             },
@@ -255,10 +258,42 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
     return () => document.removeEventListener('visibilitychange', onHide);
   }, [flush]);
 
+  /**
+   * Override the user-facing document date. Fires immediately (no
+   * debounce); if the row doesn't exist yet the upsert creates it with
+   * the supplied date and an empty content payload.
+   */
+  const setDocumentDate = useCallback(
+    async (dateIso: string) => {
+      if (!userId) return;
+      const myReq = reqIdRef.current;
+      const targetScope = scope;
+      const targetPeriodKey = periodKey;
+      setStatus('saving');
+      try {
+        const row = await updateVisionEntryDate(
+          userId,
+          targetScope,
+          targetPeriodKey,
+          dateIso,
+        );
+        if (reqIdRef.current === myReq) {
+          setEntry(row);
+          setStatus('saved');
+        }
+      } catch (err) {
+        console.error('[vision] date update failed', err);
+        if (reqIdRef.current === myReq) setStatus('error');
+      }
+    },
+    [userId, scope, periodKey],
+  );
+
   return {
     entry,
     loading,
     status,
     scheduleSave,
+    setDocumentDate,
   };
 }
