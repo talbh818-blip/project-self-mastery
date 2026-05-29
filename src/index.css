@@ -113,6 +113,41 @@ html[data-theme="light"] {
 }
 
 /* ----------------------------------------------------------------------------
+ * Horizontal RTL scroller with an always-visible thumb (e.g. book carousel).
+ *
+ * Why NOT reuse `.themed-scroll`: that class flips direction across the
+ * container/child boundary (container = ltr, child = rtl) to park the
+ * VERTICAL scrollbar on the right edge in RTL. Reusing it for a horizontal
+ * scroller actively breaks scrolling — the container thinks content extends
+ * to the right but the rtl flex children visually extend to the left, so
+ * scrollLeft has nowhere useful to go.
+ *
+ * Here we keep direction: rtl everywhere (matches dir="rtl") so scroll
+ * position 0 anchors on the right and content extends to the LEFT — the
+ * natural RTL reading direction. The visible thumb + track make it obvious
+ * there are more cards off-screen.
+ * --------------------------------------------------------------------------*/
+.shelf-scroll {
+  direction: rtl;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface-border) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.shelf-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.shelf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.shelf-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-surface-border);
+  border-radius: 4px;
+}
+.shelf-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-500);
+}
+
+/* ----------------------------------------------------------------------------
  * Total-score animations. When the user gains points the number pops and a
  * green "+N" badge floats up and fades out. Losses get a brief red flash
  * with no float — keeps the celebratory feel reserved for wins.

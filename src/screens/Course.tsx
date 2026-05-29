@@ -90,9 +90,16 @@ function BookShelf({
   activeBookId: string | null;
   onSelect: (id: string) => void;
 }) {
+  // Negative margins extend the scroll viewport edge-to-edge so the carousel
+  // visually bleeds beyond the page's content padding. `shelf-scroll` (in
+  // index.css) gives us a working horizontal RTL scroller WITH an always-
+  // visible thumb — required so users can tell more books are off-screen.
   return (
-    <div dir="rtl" className="-mx-3 sm:-mx-4 overflow-x-auto themed-scroll">
-      <ul className="flex gap-3 px-3 sm:px-4 pb-3 pt-1 snap-x">
+    <div
+      dir="rtl"
+      className="-mx-3 sm:-mx-4 overflow-x-auto shelf-scroll snap-x pb-1"
+    >
+      <ul className="flex gap-3 px-3 sm:px-4 pb-3 pt-1">
         {books.map((b) => (
           <li key={b.id} className="snap-start shrink-0">
             <BookCard
