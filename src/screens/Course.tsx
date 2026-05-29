@@ -2,18 +2,20 @@
 // Course screen — horizontal book shelf + inline videos for the active book.
 // ----------------------------------------------------------------------------
 // Layout (top → bottom):
-//   1. Title.
-//   2. Horizontal RTL carousel of small 3D book cards.
-//        • Active book has a forest highlight ring + slight lift.
-//        • Books with no videos yet render as a "blank book" placeholder
-//          (no title on the cover — title sits in the caption below).
-//   3. Active book's title / author / description.
-//   4. Either:
-//        • The embedded video player, if the user clicked a video, OR
-//        • The list of videos for the active book.
+//   1. Horizontal RTL carousel of small 3D book cards (no page title above —
+//      the carousel itself communicates what the screen is).
+//        • Active book has a forest ring + slight lift.
+//        • Books with no videos render grayscale + a "בקרוב" pill.
+//        • Cover image with onError fallback to a blank placeholder.
+//        • Caption (title + author) is centered under each card.
+//   2. Below the carousel, either:
+//        • the embedded video player (if a video was tapped), OR
+//        • the list of videos for the active book.
+//      We never repeat the active book's title/author here — they live
+//      under the card.
 //
 // There is ALWAYS an active book — the first book in the catalog is selected
-// on load. Switching books resets the video player.
+// on mount. Switching books resets the video player.
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { BookOpen, Play, ChevronRight } from 'lucide-react';
@@ -56,13 +58,6 @@ export function Course() {
 
   return (
     <section className="-mt-3 pb-6 space-y-5">
-      <header className="px-1">
-        <h1 className="text-xl font-semibold text-ink-100">קורס</h1>
-        <p className="text-ink-300 text-xs mt-1">
-          בחר ספר כדי לצפות בסרטוני סיכום.
-        </p>
-      </header>
-
       {error ? (
         <p className="text-red-400 text-sm py-10 text-center">{error}</p>
       ) : !books ? (
@@ -113,8 +108,11 @@ function BookShelf({
 }
 
 // ---------------------------------------------------------------------------
-// BookCard — 100×150 cover (2:3 ratio) + caption below.
-// Active state: subtle forest ring + lift. Unavailable (no videos): grayscale.
+// BookCard — 100×150 cover (2:3 ratio) + centered caption (title + author).
+//   • Active state: forest ring + slight lift.
+//   • Unavailable (no videos): grayscale + opacity + "בקרוב" pill on top.
+//   • Cover image with onError → falls back to PlaceholderCover so any
+//     broken/missing Open Library link still looks intentional.
 // ---------------------------------------------------------------------------
 function BookCard({
   book,
@@ -126,18 +124,24 @@ function BookCard({
   onClick: () => void;
 }) {
   const available = book.videoCount > 0;
+  const [imgFailed, setImgFailed] = useState(false);
+  // Reset the failure flag if the URL changes (e.g. admin updates the cover).
+  useEffect(() => {
+    setImgFailed(false);
+  }, [book.cover_url]);
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group block w-[100px] text-right"
+      className="group block w-[100px]"
       aria-label={`${book.title}${available ? '' : ' (בקרוב)'}`}
       aria-pressed={active}
     >
       <div
         className={`relative flex h-[150px] rounded-md overflow-hidden shadow-lg shadow-black/30 transition-all ${
           active ? '-translate-y-1 ring-2 ring-forest-500' : ''
-        } ${available ? '' : 'opacity-50 grayscale'}`}
+        } ${available ? '' : 'opacity-60 grayscale'}`}
       >
         {/* Spine — first DOM child = right side in RTL */}
         <div
@@ -146,26 +150,34 @@ function BookCard({
         />
         {/* Cover */}
         <div className="flex-1 relative bg-surface-raised">
-          {book.cover_url ? (
+          {book.cover_url && !imgFailed ? (
             <img
               src={book.cover_url}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"
+              onError={() => setImgFailed(true)}
             />
           ) : (
             <PlaceholderCover />
           )}
-          {/* Subtle gloss on the cover edge near the spine for 3D feel */}
+          {/* Subtle gloss along the cover's spine edge for 3D feel */}
           <div
             className="absolute inset-y-0 right-0 w-2 bg-gradient-to-l from-white/15 to-transparent pointer-events-none"
             aria-hidden
           />
         </div>
+
+        {/* "בקרוב" pill — shown on books without any videos */}
+        {!available && (
+          <span className="absolute top-1.5 left-1.5 text-[9px] bg-black/65 text-cream-50 px-1.5 py-0.5 rounded-full">
+            בקרוב
+          </span>
+        )}
       </div>
 
-      {/* Caption */}
-      <div className="mt-2 px-0.5">
+      {/* Caption — centered, title + author */}
+      <div className="mt-2 text-center">
         <div
           className={`text-[12px] font-medium leading-tight line-clamp-2 ${
             active ? 'text-ink-100' : 'text-ink-300'
@@ -173,26 +185,31 @@ function BookCard({
         >
           {book.title}
         </div>
+        {book.author && (
+          <div className="text-[10px] text-ink-500 leading-tight line-clamp-1 mt-0.5">
+            {book.author}
+          </div>
+        )}
       </div>
     </button>
   );
 }
 
 // ---------------------------------------------------------------------------
-// PlaceholderCover — a generic "blank book" cover used until the admin
-// uploads a real cover_url. Cream/leather gradient + thin gold-ish ornamental
-// frame + "בקרוב" centered. No book title (the caption below the card carries
-// the title).
+// PlaceholderCover — generic blank "book cover" used when no cover_url is
+// available (or the image failed to load). Cream/leather gradient + a thin
+// ornamental double-frame. The "בקרוב" indicator is shown by the card via a
+// pill, NOT here, so this cover stays neutral and works both for missing
+// covers and for available-but-uncovered books.
 // ---------------------------------------------------------------------------
 function PlaceholderCover() {
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center"
+      className="absolute inset-0"
       style={{
         background: 'linear-gradient(135deg, #efe2c0 0%, #c9a774 100%)',
       }}
     >
-      {/* Ornamental frame */}
       <div
         className="absolute inset-2 border rounded-sm pointer-events-none"
         style={{ borderColor: 'rgba(94, 65, 26, 0.35)' }}
@@ -203,22 +220,14 @@ function PlaceholderCover() {
         style={{ borderColor: 'rgba(94, 65, 26, 0.18)' }}
         aria-hidden
       />
-      {/* Label */}
-      <span
-        className="text-[11px] font-semibold tracking-wider"
-        style={{ color: '#5a4015' }}
-      >
-        בקרוב
-      </span>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// BookSection — title/author/description for the active book, then either
-// the player or the list of videos. Loads its own videos on mount; the
-// parent passes a fresh `key={book.id}` so a book change re-mounts and
-// resets player state.
+// BookSection — either the embedded player or the list of videos for the
+// active book. Loads its own videos on mount; parent passes `key={book.id}`
+// so a book change re-mounts and resets player state.
 // ---------------------------------------------------------------------------
 function BookSection({ book }: { book: CourseBookWithCount }) {
   const [videos, setVideos] = useState<CourseVideo[] | null>(null);
@@ -249,19 +258,6 @@ function BookSection({ book }: { book: CourseBookWithCount }) {
 
   return (
     <div className="space-y-4">
-      {/* Book header */}
-      <div className="px-1">
-        <h2 className="text-lg font-semibold text-ink-100">{book.title}</h2>
-        {book.author && (
-          <p className="text-xs text-ink-300 mt-0.5">{book.author}</p>
-        )}
-        {book.description && (
-          <p className="text-sm text-ink-300 mt-2 leading-relaxed">
-            {book.description}
-          </p>
-        )}
-      </div>
-
       {/* Player (when a video is playing) */}
       {playing && (
         <div className="space-y-2">

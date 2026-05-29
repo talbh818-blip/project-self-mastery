@@ -168,27 +168,29 @@ grant select, insert, update, delete on public.course_videos to authenticated;
 -- ---------------------------------------------------------------------------
 -- 5. Seed — 10 well-known self-development titles.
 -- ----------------------------------------------------------------------------
--- These are inserted with cover_url = NULL so they render as placeholder cards
--- until the admin pastes a real cover URL. They start with no videos, so they
--- appear grayed out ("בקרוב") in the UI — which is the desired V1 behavior.
+-- Each row carries an Open Library cover URL (https://covers.openlibrary.org)
+-- keyed by the English-edition ISBN. The UI's <img onError> falls back to the
+-- placeholder cover if any URL fails, so a missing cover degrades gracefully.
+-- All rows start with no videos, so the UI grays them out with a "בקרוב"
+-- indicator until the admin uploads summaries.
 --
--- Uses (title, author) as a soft uniqueness key so re-running the migration
+-- Uses (title, author) as a soft uniqueness key so re-running this migration
 -- doesn't duplicate rows.
 -- ---------------------------------------------------------------------------
-insert into public.course_books (title, author, sort_order)
-select v.title, v.author, v.sort_order
+insert into public.course_books (title, author, cover_url, sort_order)
+select v.title, v.author, v.cover_url, v.sort_order
 from (values
-  ('הרגלים אטומיים',                       'James Clear',           10),
-  ('כוחו של הרגע הזה',                     'Eckhart Tolle',         20),
-  ('שבעת ההרגלים של אנשים אפקטיביים',    'Stephen Covey',         30),
-  ('כוחו של ההרגל',                         'Charles Duhigg',        40),
-  ('מיינדסט',                                'Carol Dweck',           50),
-  ('המועדון של חמש בבוקר',                'Robin Sharma',          60),
-  ('עבודה עמוקה',                            'Cal Newport',           70),
-  ('האדם מחפש משמעות',                    'Viktor Frankl',         80),
-  ('האגו הוא האויב',                         'Ryan Holiday',          90),
-  ('איך לרכוש ידידים ולהשפיע על אנשים', 'Dale Carnegie',        100)
-) as v(title, author, sort_order)
+  ('הרגלים אטומיים',                       'James Clear',          'https://covers.openlibrary.org/b/isbn/9780735211292-L.jpg',  10),
+  ('כוחו של הרגע הזה',                     'Eckhart Tolle',        'https://covers.openlibrary.org/b/isbn/9781577314806-L.jpg',  20),
+  ('שבעת ההרגלים של אנשים אפקטיביים',    'Stephen Covey',        'https://covers.openlibrary.org/b/isbn/9780743269513-L.jpg',  30),
+  ('כוחו של ההרגל',                         'Charles Duhigg',       'https://covers.openlibrary.org/b/isbn/9780812981605-L.jpg',  40),
+  ('מיינדסט',                                'Carol Dweck',          'https://covers.openlibrary.org/b/isbn/9780345472328-L.jpg',  50),
+  ('המועדון של חמש בבוקר',                'Robin Sharma',         'https://covers.openlibrary.org/b/isbn/9781443456623-L.jpg',  60),
+  ('עבודה עמוקה',                            'Cal Newport',          'https://covers.openlibrary.org/b/isbn/9781455586691-L.jpg',  70),
+  ('האדם מחפש משמעות',                    'Viktor Frankl',        'https://covers.openlibrary.org/b/isbn/9780807014295-L.jpg',  80),
+  ('האגו הוא האויב',                         'Ryan Holiday',         'https://covers.openlibrary.org/b/isbn/9781591847816-L.jpg',  90),
+  ('איך לרכוש ידידים ולהשפיע על אנשים', 'Dale Carnegie',        'https://covers.openlibrary.org/b/isbn/9780671027032-L.jpg', 100)
+) as v(title, author, cover_url, sort_order)
 where not exists (
   select 1 from public.course_books b
   where b.title = v.title
