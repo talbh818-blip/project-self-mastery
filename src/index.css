@@ -372,24 +372,41 @@ html[data-theme="light"] {
  *   • fades out toward the end.
  * --------------------------------------------------------------------------*/
 /* ---------------------------------------------------------------------------
- * Vision floating toolbar — docked above the bottom-nav.
+ * Vision floating toolbar — glued to whichever is higher: the bottom-nav
+ * dock area, or the top of the on-screen keyboard (Google-Notes effect).
  *
- * Bottom-nav internal height (icon + label + py-2) ≈ 53 px, plus iOS
- * safe-area inset (the nav has pb-safe → up to 34 px on a notch device).
- * Pin the toolbar's bottom edge above the nav with:
- *   bottom = env(safe-area-inset-bottom) + 53px
- * z-index 15 — below the nav's z-20 so any visual overlap defaults to the
- * nav winning, but with the math above there shouldn't be any.
- * pointer-events:none on the wrapper means the screen edges (gutter)
- * stay click-through; the inner panel re-enables clicks for itself.
+ * The element is anchored at the layout-viewport bottom (`bottom: 0`) and
+ * lifted with a GPU-composited `transform: translateY(...)`. The lift is:
+ *   max( bottom-nav dock height , live keyboard height )
+ * where:
+ *   • dock height  = env(safe-area-inset-bottom) + 56px  (nav + safe area)
+ *   • keyboard     = --vision-kb, written every animation frame by
+ *                    useKeyboardTracking from the Visual Viewport API
+ *                    (defaults to 0 when there's no keyboard).
+ * So with no keyboard the toolbar sits above the nav; when the keyboard
+ * opens (its height always exceeds the dock) the toolbar rides its top.
+ *
+ * Using `transform` (not `bottom`) keeps the motion on the compositor —
+ * no layout per frame — which is what makes the follow feel smooth. The
+ * short transition masks iOS's occasionally-coarse resize cadence without
+ * lagging noticeably during continuous tracking.
+ *
+ * z-index 15 — below the nav's z-20 so any incidental overlap resolves in
+ * the nav's favour. pointer-events:none on the wrapper keeps the gutters
+ * click-through; the inner panel re-enables clicks for itself.
  * --------------------------------------------------------------------------*/
 .vision-toolbar-fixed {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(env(safe-area-inset-bottom) + 53px);
+  bottom: 0;
   z-index: 15;
   pointer-events: none;
+  transform: translateY(
+    calc(-1 * max(calc(env(safe-area-inset-bottom) + 56px), var(--vision-kb, 0px)))
+  );
+  transition: transform 0.15s ease-out;
+  will-change: transform;
 }
 .vision-toolbar-fixed > * {
   pointer-events: auto;
