@@ -49,6 +49,8 @@ type Props = {
   placeholder?: string;
   readOnly?: boolean;
   saveStatus: SaveStatus;
+  /** Direction of the scope-switch zoom: 'in' (finer) or 'out' (broader). */
+  zoomDir: 'in' | 'out';
   /** ISO 'YYYY-MM-DD' — date stamped at the top of the entry. */
   documentDate: string;
   onDateChange: (iso: string) => void;
@@ -62,6 +64,7 @@ export function VisionEditor({
   placeholder,
   readOnly,
   saveStatus,
+  zoomDir,
   documentDate,
   onDateChange,
   onChange,
@@ -151,6 +154,11 @@ export function VisionEditor({
     );
   }
 
+  // Key the card by scope so the zoom animation replays ONLY when the scope
+  // changes (not on period changes). The toolbar is a SIBLING below — never
+  // inside this transformed card — so the zoom can't disturb the fixed bar.
+  const cardClass = `vision-editor vision-page vision-zoom-${zoomDir}`;
+
   const insertOneQuestion = () => {
     const used = new Set<string>();
     editor.state.doc.descendants((n) => {
@@ -167,15 +175,17 @@ export function VisionEditor({
   };
 
   return (
-    <div className="vision-editor vision-page">
-      <DateBar
-        value={documentDate}
-        onChange={onDateChange}
-        assistOn={assistOn}
-        onToggleAssist={toggleAssist}
-        saveStatus={saveStatus}
-      />
-      <EditorContent editor={editor} />
+    <>
+      <div key={scope} className={cardClass}>
+        <DateBar
+          value={documentDate}
+          onChange={onDateChange}
+          assistOn={assistOn}
+          onToggleAssist={toggleAssist}
+          saveStatus={saveStatus}
+        />
+        <EditorContent editor={editor} />
+      </div>
       {!readOnly && (
         <ToolbarShell>
           <VisionToolbar
@@ -185,7 +195,7 @@ export function VisionEditor({
           />
         </ToolbarShell>
       )}
-    </div>
+    </>
   );
 }
 

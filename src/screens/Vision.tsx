@@ -12,7 +12,7 @@
 // period, children CASCADE-CLAMP into bounds (monthly preserves its
 // month-of-year, weekly snaps to the first week of the new month).
 // ============================================================================
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { ChevronRight, ChevronLeft, Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
@@ -29,6 +29,13 @@ import {
 } from '../features/vision/period';
 
 const TAB_ORDER: VisionScope[] = ['yearly', 'monthly', 'weekly'];
+
+// Nesting depth — drives the zoom direction on scope switches.
+const SCOPE_DEPTH: Record<VisionScope, number> = {
+  yearly: 0,
+  monthly: 1,
+  weekly: 2,
+};
 
 const PLACEHOLDERS: Record<VisionScope, string> = {
   yearly: 'מה החזון שלך לשנה הזו? מה הכי חשוב לך להשיג?',
@@ -52,6 +59,16 @@ export function Vision() {
 
   const periodKey = periodByScope[scope];
   const locked = isFuturePeriod(scope, periodKey);
+
+  // Direction of the scope-switch zoom: deeper level (year→month→week) =
+  // zoom IN, broader = zoom OUT. Computed by comparing to the previous
+  // scope; the ref updates after commit so the next render is accurate.
+  const prevScopeRef = useRef<VisionScope>(scope);
+  const zoomDir: 'in' | 'out' =
+    SCOPE_DEPTH[scope] >= SCOPE_DEPTH[prevScopeRef.current] ? 'in' : 'out';
+  useEffect(() => {
+    prevScopeRef.current = scope;
+  }, [scope]);
 
   const { entry, loading, status, scheduleSave, setDocumentDate } =
     useVisionEntry(scope, periodKey);
@@ -128,6 +145,7 @@ export function Vision() {
           // so it loads the right initial document.
           resetKey={`${scope}:${periodKey}`}
           scope={scope}
+          zoomDir={zoomDir}
           initialContent={entry?.content ?? null}
           placeholder={PLACEHOLDERS[scope]}
           saveStatus={status}
