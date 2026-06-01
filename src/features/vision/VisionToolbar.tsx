@@ -30,7 +30,6 @@ import {
   Redo2,
   Heading1,
   Heading2,
-  Pilcrow,
   List,
   ListOrdered,
   ListChecks,
@@ -94,24 +93,26 @@ export function VisionToolbar({
 
       <Sep />
 
-      {/* Size (headings) */}
+      {/* Size (headings) — horizontal, icons only, matching the list menu.
+          RTL order: Aa (regular) · H2 · H1. */}
       <Popover
         label="גודל טקסט"
         active={editor.isActive('heading')}
         trigger={<Heading1 size={16} />}
         renderPanel={(close) => (
-          <div className="flex flex-col gap-0.5 min-w-[130px]">
-            <PanelRow
-              active={editor.isActive('heading', { level: 1 })}
+          <div className="flex items-center gap-1">
+            <PanelBtn
+              label="טקסט רגיל"
+              active={editor.isActive('paragraph')}
               onClick={() => {
-                editor.chain().focus().toggleHeading({ level: 1 }).run();
+                editor.chain().focus().setParagraph().run();
                 close();
               }}
             >
-              <Heading1 size={16} />
-              <span className="text-base font-bold">כותרת</span>
-            </PanelRow>
-            <PanelRow
+              <span className="text-[13px] font-bold leading-none">Aa</span>
+            </PanelBtn>
+            <PanelBtn
+              label="כותרת משנה"
               active={editor.isActive('heading', { level: 2 })}
               onClick={() => {
                 editor.chain().focus().toggleHeading({ level: 2 }).run();
@@ -119,18 +120,17 @@ export function VisionToolbar({
               }}
             >
               <Heading2 size={16} />
-              <span className="text-sm font-semibold">כותרת משנה</span>
-            </PanelRow>
-            <PanelRow
-              active={editor.isActive('paragraph')}
+            </PanelBtn>
+            <PanelBtn
+              label="כותרת"
+              active={editor.isActive('heading', { level: 1 })}
               onClick={() => {
-                editor.chain().focus().setParagraph().run();
+                editor.chain().focus().toggleHeading({ level: 1 }).run();
                 close();
               }}
             >
-              <Pilcrow size={16} />
-              <span className="text-sm">טקסט רגיל</span>
-            </PanelRow>
+              <Heading1 size={16} />
+            </PanelBtn>
           </div>
         )}
       />
@@ -435,29 +435,3 @@ function PanelBtn({
   );
 }
 
-// Full-width panel row (icon + label), used by the size menu.
-function PanelRow({
-  active = false,
-  onClick,
-  children,
-}: {
-  active?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={onClick}
-      className={`
-        flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-right transition-colors
-        ${active
-          ? 'bg-forest-700 text-cream-50'
-          : 'text-ink-100 hover:bg-surface-raised'}
-      `}
-    >
-      {children}
-    </button>
-  );
-}
