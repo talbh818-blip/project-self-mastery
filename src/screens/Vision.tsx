@@ -86,15 +86,17 @@ export function Vision() {
   return (
     // -mt-3 tightens the gap with the global brand header (Layout's pt-5
     // makes the page feel like it floats too far from the compass title).
-    <section className="-mt-3 pb-6 space-y-3">
-      {/* Segmented control: a single rounded track holding three equal
-          segments. The active segment is a filled forest pill; inactive
-          segments are transparent. Clean, balanced, iOS-style. */}
+    // No space-y here: the tabs sit FLUSH on top of the writing card so the
+    // active tab can merge into it (connected folder-tab look).
+    <section className="-mt-3 pb-6">
+      {/* Folder tabs riding on the card. items-end so the shorter inactive
+          tabs recede; the active tab is full-height + card-coloured so it
+          flows seamlessly into the card below. */}
       <div
         role="tablist"
         aria-label="רמת חזון"
         dir="rtl"
-        className="flex items-stretch gap-1 bg-surface-card rounded-2xl p-1 h-14"
+        className="flex items-end gap-1 px-2"
       >
         {TAB_ORDER.map((s) => (
           <ScopeTab
@@ -113,11 +115,13 @@ export function Vision() {
         ))}
       </div>
 
-      {/* Body */}
+      {/* Body — always a flat-top card so it connects to the tabs above. */}
       {locked ? (
         <LockedNotice scope={scope} />
       ) : loading ? (
-        <p className="text-ink-300 text-sm pt-6 text-center">טוען…</p>
+        <div className="vision-page">
+          <p className="text-ink-300 text-sm py-10 text-center">טוען…</p>
+        </div>
       ) : (
         <VisionEditor
           // resetKey forces the editor to re-mount when the period changes,
@@ -209,12 +213,13 @@ function ScopeTab({
     <div
       role="tab"
       aria-selected={active}
-      // Segment of the control. Active = filled forest pill; inactive =
-      // transparent (the track behind shows through). Equal width via flex-1.
-      className={`flex-1 min-w-0 flex items-center rounded-xl transition-colors ${
+      // Folder tab. ACTIVE: same colour as the card below + a thin forest
+      // top-accent for "selected", full height, merges into the card (no
+      // bottom border / no gap). INACTIVE: a darker recessed chip.
+      className={`flex-1 min-w-0 flex items-center rounded-t-xl transition-colors ${
         active
-          ? 'bg-forest-700 text-cream-50'
-          : 'text-ink-300 hover:text-ink-100'
+          ? 'bg-surface-card text-ink-100 h-14 border-t-2 border-forest-700'
+          : 'bg-surface-raised text-ink-300 h-11 hover:text-ink-100'
       }`}
     >
       {/* Right chevron — moves to PREVIOUS period. Visible only on the
@@ -225,7 +230,7 @@ function ScopeTab({
           onClick={stop(onPrev)}
           disabled={prevDisabled}
           aria-label={`${SCOPE_TITLES[scope]} — קודם`}
-          className="shrink-0 w-5 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
+          className="shrink-0 w-5 flex items-center justify-center text-ink-300 hover:text-ink-100 disabled:opacity-25"
         >
           <ChevronRight size={15} />
         </button>
@@ -238,14 +243,16 @@ function ScopeTab({
         className="flex-1 min-w-0 flex flex-col items-center justify-center px-0.5 leading-tight"
         title={active && !isCurrent ? 'חזרה לתקופה הנוכחית' : undefined}
       >
+        {/* Title + subtitle inherit the tab's text colour (ink-100 active,
+            ink-300 inactive); subtitle is one step more muted. */}
         <span
-          className={`text-sm font-semibold ${active ? '' : 'text-ink-100'}`}
+          className="text-sm font-semibold"
           style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}
         >
           {SCOPE_TITLES[scope]}
         </span>
         <span
-          className={`text-[10px] mt-0.5 ${active ? 'text-cream-50/80' : 'text-ink-300'}`}
+          className={`text-[10px] mt-0.5 ${active ? 'text-ink-300' : 'text-ink-500'}`}
           style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%', textAlign: 'center' }}
         >
           {formatScopeSubtitle(scope, periodKey, today, parentKey)}
@@ -261,7 +268,7 @@ function ScopeTab({
           onClick={stop(onNext)}
           disabled={nextDisabled}
           aria-label={`${SCOPE_TITLES[scope]} — הבא`}
-          className="shrink-0 w-5 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
+          className="shrink-0 w-5 flex items-center justify-center text-ink-300 hover:text-ink-100 disabled:opacity-25"
         >
           <ChevronLeft size={15} />
         </button>
@@ -274,12 +281,15 @@ function LockedNotice({ scope }: { scope: VisionScope }) {
   const noun =
     scope === 'yearly' ? 'השנה' : scope === 'monthly' ? 'החודש' : 'השבוע';
   return (
-    <div className="bg-surface-card rounded-2xl p-8 text-center mt-4">
-      <Lock size={28} className="text-ink-500 mx-auto mb-3" />
-      <p className="text-ink-100 font-medium">{noun} עוד לא הגיע</p>
-      <p className="text-ink-300 text-sm mt-1">
-        אפשר לכתוב חזון רק לתקופה שכבר התחילה.
-      </p>
+    // .vision-page → flat top so it connects to the tabs like the editor.
+    <div className="vision-page text-center">
+      <div className="py-8">
+        <Lock size={28} className="text-ink-500 mx-auto mb-3" />
+        <p className="text-ink-100 font-medium">{noun} עוד לא הגיע</p>
+        <p className="text-ink-300 text-sm mt-1">
+          אפשר לכתוב חזון רק לתקופה שכבר התחילה.
+        </p>
+      </div>
     </div>
   );
 }

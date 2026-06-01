@@ -415,17 +415,20 @@ html[data-theme="light"] {
 /* ---------------------------------------------------------------------------
  * Vision page — the card-like surface that holds the date bar + editor.
  * Distinct from the page background (`surface-base`) so the user reads it
- * as "this is the paper I write on", not "this is just more background".
+ * as "this is the paper I write on".
  *
- * No min-height: the card hugs its content so the bottom edge sits just
- * below the last line of writing (one line of breathing room comes from
- * the ProseMirror padding-bottom below). Empty docs still feel
+ * FLAT TOP: the scope tabs sit directly on the card's top edge and the
+ * ACTIVE tab is the same `surface-card` colour with no border between them,
+ * so the active tab + card read as one continuous sheet (folder-tab look).
+ * Hence top corners are square and there's no border (a border would draw a
+ * seam line right where the active tab should merge in). Rounded bottom only.
+ *
+ * No min-height: the card hugs its content; empty docs still feel
  * "page-shaped" thanks to ProseMirror's own min-height.
  * --------------------------------------------------------------------------*/
 .vision-page {
   background-color: var(--color-surface-card);
-  border: 1px solid var(--color-surface-border);
-  border-radius: 1rem;
+  border-radius: 0 0 1rem 1rem;
   padding: 1rem 1.1rem;
 }
 

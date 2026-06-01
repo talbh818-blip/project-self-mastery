@@ -81,14 +81,14 @@ export function VisionToolbar({
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
       >
-        <Undo2 size={16} />
+        <Undo2 size={18} />
       </ToolButton>
       <ToolButton
         label="חזרה על פעולה"
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
       >
-        <Redo2 size={16} />
+        <Redo2 size={18} />
       </ToolButton>
 
       <Sep />
@@ -98,7 +98,7 @@ export function VisionToolbar({
       <Popover
         label="גודל טקסט"
         active={editor.isActive('heading')}
-        trigger={<Heading1 size={16} />}
+        trigger={<Heading1 size={18} />}
         renderPanel={(close) => (
           <div className="flex items-center gap-1">
             <PanelBtn
@@ -109,7 +109,7 @@ export function VisionToolbar({
                 close();
               }}
             >
-              <span className="text-[13px] font-bold leading-none">Aa</span>
+              <span className="text-[15px] font-bold leading-none">Aa</span>
             </PanelBtn>
             <PanelBtn
               label="כותרת משנה"
@@ -119,7 +119,7 @@ export function VisionToolbar({
                 close();
               }}
             >
-              <Heading2 size={16} />
+              <Heading2 size={18} />
             </PanelBtn>
             <PanelBtn
               label="כותרת"
@@ -129,7 +129,7 @@ export function VisionToolbar({
                 close();
               }}
             >
-              <Heading1 size={16} />
+              <Heading1 size={18} />
             </PanelBtn>
           </div>
         )}
@@ -141,21 +141,21 @@ export function VisionToolbar({
         active={editor.isActive('bold')}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
-        <Bold size={16} />
+        <Bold size={18} />
       </ToolButton>
       <ToolButton
         label="נטוי"
         active={editor.isActive('italic')}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
-        <Italic size={16} />
+        <Italic size={18} />
       </ToolButton>
       <ToolButton
         label="קו תחתון"
         active={editor.isActive('underline')}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
       >
-        <Underline size={16} />
+        <Underline size={18} />
       </ToolButton>
 
       <Sep />
@@ -205,7 +205,7 @@ export function VisionToolbar({
       <Popover
         label="צבע הדגשה"
         active={editor.isActive('highlight')}
-        trigger={<Highlighter size={16} />}
+        trigger={<Highlighter size={18} />}
         renderPanel={(close) => (
           <div className="flex items-center gap-1">
             {HIGHLIGHT_COLORS.map((h) => {
@@ -277,7 +277,7 @@ export function VisionToolbar({
 
 function toolBtnClass(active: boolean): string {
   return [
-    'shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors',
+    'shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors',
     'disabled:opacity-30 disabled:pointer-events-none',
     active
       ? 'bg-forest-700 text-cream-50'
@@ -320,7 +320,7 @@ function Sep() {
 // Lucide list icons draw bullets/numbers on the LEFT — mirror them so the
 // markers sit on the RIGHT in RTL.
 function ListIconFlipped({ Icon }: { Icon: LucideIcon }) {
-  return <Icon size={16} className="scale-x-[-1]" />;
+  return <Icon size={18} className="scale-x-[-1]" />;
 }
 
 // ─── Popover ────────────────────────────────────────────────────────────────
