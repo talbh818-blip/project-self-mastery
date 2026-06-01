@@ -603,9 +603,9 @@ const CENTER_SIZE_BY_STAGE: Record<Stage, number> = {
 };
 
 // ── Drag interaction tunings ────────────────────────────────────────────────
-const LONG_PRESS_MS = 500;
-/** Movement (in CSS px) that cancels a pending long-press before it fires. */
-const LONG_PRESS_CANCEL_THRESHOLD_PX = 8;
+// Drag begins the instant the pointer moves this many CSS px after pressing a
+// tree — no time delay. A press without movement (a plain tap) never lifts.
+const DRAG_START_THRESHOLD_PX = 6;
 
 function IsometricField({
   treesPlanted,
@@ -686,13 +686,16 @@ function IsometricField({
   const [snapCell, setSnapCell] = useState<[number, number] | null>(null);
 
   // Mutable gesture bookkeeping that must not trigger renders.
+  //   'pending'  — pointer is down on a tree; we haven't decided yet whether
+  //                this is a drag (becomes 'dragging' the moment the pointer
+  //                moves past DRAG_START_THRESHOLD_PX) or a plain tap.
+  //   'dragging' — the ghost is following the pointer.
   const pressRef = useRef<{
     treeIndex: number;
     startX: number;
     startY: number;
     pointerId: number;
-    timer: ReturnType<typeof setTimeout> | null;
-    phase: 'pressing' | 'dragging';
+    phase: 'pending' | 'dragging';
   } | null>(null);
   const liveRef = useRef<{ leftPct: number; topPct: number }>({
     leftPct: 50,
@@ -736,19 +739,46 @@ function IsometricField({
     }
   }
 
+  // Promote a pending press into an active drag. Held in a ref so the
+  // document listeners (created once) always call the latest version.
+  const beginDragRef = useRef<(leftPct: number, topPct: number) => void>(
+    () => {},
+  );
+  beginDragRef.current = (leftPct: number, topPct: number) => {
+    const press = pressRef.current;
+    if (!press || press.phase === 'dragging') return;
+    press.phase = 'dragging';
+    liveRef.current = { leftPct, topPct };
+    setDragIndex(press.treeIndex);
+    const [i, j] = pctToNearestCell(gridRef.current, leftPct, topPct);
+    setSnapCell([i, j]);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate?.(12);
+      } catch {
+        /* noop */
+      }
+    }
+  };
+
   // Document-level listeners, attached once. They read everything from refs.
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       const press = pressRef.current;
       if (!press || e.pointerId !== press.pointerId) return;
 
-      if (press.phase === 'pressing') {
+      if (press.phase === 'pending') {
+        // First meaningful movement turns the press into a drag — instantly,
+        // no time delay. The ghost is seeded at the current pointer position.
         const dx = e.clientX - press.startX;
         const dy = e.clientY - press.startY;
-        if (Math.hypot(dx, dy) > LONG_PRESS_CANCEL_THRESHOLD_PX) {
-          // Moved before the long-press fired — treat as a scroll, abort.
-          if (press.timer) clearTimeout(press.timer);
-          pressRef.current = null;
+        if (Math.hypot(dx, dy) > DRAG_START_THRESHOLD_PX) {
+          e.preventDefault();
+          const { leftPct, topPct } = pointerToContainerPct(
+            e.clientX,
+            e.clientY,
+          );
+          beginDragRef.current(leftPct, topPct);
         }
         return;
       }
@@ -769,8 +799,8 @@ function IsometricField({
       const press = pressRef.current;
       if (!press || e.pointerId !== press.pointerId) return;
 
-      if (press.phase === 'pressing') {
-        if (press.timer) clearTimeout(press.timer);
+      if (press.phase === 'pending') {
+        // Released without ever moving past the threshold — a plain tap.
         pressRef.current = null;
         return;
       }
@@ -822,7 +852,6 @@ function IsometricField({
     const onCancel = (e: PointerEvent) => {
       const press = pressRef.current;
       if (!press || e.pointerId !== press.pointerId) return;
-      if (press.timer) clearTimeout(press.timer);
       pressRef.current = null;
       setDragIndex(null);
       setSnapCell(null);
@@ -838,7 +867,8 @@ function IsometricField({
     };
   }, []);
 
-  // Start the gesture on a mature tree.
+  // Arm the gesture on a mature tree. No timer — the drag begins the moment
+  // the pointer moves past the threshold (handled in the document onMove).
   function handleTreePointerDown(
     treeIndex: number,
     e: React.PointerEvent<HTMLDivElement>,
@@ -846,39 +876,12 @@ function IsometricField({
     if (!onPlacementsChange) return; // drag disabled (e.g. during animations)
     if (pressRef.current) return; // already in a gesture
 
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const pointerId = e.pointerId;
-
-    const timer = setTimeout(() => {
-      const press = pressRef.current;
-      if (!press || press.pointerId !== pointerId) return;
-      press.phase = 'dragging';
-      press.timer = null;
-      // Seed the ghost at the source cell, then reveal it.
-      const sourceCell = resolvedCellsRef.current[treeIndex];
-      const seed = sourceCell
-        ? cellToPctFor(gridRef.current, sourceCell[0], sourceCell[1])
-        : { leftPct: 50, topPct: 50 };
-      liveRef.current = { leftPct: seed.leftPct, topPct: seed.topPct };
-      setDragIndex(treeIndex);
-      setSnapCell(sourceCell ?? null);
-      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        try {
-          navigator.vibrate?.(15);
-        } catch {
-          /* noop */
-        }
-      }
-    }, LONG_PRESS_MS);
-
     pressRef.current = {
       treeIndex,
-      startX,
-      startY,
-      pointerId,
-      timer,
-      phase: 'pressing',
+      startX: e.clientX,
+      startY: e.clientY,
+      pointerId: e.pointerId,
+      phase: 'pending',
     };
   }
 
