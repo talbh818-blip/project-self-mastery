@@ -586,19 +586,21 @@ function pctToNearestCell(
   return [bestI, bestJ];
 }
 
-// ── Centre-tree size by growth stage (in viewBox px units) ─────────────────
-// Without staging, a Seedling rendered 68px in the centre cell while planted
-// mature trees were 42px — visually inverted. Ramp the centre up by stage so
-// the seed is smallest, mature is biggest.
-const CENTER_SIZE_BY_STAGE: Record<Stage, number> = {
-  0: 26, // Sprout
-  1: 36, // Seedling
-  2: 46, // Sapling
-  3: 56, // YoungTree
-  4: 64, // MatureTree
-};
 const MATURE_PERIPHERY_SIZE = 42;
 const PLACEHOLDER_SPROUT_SIZE = 18;
+
+// ── Centre-tree size by growth stage (in viewBox px units) ─────────────────
+// The centre tree ramps from a small seed up to EXACTLY the size of a planted
+// mature tree (MATURE_PERIPHERY_SIZE). A fully-grown centre tree must look the
+// same size as the ones already on the plot — the pedestal underneath is what
+// distinguishes it, not scale.
+const CENTER_SIZE_BY_STAGE: Record<Stage, number> = {
+  0: 24, // Sprout
+  1: 30, // Seedling
+  2: 35, // Sapling
+  3: 39, // YoungTree
+  4: MATURE_PERIPHERY_SIZE, // MatureTree — identical to the planted trees (42)
+};
 
 // ── Drag interaction tunings ────────────────────────────────────────────────
 const LONG_PRESS_MS = 500;
