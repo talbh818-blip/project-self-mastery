@@ -87,17 +87,20 @@ export function Vision() {
     // -mt-3 tightens the gap with the global brand header (Layout's pt-5
     // makes the page feel like it floats too far from the compass title).
     <section className="-mt-3 pb-6 space-y-3">
+      {/* Overlapping folder-tabs: items-end so the shorter inactive tabs
+          recede downward while the taller active tab rises in front. No
+          gap — tabs tuck under each other via negative inline margins;
+          z-index keeps the active one on top. */}
       <div
         role="tablist"
         aria-label="רמת חזון"
         dir="rtl"
-        // h-12 matches the Habits screen's action-row height so the visual
-        // language carries across screens.
-        className="flex items-stretch gap-1.5 h-12"
+        className="flex items-end h-14 px-0.5"
       >
-        {TAB_ORDER.map((s) => (
+        {TAB_ORDER.map((s, i) => (
           <ScopeTab
             key={s}
+            index={i}
             scope={s}
             active={scope === s}
             periodKey={periodByScope[s]}
@@ -159,6 +162,7 @@ function toIsoDate(d: Date): string {
 // ─── Tab ────────────────────────────────────────────────────────────────────
 
 type ScopeTabProps = {
+  index: number;
   scope: VisionScope;
   active: boolean;
   periodKey: string;
@@ -172,6 +176,7 @@ type ScopeTabProps = {
 };
 
 function ScopeTab({
+  index,
   scope,
   active,
   periodKey,
@@ -208,11 +213,16 @@ function ScopeTab({
     <div
       role="tab"
       aria-selected={active}
-      className={`flex-1 min-w-0 flex items-stretch rounded-2xl border transition-colors ${
+      // Folder-tab look: rounded top only, overlap neighbours via a negative
+      // inline-start margin (skipped on the first tab), and lift the active
+      // one with z-index + a soft shadow so it reads as the front card.
+      className={[
+        'relative min-w-0 flex items-center rounded-t-xl transition-all',
+        index > 0 ? '-ms-2.5' : '',
         active
-          ? 'bg-forest-700 text-cream-50 border-forest-700'
-          : 'bg-surface-card text-ink-300 border-surface-border'
-      }`}
+          ? 'flex-[1.4] h-14 z-20 bg-forest-700 text-cream-50 shadow-[0_0_12px_-2px_rgba(0,0,0,0.55)]'
+          : 'flex-1 h-11 z-10 bg-surface-raised text-ink-300',
+      ].join(' ')}
     >
       {/* Right chevron — moves to PREVIOUS period. Visible only on the
           active tab. In RTL DOM order the first child renders rightmost. */}
