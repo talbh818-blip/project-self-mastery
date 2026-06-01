@@ -1284,6 +1284,10 @@ function TreeFieldModal({
   /** Timer tracking the active celebration so we can cancel it on unmount. */
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // TEMP DIAGNOSTIC: shows the result of the last DB write right in the modal
+  // so we can see drag/plant persistence failures without opening DevTools.
+  const [writeStatus, setWriteStatus] = useState<string | null>(null);
+
   // Clean up any pending timer on unmount.
   useEffect(() => {
     return () => {
@@ -1348,20 +1352,14 @@ function TreeFieldModal({
         .select()
         .maybeSingle();
       if (error) {
+        setWriteStatus(
+          `✗ שתילה נכשלה: ${error.message ?? error.code ?? 'unknown'}`,
+        );
         console.error('[TreeFieldModal] failed to bump trees_planted:', error);
       } else if (!updated) {
-        // RLS silently rejected the write, or the row doesn't exist.
-        console.warn(
-          '[TreeFieldModal] UPDATE returned no row — RLS blocked or userId mismatch. userId=',
-          userId,
-        );
+        setWriteStatus('✗ שתילה: UPDATE לא החזיר שורה (RLS?)');
       } else {
-        console.log(
-          '[TreeFieldModal] trees_planted bumped',
-          treesPlanted,
-          '→',
-          updated.trees_planted,
-        );
+        setWriteStatus(`✓ נשתל! עצים: ${updated.trees_planted}`);
         await onPlanted();
       }
     }
@@ -1381,10 +1379,10 @@ function TreeFieldModal({
    */
   const persistPlacements = async (next: TreePlacement[]) => {
     if (!userId) {
-      console.warn('[Drag] no userId — skipping write');
+      setWriteStatus('✗ אין userId — לא נשמר');
       return;
     }
-    console.log('[Drag] writing tree_placements:', next);
+    setWriteStatus('שומר מיקום…');
     const { data, error } = await supabase
       .from('profiles')
       .update({ tree_placements: next })
@@ -1392,18 +1390,15 @@ function TreeFieldModal({
       .select()
       .maybeSingle();
     if (error) {
+      setWriteStatus(`✗ שגיאת שמירה: ${error.message ?? error.code ?? 'unknown'}`);
       console.error('[Drag] save failed:', error);
       return;
     }
     if (!data) {
-      // RLS silently rejected: { data: null, error: null } is a valid result.
-      console.warn(
-        '[Drag] UPDATE returned no row — RLS blocked or userId mismatch. userId=',
-        userId,
-      );
+      setWriteStatus('✗ UPDATE לא החזיר שורה (RLS?)');
       return;
     }
-    console.log('[Drag] saved, refreshing profile');
+    setWriteStatus(`✓ מיקום נשמר (${(data.tree_placements as unknown[])?.length ?? '?'} עצים)`);
     await onPlanted();
   };
 
@@ -1534,6 +1529,23 @@ function TreeFieldModal({
               {totalScore}
             </span>
           </div>
+
+          {/* TEMP DIAGNOSTIC — last DB write result. Remove once drag/plant
+              persistence is confirmed working. */}
+          {writeStatus && (
+            <div
+              dir="rtl"
+              className={`text-center text-[11px] leading-snug px-2 py-1 rounded-lg break-words ${
+                writeStatus.startsWith('✓')
+                  ? 'text-forest-400 bg-forest-100/40'
+                  : writeStatus.startsWith('✗')
+                    ? 'text-red-300 bg-red-500/10'
+                    : 'text-ink-300'
+              }`}
+            >
+              {writeStatus}
+            </div>
+          )}
 
           {/* Action row — when the tree is mature the user sees TWO buttons:
               the planting CTA on the right (RTL) and the dismiss "המשך" on
