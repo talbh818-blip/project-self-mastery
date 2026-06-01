@@ -87,20 +87,18 @@ export function Vision() {
     // -mt-3 tightens the gap with the global brand header (Layout's pt-5
     // makes the page feel like it floats too far from the compass title).
     <section className="-mt-3 pb-6 space-y-3">
-      {/* Overlapping folder-tabs: items-end so the shorter inactive tabs
-          recede downward while the taller active tab rises in front. No
-          gap — tabs tuck under each other via negative inline margins;
-          z-index keeps the active one on top. */}
+      {/* Segmented control: a single rounded track holding three equal
+          segments. The active segment is a filled forest pill; inactive
+          segments are transparent. Clean, balanced, iOS-style. */}
       <div
         role="tablist"
         aria-label="רמת חזון"
         dir="rtl"
-        className="flex items-end h-14 px-0.5"
+        className="flex items-stretch gap-1 bg-surface-card rounded-2xl p-1 h-14"
       >
-        {TAB_ORDER.map((s, i) => (
+        {TAB_ORDER.map((s) => (
           <ScopeTab
             key={s}
-            index={i}
             scope={s}
             active={scope === s}
             periodKey={periodByScope[s]}
@@ -162,7 +160,6 @@ function toIsoDate(d: Date): string {
 // ─── Tab ────────────────────────────────────────────────────────────────────
 
 type ScopeTabProps = {
-  index: number;
   scope: VisionScope;
   active: boolean;
   periodKey: string;
@@ -176,7 +173,6 @@ type ScopeTabProps = {
 };
 
 function ScopeTab({
-  index,
   scope,
   active,
   periodKey,
@@ -213,16 +209,13 @@ function ScopeTab({
     <div
       role="tab"
       aria-selected={active}
-      // Folder-tab look: rounded top only, overlap neighbours via a negative
-      // inline-start margin (skipped on the first tab), and lift the active
-      // one with z-index + a soft shadow so it reads as the front card.
-      className={[
-        'relative min-w-0 flex items-center rounded-t-xl transition-all',
-        index > 0 ? '-ms-2.5' : '',
+      // Segment of the control. Active = filled forest pill; inactive =
+      // transparent (the track behind shows through). Equal width via flex-1.
+      className={`flex-1 min-w-0 flex items-center rounded-xl transition-colors ${
         active
-          ? 'flex-[1.4] h-14 z-20 bg-forest-700 text-cream-50 shadow-[0_0_12px_-2px_rgba(0,0,0,0.55)]'
-          : 'flex-1 h-11 z-10 bg-surface-raised text-ink-300',
-      ].join(' ')}
+          ? 'bg-forest-700 text-cream-50'
+          : 'text-ink-300 hover:text-ink-100'
+      }`}
     >
       {/* Right chevron — moves to PREVIOUS period. Visible only on the
           active tab. In RTL DOM order the first child renders rightmost. */}
@@ -232,9 +225,9 @@ function ScopeTab({
           onClick={stop(onPrev)}
           disabled={prevDisabled}
           aria-label={`${SCOPE_TITLES[scope]} — קודם`}
-          className="shrink-0 w-6 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
+          className="shrink-0 w-5 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={15} />
         </button>
       ) : null}
 
@@ -268,9 +261,9 @@ function ScopeTab({
           onClick={stop(onNext)}
           disabled={nextDisabled}
           aria-label={`${SCOPE_TITLES[scope]} — הבא`}
-          className="shrink-0 w-6 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
+          className="shrink-0 w-5 flex items-center justify-center text-cream-50/85 hover:text-cream-50 disabled:opacity-25"
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={15} />
         </button>
       ) : null}
     </div>
