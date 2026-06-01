@@ -23,9 +23,15 @@
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
-import { fetchVisionEntry, type VisionEntry } from './queries';
+import { type VisionEntry } from './queries';
 import { updateVisionEntryDate, upsertVisionEntry } from './mutations';
-import type { VisionScope } from './period';
+import { addPeriod, isFuturePeriod, type VisionScope } from './period';
+import {
+  getCachedEntry,
+  loadEntry,
+  prefetchEntry,
+  setCachedEntry,
+} from './visionCache';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
@@ -92,66 +98,91 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
     if (!userId) return;
     const myReq = ++reqIdRef.current;
     const key = lsKey(userId, scope, periodKey);
-    setLoading(true);
-    setStatus('idle');
 
-    fetchVisionEntry(userId, scope, periodKey)
-      .then(async (row) => {
-        if (reqIdRef.current !== myReq) return;
-
-        // Reconcile DB row with localStorage draft. If the user had unsaved
-        // content from a previous session that never made it to the DB,
-        // restore it AND push it to the DB right away.
-        const draft = readDraft(key);
-        const dbTs = row ? new Date(row.updated_at).getTime() : 0;
-        if (draft && draft.updatedAt > dbTs) {
-          setEntry(
-            row ?? {
-              id: '',
-              user_id: userId,
-              scope,
-              period_key: periodKey,
-              content: draft.content,
-              visibility: 'private',
-              document_date: new Date(draft.updatedAt)
-                .toISOString()
-                .slice(0, 10),
-              created_at: new Date(draft.updatedAt).toISOString(),
-              updated_at: new Date(draft.updatedAt).toISOString(),
-            },
+    // Reconcile a freshly-fetched row with any unsaved localStorage draft,
+    // then commit to state. If the user has unsaved content newer than the
+    // DB (e.g. an offline save), restore it AND push it to the DB.
+    const applyRow = async (row: VisionEntry | null) => {
+      if (reqIdRef.current !== myReq) return;
+      const draft = readDraft(key);
+      const dbTs = row ? new Date(row.updated_at).getTime() : 0;
+      if (draft && draft.updatedAt > dbTs) {
+        setEntry(
+          row ?? {
+            id: '',
+            user_id: userId,
+            scope,
+            period_key: periodKey,
+            content: draft.content,
+            visibility: 'private',
+            document_date: new Date(draft.updatedAt)
+              .toISOString()
+              .slice(0, 10),
+            created_at: new Date(draft.updatedAt).toISOString(),
+            updated_at: new Date(draft.updatedAt).toISOString(),
+          },
+        );
+        setStatus('saving');
+        try {
+          const saved = await upsertVisionEntry(
+            userId,
+            scope,
+            periodKey,
+            draft.content,
           );
-          // Surface a "saving" state, then push the rescued content up.
-          setStatus('saving');
-          try {
-            const saved = await upsertVisionEntry(
-              userId,
-              scope,
-              periodKey,
-              draft.content,
-            );
-            if (reqIdRef.current === myReq) {
-              setEntry(saved);
-              setStatus('saved');
-              clearDraftIfOlder(key, saved.updated_at);
-            }
-          } catch (err) {
-            console.error('[vision] draft-rescue save failed', err);
-            if (reqIdRef.current === myReq) setStatus('error');
+          setCachedEntry(userId, scope, periodKey, saved);
+          if (reqIdRef.current === myReq) {
+            setEntry(saved);
+            setStatus('saved');
+            clearDraftIfOlder(key, saved.updated_at);
           }
-        } else {
-          setEntry(row);
-          if (row) clearDraftIfOlder(key, row.updated_at);
+        } catch (err) {
+          console.error('[vision] draft-rescue save failed', err);
+          if (reqIdRef.current === myReq) setStatus('error');
         }
-      })
+      } else {
+        setEntry(row);
+        if (row) clearDraftIfOlder(key, row.updated_at);
+      }
+    };
+
+    // Instant paint from cache to kill the "טוען…" flash — but ONLY when
+    // there's no unsaved draft newer than the cache. If a newer draft
+    // exists we must show loading and let applyRow mount the editor with
+    // the reconciled (rescued) content, since the editor reads its initial
+    // content once on mount.
+    const cached = getCachedEntry(userId, scope, periodKey);
+    const draft = readDraft(key);
+    const cachedTs = cached ? new Date(cached.updated_at).getTime() : 0;
+    const draftIsNewer = !!draft && draft.updatedAt > cachedTs;
+
+    if (cached !== undefined && !draftIsNewer) {
+      setEntry(cached);
+      setLoading(false);
+      setStatus('idle');
+    } else {
+      setLoading(true);
+      setStatus('idle');
+    }
+
+    // Revalidate in the background (also fills the cache; de-duplicated).
+    loadEntry(userId, scope, periodKey)
+      .then((row) => applyRow(row))
       .catch((err) => {
         if (reqIdRef.current !== myReq) return;
         console.error('[vision] fetch failed', err);
-        setEntry(null);
+        if (cached === undefined) setEntry(null);
       })
       .finally(() => {
-        if (reqIdRef.current !== myReq) return;
-        setLoading(false);
+        if (reqIdRef.current === myReq) setLoading(false);
       });
+
+    // Warm the neighbouring periods so prev/next navigation is instant.
+    prefetchEntry(userId, scope, addPeriod(scope, periodKey, -1));
+    const nextKey = addPeriod(scope, periodKey, 1);
+    if (!isFuturePeriod(scope, nextKey)) {
+      prefetchEntry(userId, scope, nextKey);
+    }
 
     // Capture the values this effect is responsible for; the cleanup must
     // flush against THESE coordinates, not whatever the closure sees after
@@ -178,7 +209,10 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
           cleanupPeriodKey,
           pending,
         )
-          .then((row) => clearDraftIfOlder(flushKey, row.updated_at))
+          .then((row) => {
+            setCachedEntry(cleanupUserId, cleanupScope, cleanupPeriodKey, row);
+            clearDraftIfOlder(flushKey, row.updated_at);
+          })
           .catch((err) => {
             console.error('[vision] flush-on-switch save failed', err);
             // localStorage still holds the draft — recovers on next load.
@@ -205,6 +239,7 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
         targetPeriodKey,
         content,
       );
+      setCachedEntry(userId, targetScope, targetPeriodKey, row);
       if (reqIdRef.current === myReq) {
         setEntry(row);
         setStatus('saved');
@@ -277,6 +312,7 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
           targetPeriodKey,
           dateIso,
         );
+        setCachedEntry(userId, targetScope, targetPeriodKey, row);
         if (reqIdRef.current === myReq) {
           setEntry(row);
           setStatus('saved');
