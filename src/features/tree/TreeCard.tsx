@@ -623,8 +623,9 @@ function IsometricField({
   placements: TreePlacement[];
   /** Called when the user successfully drags a tree to a new cell or swaps
    *  two trees. The new full placements array is passed up so the parent
-   *  can persist it to Supabase. */
-  onPlacementsChange?: (next: TreePlacement[]) => void;
+   *  can persist it to Supabase. Returns true if the write succeeded so the
+   *  field can keep its optimistic update (or false → revert). */
+  onPlacementsChange?: (next: TreePlacement[]) => void | Promise<boolean>;
   /** When set, the centre cell ignores `currentStage` and displays this
    *  stage instead. Used to drive the planting replay 0→1→2→3→4. */
   forcedCenterStage?: Stage;
@@ -642,15 +643,26 @@ function IsometricField({
   const grid = gridSizeFor(treesPlanted);
   const center = gridCenter(grid);
 
+  // Optimistic placements: applied INSTANTLY on drop so the tree slides to
+  // its new cell without waiting for the Supabase round-trip. Cleared once
+  // the persisted `placements` prop catches up (or on a failed write).
+  const [optimistic, setOptimistic] = useState<TreePlacement[] | null>(null);
+  // Whenever the real (persisted) placements arrive, drop the override —
+  // the prop is now the source of truth.
+  useEffect(() => {
+    setOptimistic(null);
+  }, [placements]);
+  const effectivePlacements = optimistic ?? placements;
+
   // Resolve each planted tree to its concrete cell. We freeze a snapshot
   // at render time so the drag-overlay calculations stay consistent.
   const resolvedCells = useMemo(() => {
     const out: [number, number][] = [];
     for (let k = 0; k < treesPlanted; k++) {
-      out.push(placementToCell(grid, k, placements));
+      out.push(placementToCell(grid, k, effectivePlacements));
     }
     return out;
-  }, [treesPlanted, placements, grid]);
+  }, [treesPlanted, effectivePlacements, grid]);
 
   // ── Drag interaction (ref-based, direct-DOM positioning) ─────────────────
   //
@@ -796,7 +808,13 @@ function IsometricField({
       if (occupant >= 0) nextArr[occupant] = nextArr[sourceIndex];
       nextArr[sourceIndex] = cellToPlacement(g, targetI, targetJ);
 
-      onChange?.(nextArr);
+      // Move the tree NOW (optimistic). The 200ms CSS transition on the tree
+      // divs animates the slide. Persist in the background; revert only if
+      // the write actually fails.
+      setOptimistic(nextArr);
+      Promise.resolve(onChange?.(nextArr)).then((ok) => {
+        if (ok === false) setOptimistic(null);
+      });
     };
 
     const onCancel = (e: PointerEvent) => {
@@ -1284,10 +1302,6 @@ function TreeFieldModal({
   /** Timer tracking the active celebration so we can cancel it on unmount. */
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // TEMP DIAGNOSTIC: shows the result of the last DB write right in the modal
-  // so we can see drag/plant persistence failures without opening DevTools.
-  const [writeStatus, setWriteStatus] = useState<string | null>(null);
-
   // Clean up any pending timer on unmount.
   useEffect(() => {
     return () => {
@@ -1352,14 +1366,8 @@ function TreeFieldModal({
         .select()
         .maybeSingle();
       if (error) {
-        setWriteStatus(
-          `✗ שתילה נכשלה: ${error.message ?? error.code ?? 'unknown'}`,
-        );
         console.error('[TreeFieldModal] failed to bump trees_planted:', error);
-      } else if (!updated) {
-        setWriteStatus('✗ שתילה: UPDATE לא החזיר שורה (RLS?)');
-      } else {
-        setWriteStatus(`✓ נשתל! עצים: ${updated.trees_planted}`);
+      } else if (updated) {
         await onPlanted();
       }
     }
@@ -1375,14 +1383,12 @@ function TreeFieldModal({
 
   /**
    * Persist a new placements array to Supabase. Used by the drag-and-drop
-   * handler in IsometricField when the user swaps / moves trees.
+   * handler in IsometricField when the user swaps / moves trees. Returns
+   * true on success so the field can keep its optimistic update, or false
+   * so it can revert.
    */
-  const persistPlacements = async (next: TreePlacement[]) => {
-    if (!userId) {
-      setWriteStatus('✗ אין userId — לא נשמר');
-      return;
-    }
-    setWriteStatus('שומר מיקום…');
+  const persistPlacements = async (next: TreePlacement[]): Promise<boolean> => {
+    if (!userId) return false;
     const { data, error } = await supabase
       .from('profiles')
       .update({ tree_placements: next })
@@ -1390,16 +1396,12 @@ function TreeFieldModal({
       .select()
       .maybeSingle();
     if (error) {
-      setWriteStatus(`✗ שגיאת שמירה: ${error.message ?? error.code ?? 'unknown'}`);
       console.error('[Drag] save failed:', error);
-      return;
+      return false;
     }
-    if (!data) {
-      setWriteStatus('✗ UPDATE לא החזיר שורה (RLS?)');
-      return;
-    }
-    setWriteStatus(`✓ מיקום נשמר (${(data.tree_placements as unknown[])?.length ?? '?'} עצים)`);
+    if (!data) return false; // RLS silently rejected
     await onPlanted();
+    return true;
   };
 
   // Enter / exit animation lifecycle.
@@ -1530,22 +1532,6 @@ function TreeFieldModal({
             </span>
           </div>
 
-          {/* TEMP DIAGNOSTIC — last DB write result. Remove once drag/plant
-              persistence is confirmed working. */}
-          {writeStatus && (
-            <div
-              dir="rtl"
-              className={`text-center text-[11px] leading-snug px-2 py-1 rounded-lg break-words ${
-                writeStatus.startsWith('✓')
-                  ? 'text-forest-400 bg-forest-100/40'
-                  : writeStatus.startsWith('✗')
-                    ? 'text-red-300 bg-red-500/10'
-                    : 'text-ink-300'
-              }`}
-            >
-              {writeStatus}
-            </div>
-          )}
 
           {/* Action row — when the tree is mature the user sees TWO buttons:
               the planting CTA on the right (RTL) and the dismiss "המשך" on
