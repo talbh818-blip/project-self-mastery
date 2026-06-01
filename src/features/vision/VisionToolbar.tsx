@@ -72,7 +72,6 @@ export function VisionToolbar({
         flex items-center gap-1 p-1.5
         rounded-2xl bg-surface-card border border-surface-border
         shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]
-        overflow-x-auto
       "
     >
       {/* Undo / Redo */}
@@ -81,14 +80,14 @@ export function VisionToolbar({
         onClick={() => editor.chain().focus().undo().run()}
         disabled={!editor.can().undo()}
       >
-        <Undo2 size={18} />
+        <Undo2 size={21} />
       </ToolButton>
       <ToolButton
         label="חזרה על פעולה"
         onClick={() => editor.chain().focus().redo().run()}
         disabled={!editor.can().redo()}
       >
-        <Redo2 size={18} />
+        <Redo2 size={21} />
       </ToolButton>
 
       <Sep />
@@ -98,7 +97,7 @@ export function VisionToolbar({
       <Popover
         label="גודל טקסט"
         active={editor.isActive('heading')}
-        trigger={<Heading1 size={18} />}
+        trigger={<Heading1 size={21} />}
         renderPanel={(close) => (
           <div className="flex items-center gap-1">
             <PanelBtn
@@ -109,7 +108,7 @@ export function VisionToolbar({
                 close();
               }}
             >
-              <span className="text-[15px] font-bold leading-none">Aa</span>
+              <span className="text-[17px] font-bold leading-none">Aa</span>
             </PanelBtn>
             <PanelBtn
               label="כותרת משנה"
@@ -119,7 +118,7 @@ export function VisionToolbar({
                 close();
               }}
             >
-              <Heading2 size={18} />
+              <Heading2 size={21} />
             </PanelBtn>
             <PanelBtn
               label="כותרת"
@@ -129,7 +128,7 @@ export function VisionToolbar({
                 close();
               }}
             >
-              <Heading1 size={18} />
+              <Heading1 size={21} />
             </PanelBtn>
           </div>
         )}
@@ -141,21 +140,21 @@ export function VisionToolbar({
         active={editor.isActive('bold')}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
-        <Bold size={18} />
+        <Bold size={21} />
       </ToolButton>
       <ToolButton
         label="נטוי"
         active={editor.isActive('italic')}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
-        <Italic size={18} />
+        <Italic size={21} />
       </ToolButton>
       <ToolButton
         label="קו תחתון"
         active={editor.isActive('underline')}
         onClick={() => editor.chain().focus().toggleUnderline().run()}
       >
-        <Underline size={18} />
+        <Underline size={21} />
       </ToolButton>
 
       <Sep />
@@ -205,7 +204,7 @@ export function VisionToolbar({
       <Popover
         label="צבע הדגשה"
         active={editor.isActive('highlight')}
-        trigger={<Highlighter size={18} />}
+        trigger={<Highlighter size={21} />}
         renderPanel={(close) => (
           <div className="flex items-center gap-1">
             {HIGHLIGHT_COLORS.map((h) => {
@@ -259,12 +258,12 @@ export function VisionToolbar({
             onClick={onInsertQuestion}
             aria-label="הוסף שאלה מנחה"
             className="
-              shrink-0 inline-flex items-center gap-1 px-2 h-8 rounded-lg
-              text-[12px] font-medium text-cream-50 bg-forest-700
+              shrink-0 inline-flex items-center gap-1 px-2.5 h-10 rounded-lg
+              text-[13px] font-medium text-cream-50 bg-forest-700
               hover:bg-forest-600 transition-colors
             "
           >
-            <Plus size={13} strokeWidth={2.4} />
+            <Plus size={15} strokeWidth={2.4} />
             שאלה
           </button>
         </>
@@ -275,9 +274,12 @@ export function VisionToolbar({
 
 // ─── Primitives ─────────────────────────────────────────────────────────────
 
+// Width-agnostic on purpose: main toolbar buttons add `flex-1` so they
+// spread across the FULL bar width (no empty gutter); popover panel buttons
+// add a fixed `w-10`.
 function toolBtnClass(active: boolean): string {
   return [
-    'shrink-0 w-9 h-9 flex items-center justify-center rounded-lg transition-colors',
+    'h-10 flex items-center justify-center rounded-lg transition-colors',
     'disabled:opacity-30 disabled:pointer-events-none',
     active
       ? 'bg-forest-700 text-cream-50'
@@ -306,7 +308,7 @@ function ToolButton({
       disabled={disabled}
       aria-label={label}
       aria-pressed={active}
-      className={toolBtnClass(active)}
+      className={`flex-1 ${toolBtnClass(active)}`}
     >
       {children}
     </button>
@@ -320,7 +322,7 @@ function Sep() {
 // Lucide list icons draw bullets/numbers on the LEFT — mirror them so the
 // markers sit on the RIGHT in RTL.
 function ListIconFlipped({ Icon }: { Icon: LucideIcon }) {
-  return <Icon size={18} className="scale-x-[-1]" />;
+  return <Icon size={21} className="scale-x-[-1]" />;
 }
 
 // ─── Popover ────────────────────────────────────────────────────────────────
@@ -374,7 +376,7 @@ function Popover({
         onClick={toggle}
         aria-label={label}
         aria-expanded={open}
-        className={toolBtnClass(!!active || open)}
+        className={`flex-1 ${toolBtnClass(!!active || open)}`}
       >
         {trigger}
       </button>
@@ -428,7 +430,7 @@ function PanelBtn({
       onClick={onClick}
       aria-label={label}
       aria-pressed={active}
-      className={toolBtnClass(active)}
+      className={`w-10 ${toolBtnClass(active)}`}
     >
       {children}
     </button>
