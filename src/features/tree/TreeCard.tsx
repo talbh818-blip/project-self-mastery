@@ -605,36 +605,6 @@ const LONG_PRESS_MS = 500;
 /** Movement (in CSS px) that cancels a pending long-press before it fires. */
 const LONG_PRESS_CANCEL_THRESHOLD_PX = 8;
 
-/**
- * One unified interaction state machine for the long-press → drag gesture.
- *
- *   pressing  — finger is down on a mature tree, waiting for the long-press
- *               timer to fire OR for movement that cancels it.
- *   dragging  — long-press fired; the tree follows the pointer.
- *
- * Listeners are attached at the DOCUMENT level (not on tree elements), so
- * release works regardless of what's underneath the pointer — including
- * empty grass with `pointer-events: none` sprout placeholders. The previous
- * per-tree approach relied on `setPointerCapture` from inside a setTimeout,
- * which some browsers silently reject; that left drop-on-empty-grass dead.
- */
-type Interaction =
-  | {
-      phase: 'pressing';
-      treeIndex: number;
-      startX: number;
-      startY: number;
-      pointerId: number;
-      timer: ReturnType<typeof setTimeout>;
-    }
-  | {
-      phase: 'dragging';
-      treeIndex: number;
-      leftPct: number;
-      topPct: number;
-      pointerId: number;
-    };
-
 function IsometricField({
   treesPlanted,
   currentStage,
@@ -682,60 +652,197 @@ function IsometricField({
     return out;
   }, [treesPlanted, placements, grid]);
 
-  // ── Drag state machine ──────────────────────────────────────────────────
-  const [interaction, setInteraction] = useState<Interaction | null>(null);
+  // ── Drag interaction (ref-based, direct-DOM positioning) ─────────────────
+  //
+  // Why refs + direct DOM instead of React state per pointermove: at high
+  // event rates the state→render→handler-rebind loop introduced stale
+  // closures (a leftover `pressing` handler could cancel a freshly-started
+  // drag) and dropped position updates, so the tree "lifted" but never
+  // tracked the finger — and the release then snapped back to the source.
+  //
+  // Here the floating "ghost" tree is positioned by writing to its DOM node
+  // directly (`ghostRef.current.style`), so React never re-renders during the
+  // drag. Only two pieces of React state flip — `dragIndex` (which tree is
+  // lifted, set once at drag-start and cleared at drop) and `snapCell` (the
+  // highlighted target, updated only when it actually changes).
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
-  /**
-   * Convert a pointer client position into container-% coords + the nearest
-   * grid (i, j) for snapping.
-   */
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [snapCell, setSnapCell] = useState<[number, number] | null>(null);
+
+  // Mutable gesture bookkeeping that must not trigger renders.
+  const pressRef = useRef<{
+    treeIndex: number;
+    startX: number;
+    startY: number;
+    pointerId: number;
+    timer: ReturnType<typeof setTimeout> | null;
+    phase: 'pressing' | 'dragging';
+  } | null>(null);
+  const liveRef = useRef<{ leftPct: number; topPct: number }>({
+    leftPct: 50,
+    topPct: 50,
+  });
+
+  // Mirror render-derived values so the imperative handlers always see fresh
+  // data without being re-created.
+  const gridRef = useRef(grid);
+  const centerRef = useRef(center);
+  const treesPlantedRef = useRef(treesPlanted);
+  const resolvedCellsRef = useRef(resolvedCells);
+  const onPlacementsChangeRef = useRef(onPlacementsChange);
+  gridRef.current = grid;
+  centerRef.current = center;
+  treesPlantedRef.current = treesPlanted;
+  resolvedCellsRef.current = resolvedCells;
+  onPlacementsChangeRef.current = onPlacementsChange;
+
+  /** Pointer client coords → container-% + nearest grid cell. */
   function pointerToContainerPct(clientX: number, clientY: number) {
     const rect = containerRef.current?.getBoundingClientRect();
+    const g = gridRef.current;
+    const c = centerRef.current;
     if (!rect || rect.width === 0 || rect.height === 0) {
-      console.warn('[Drag] container rect unavailable');
-      return { leftPct: 50, topPct: 50, i: center, j: center };
+      return { leftPct: 50, topPct: 50, i: c, j: c };
     }
     const leftPct = ((clientX - rect.left) / rect.width) * 100;
     const topPct = ((clientY - rect.top) / rect.height) * 100;
-    const [i, j] = pctToNearestCell(grid, leftPct, topPct);
+    const [i, j] = pctToNearestCell(g, leftPct, topPct);
     return { leftPct, topPct, i, j };
   }
 
-  // Start the gesture on a mature tree. We CAPTURE pointer events to the
-  // container synchronously here (inside the active pointerdown handler) so
-  // every subsequent pointermove / pointerup is dispatched to the container,
-  // regardless of what's under the finger — including empty grass with
-  // pointer-events: none sprouts. This was the missing piece: in the
-  // previous incarnation setPointerCapture was called from inside the
-  // long-press setTimeout, which the spec lets browsers silently reject.
+  /** Write the ghost element's position directly to the DOM. */
+  function positionGhost(leftPct: number, topPct: number) {
+    liveRef.current = { leftPct, topPct };
+    const el = ghostRef.current;
+    if (el) {
+      el.style.left = `${leftPct}%`;
+      el.style.top = `${topPct}%`;
+    }
+  }
+
+  // Document-level listeners, attached once. They read everything from refs.
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const press = pressRef.current;
+      if (!press || e.pointerId !== press.pointerId) return;
+
+      if (press.phase === 'pressing') {
+        const dx = e.clientX - press.startX;
+        const dy = e.clientY - press.startY;
+        if (Math.hypot(dx, dy) > LONG_PRESS_CANCEL_THRESHOLD_PX) {
+          // Moved before the long-press fired — treat as a scroll, abort.
+          if (press.timer) clearTimeout(press.timer);
+          pressRef.current = null;
+        }
+        return;
+      }
+
+      // Dragging — move the ghost + update the snap ring (only on change).
+      e.preventDefault();
+      const { leftPct, topPct, i, j } = pointerToContainerPct(
+        e.clientX,
+        e.clientY,
+      );
+      positionGhost(leftPct, topPct);
+      setSnapCell((prev) =>
+        prev && prev[0] === i && prev[1] === j ? prev : [i, j],
+      );
+    };
+
+    const onUp = (e: PointerEvent) => {
+      const press = pressRef.current;
+      if (!press || e.pointerId !== press.pointerId) return;
+
+      if (press.phase === 'pressing') {
+        if (press.timer) clearTimeout(press.timer);
+        pressRef.current = null;
+        return;
+      }
+
+      // Dragging → commit.
+      const g = gridRef.current;
+      const c = centerRef.current;
+      const tp = treesPlantedRef.current;
+      const rc = resolvedCellsRef.current;
+      const onChange = onPlacementsChangeRef.current;
+      const sourceIndex = press.treeIndex;
+      const [targetI, targetJ] = pctToNearestCell(
+        g,
+        liveRef.current.leftPct,
+        liveRef.current.topPct,
+      );
+
+      // Reset gesture + UI state first.
+      pressRef.current = null;
+      setDragIndex(null);
+      setSnapCell(null);
+
+      if (targetI === c && targetJ === c) return; // centre is reserved
+
+      const nextArr: TreePlacement[] = [];
+      for (let k = 0; k < tp; k++) {
+        const [i, j] = rc[k];
+        nextArr.push(cellToPlacement(g, i, j));
+      }
+      const src = nextArr[sourceIndex];
+      if (src && src.di + c === targetI && src.dj + c === targetJ) return; // no move
+
+      const occupant = nextArr.findIndex(
+        (p, idx) =>
+          idx !== sourceIndex && p.di + c === targetI && p.dj + c === targetJ,
+      );
+      if (occupant >= 0) nextArr[occupant] = nextArr[sourceIndex];
+      nextArr[sourceIndex] = cellToPlacement(g, targetI, targetJ);
+
+      onChange?.(nextArr);
+    };
+
+    const onCancel = (e: PointerEvent) => {
+      const press = pressRef.current;
+      if (!press || e.pointerId !== press.pointerId) return;
+      if (press.timer) clearTimeout(press.timer);
+      pressRef.current = null;
+      setDragIndex(null);
+      setSnapCell(null);
+    };
+
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onUp);
+    document.addEventListener('pointercancel', onCancel);
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+      document.removeEventListener('pointercancel', onCancel);
+    };
+  }, []);
+
+  // Start the gesture on a mature tree.
   function handleTreePointerDown(
     treeIndex: number,
     e: React.PointerEvent<HTMLDivElement>,
   ) {
     if (!onPlacementsChange) return; // drag disabled (e.g. during animations)
-    if (interaction) return; // defend against multi-touch overlap
+    if (pressRef.current) return; // already in a gesture
 
     const startX = e.clientX;
     const startY = e.clientY;
     const pointerId = e.pointerId;
 
-    // Capture pointer events to the container right now, synchronously.
-    try {
-      containerRef.current?.setPointerCapture(pointerId);
-    } catch {
-      /* best-effort */
-    }
-
     const timer = setTimeout(() => {
-      const { leftPct, topPct } = pointerToContainerPct(startX, startY);
-      setInteraction({
-        phase: 'dragging',
-        treeIndex,
-        leftPct,
-        topPct,
-        pointerId,
-      });
+      const press = pressRef.current;
+      if (!press || press.pointerId !== pointerId) return;
+      press.phase = 'dragging';
+      press.timer = null;
+      // Seed the ghost at the source cell, then reveal it.
+      const sourceCell = resolvedCellsRef.current[treeIndex];
+      const seed = sourceCell
+        ? cellToPctFor(gridRef.current, sourceCell[0], sourceCell[1])
+        : { leftPct: 50, topPct: 50 };
+      liveRef.current = { leftPct: seed.leftPct, topPct: seed.topPct };
+      setDragIndex(treeIndex);
+      setSnapCell(sourceCell ?? null);
       if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         try {
           navigator.vibrate?.(15);
@@ -745,120 +852,15 @@ function IsometricField({
       }
     }, LONG_PRESS_MS);
 
-    setInteraction({
-      phase: 'pressing',
+    pressRef.current = {
       treeIndex,
       startX,
       startY,
       pointerId,
       timer,
-    });
+      phase: 'pressing',
+    };
   }
-
-  function handleContainerPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    if (!interaction || e.pointerId !== interaction.pointerId) return;
-
-    if (interaction.phase === 'pressing') {
-      const dx = e.clientX - interaction.startX;
-      const dy = e.clientY - interaction.startY;
-      if (Math.hypot(dx, dy) > LONG_PRESS_CANCEL_THRESHOLD_PX) {
-        clearTimeout(interaction.timer);
-        try {
-          containerRef.current?.releasePointerCapture(e.pointerId);
-        } catch {
-          /* */
-        }
-        setInteraction(null);
-      }
-      return;
-    }
-
-    // Dragging: update the floating tree position.
-    e.preventDefault();
-    const { leftPct, topPct } = pointerToContainerPct(e.clientX, e.clientY);
-    setInteraction({ ...interaction, leftPct, topPct });
-  }
-
-  function handleContainerPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    if (!interaction || e.pointerId !== interaction.pointerId) return;
-
-    try {
-      containerRef.current?.releasePointerCapture(e.pointerId);
-    } catch {
-      /* */
-    }
-
-    if (interaction.phase === 'pressing') {
-      clearTimeout(interaction.timer);
-      setInteraction(null);
-      return;
-    }
-
-    // Dragging → commit drop.
-    const { i: targetI, j: targetJ } = pointerToContainerPct(
-      e.clientX,
-      e.clientY,
-    );
-    const sourceIndex = interaction.treeIndex;
-    console.log(
-      '[Drag] drop: source=',
-      sourceIndex,
-      '→ cell',
-      targetI,
-      targetJ,
-    );
-    setInteraction(null);
-
-    if (targetI === center && targetJ === center) {
-      console.log('[Drag] dropped on centre — rejected');
-      return;
-    }
-
-    const next: TreePlacement[] = [];
-    for (let k = 0; k < treesPlanted; k++) {
-      const [i, j] = resolvedCells[k];
-      next.push(cellToPlacement(grid, i, j));
-    }
-
-    const sourceCur = next[sourceIndex];
-    if (
-      sourceCur &&
-      sourceCur.di + center === targetI &&
-      sourceCur.dj + center === targetJ
-    ) {
-      console.log('[Drag] dropped on same cell — no-op');
-      return;
-    }
-
-    const occupant = next.findIndex(
-      (p, idx) =>
-        idx !== sourceIndex &&
-        p.di + center === targetI &&
-        p.dj + center === targetJ,
-    );
-    if (occupant >= 0) {
-      next[occupant] = next[sourceIndex];
-      console.log('[Drag] swapping with occupant', occupant);
-    }
-    next[sourceIndex] = cellToPlacement(grid, targetI, targetJ);
-
-    console.log('[Drag] persisting', next);
-    onPlacementsChange?.(next);
-  }
-
-  function handleContainerPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
-    if (!interaction || e.pointerId !== interaction.pointerId) return;
-    try {
-      containerRef.current?.releasePointerCapture(e.pointerId);
-    } catch {
-      /* */
-    }
-    if (interaction.phase === 'pressing') clearTimeout(interaction.timer);
-    setInteraction(null);
-  }
-
-  // Derived: are we currently dragging a tree?
-  const drag = interaction?.phase === 'dragging' ? interaction : null;
 
   // Build the list of things to render.
   type Item = {
@@ -888,7 +890,9 @@ function IsometricField({
       i,
       j,
       keyIndex: k,
-      isDragging: drag?.treeIndex === k,
+      // The dragged tree is rendered as a separate ghost element (positioned
+      // via ref), so we hide its in-grid copy.
+      isDragging: dragIndex === k,
     });
   }
   // Placeholder sprouts on cells that are NOT centre and NOT occupied by a
@@ -928,17 +932,14 @@ function IsometricField({
     <div
       ref={containerRef}
       className="relative w-full select-none"
-      onPointerMove={handleContainerPointerMove}
-      onPointerUp={handleContainerPointerUp}
-      onPointerCancel={handleContainerPointerCancel}
       style={{
         aspectRatio: `${PLATE_W} / ${TOTAL_H}`,
         // Grid expansion looks like a soft zoom-out because trees keep their
         // viewBox px size while the viewBox itself grows.
         transition: 'aspect-ratio 800ms ease',
         // Disable browser-handled gestures inside the field so a drag is
-        // never silently turned into a page scroll. Without this, mobile
-        // browsers can swallow the pointer events mid-gesture.
+        // never silently turned into a page scroll. Pointer move/up/cancel
+        // are handled by document-level listeners (see the effect above).
         touchAction: 'none',
       }}
     >
@@ -1013,8 +1014,8 @@ function IsometricField({
 
         {/* Highlight ring on the snap target while dragging. Centre cell
             (reserved for the growing tree) lights up red to signal "reject". */}
-        {drag && (() => {
-          const [si, sj] = pctToNearestCell(grid, drag.leftPct, drag.topPct);
+        {snapCell && (() => {
+          const [si, sj] = snapCell;
           const [x, y] = cellToScreenFor(grid, si, sj);
           const isRejected = si === center && sj === center;
           return (
@@ -1043,11 +1044,9 @@ function IsometricField({
               ? MATURE_PERIPHERY_SIZE
               : PLACEHOLDER_SPROUT_SIZE;
 
+        // The dragged tree's in-grid copy is hidden — the floating ghost
+        // below represents it during the drag.
         const isDragged = t.isDragging === true;
-        // While dragging, this tree follows the pointer instead of sitting
-        // in its cell.
-        const liveLeft = isDragged ? drag!.leftPct : leftPct;
-        const liveTop = isDragged ? drag!.topPct : topPct;
 
         return (
           <div
@@ -1059,31 +1058,48 @@ function IsometricField({
                 : undefined
             }
             style={{
-              left: `${liveLeft}%`,
-              top: `${liveTop}%`,
+              left: `${leftPct}%`,
+              top: `${topPct}%`,
               width: `${(sizePx / PLATE_W) * 100}%`,
               aspectRatio: '1 / 1',
-              transform: isDragged
-                ? 'translate(-50%, -88%) scale(1.1)'
-                : 'translate(-50%, -88%)',
-              transition: isDragged
-                ? 'transform 120ms ease, filter 120ms ease'
-                : 'left 200ms ease, top 200ms ease, transform 120ms ease, filter 120ms ease, width 800ms ease',
-              zIndex: isDragged ? 100 : t.kind === 'current' ? 5 : t.i + t.j,
+              transform: 'translate(-50%, -88%)',
+              transition:
+                'left 200ms ease, top 200ms ease, width 800ms ease',
+              zIndex: t.kind === 'current' ? 5 : t.i + t.j,
               touchAction: t.kind === 'mature' ? 'none' : 'auto',
               cursor:
                 t.kind === 'mature' && onPlacementsChange ? 'grab' : 'default',
-              filter: isDragged
-                ? 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))'
-                : 'none',
-              opacity: isDragged ? 0.92 : 1,
               pointerEvents: t.kind === 'sprout' ? 'none' : 'auto',
+              // Hide (but keep mounted) the tree being dragged.
+              visibility: isDragged ? 'hidden' : 'visible',
             }}
           >
             <FieldTreeArt kind={t.kind} currentStage={centreStage} />
           </div>
         );
       })}
+
+      {/* Floating drag ghost — positioned imperatively via ghostRef so the
+          drag is smooth and never blocked by React re-renders. Mounted only
+          while a tree is being dragged. */}
+      {dragIndex !== null && (
+        <div
+          ref={ghostRef}
+          className="absolute pointer-events-none"
+          style={{
+            left: `${liveRef.current.leftPct}%`,
+            top: `${liveRef.current.topPct}%`,
+            width: `${(MATURE_PERIPHERY_SIZE / PLATE_W) * 100}%`,
+            aspectRatio: '1 / 1',
+            transform: 'translate(-50%, -88%) scale(1.12)',
+            zIndex: 100,
+            filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
+            opacity: 0.95,
+          }}
+        >
+          <MatureTree />
+        </div>
+      )}
 
       {/* Overlay layer (planting confetti, etc) — same coordinate space. */}
       {children}
