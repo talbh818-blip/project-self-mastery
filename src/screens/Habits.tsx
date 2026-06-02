@@ -64,6 +64,7 @@ import {
 } from '../features/habits/scoring';
 import { TreeCard, YoungTree } from '../features/tree/TreeCard';
 import { Emoji } from '../components/Emoji';
+import { CompassLoader } from '../components/CompassLoader';
 import { useCurrentProfile } from '../features/admin/ProfileContext';
 
 type ViewMode = 'week' | 'month' | 'data';
@@ -328,7 +329,9 @@ export function Habits() {
         </div>
       )}
       {data.status === 'loading' && (
-        <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
+        <div className="py-8">
+          <CompassLoader size="md" />
+        </div>
       )}
       {data.status === 'ready' && viewMode === 'week' && (
         <HabitsList
@@ -1143,7 +1146,11 @@ function MonthHeatmap({
     );
   }
   if (loading) {
-    return <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>;
+    return (
+      <div className="py-8">
+        <CompassLoader size="md" />
+      </div>
+    );
   }
   const filledSlots = SLOT_INDEXES.map((i) =>
     slots.find((s) => s.slot_index === i),
@@ -1341,6 +1348,7 @@ function MonthCell({
   // X / auto_x render the same as a blank cell — past blanks already score
   // as auto_x, so the user doesn't need a visible "X" treatment.
   let bg = hexWithAlpha(habit.color, 0.08);
+  let filled = false;
   if (habit.is_quantitative && amount && amount > 0) {
     const target = habit.quantitative_target ?? 10;
     const intensity = Math.min(1, amount / target);
@@ -1349,25 +1357,38 @@ function MonthCell({
       intensity >= 1
         ? habit.color
         : hexWithAlpha(habit.color, 0.4 + intensity * 0.55);
+    filled = true;
   } else if (mark === 'V') {
     bg = habit.color;
+    filled = true;
   }
 
   const border = isToday
     ? '1px solid rgba(212,232,218,0.6)'
     : '1px solid transparent';
 
+  // Day-of-month number inside the cell — light on filled cells (good
+  // contrast over the habit color), muted-cream on empty ones.
+  const numColor = filled ? 'rgba(255,255,255,0.9)' : 'rgba(212,232,218,0.4)';
+
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={future}
-      className={`aspect-square rounded-[4px] transition-opacity ${
+      className={`aspect-square rounded-[4px] flex items-center justify-center transition-opacity ${
         future ? 'opacity-25 cursor-default' : 'hover:brightness-110'
       }`}
       style={{ backgroundColor: bg, border }}
       aria-label={`יום ${date.getDate()}`}
-    />
+    >
+      <span
+        className="text-[8px] leading-none font-medium tabular-nums"
+        style={{ color: numColor }}
+      >
+        {date.getDate()}
+      </span>
+    </button>
   );
 }
 
