@@ -1367,9 +1367,9 @@ function MonthCell({
     ? '1px solid rgba(212,232,218,0.6)'
     : '1px solid transparent';
 
-  // Day-of-month number inside the cell — light on filled cells (good
-  // contrast over the habit color), muted-cream on empty ones.
-  const numColor = filled ? 'rgba(255,255,255,0.9)' : 'rgba(212,232,218,0.4)';
+  // Day-of-month number inside the cell — near-white on filled cells (good
+  // contrast over the habit color), legible cream on empty ones.
+  const numColor = filled ? 'rgba(255,255,255,0.95)' : 'rgba(212,232,218,0.7)';
 
   return (
     <button
@@ -1383,7 +1383,7 @@ function MonthCell({
       aria-label={`יום ${date.getDate()}`}
     >
       <span
-        className="text-[8px] leading-none font-medium tabular-nums"
+        className="text-[10px] leading-none font-semibold tabular-nums"
         style={{ color: numColor }}
       >
         {date.getDate()}
