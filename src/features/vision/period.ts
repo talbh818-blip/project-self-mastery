@@ -210,6 +210,26 @@ export function formatScopeSubtitle(
 }
 
 /**
+ * Concise label for the hierarchy breadcrumb ("2026 ‹ מאי ‹ שבוע 3"):
+ *   yearly  → the year number ("2026")
+ *   monthly → the Hebrew month name ("מאי")
+ *   weekly  → "שבוע N" (no "של [month]" — the month crumb already shows it)
+ */
+export function formatScopeCrumb(
+  scope: VisionScope,
+  key: string,
+  parentKey: string | null,
+): string {
+  if (scope === 'yearly') return key;
+  if (scope === 'monthly') {
+    return HEB_MONTHS[parsePeriodStart('monthly', key).getMonth()];
+  }
+  // weekly
+  if (parentKey) return `שבוע ${weekOfMonth(key, parentKey)}`;
+  return 'שבוע';
+}
+
+/**
  * Position of `weekKey` within the parent `monthKey`, 1-indexed.
  *
  * The first week is the one containing the 1st of the month (which may

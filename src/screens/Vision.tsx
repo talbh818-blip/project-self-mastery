@@ -12,15 +12,24 @@
 // period, children CASCADE-CLAMP into bounds (monthly preserves its
 // month-of-year, weekly snaps to the first week of the new month).
 // ============================================================================
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react';
 import { ChevronRight, ChevronLeft, Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
+import { CompassLoader } from '../components/CompassLoader';
 import {
   SCOPE_TITLES,
   addPeriod,
   clampMonthlyToYear,
   clampWeeklyToMonth,
+  formatScopeCrumb,
   formatScopeSubtitle,
   getPeriodKey,
   isFuturePeriod,
@@ -106,6 +115,14 @@ export function Vision() {
     // No space-y here: the tabs sit FLUSH on top of the writing card so the
     // active tab can merge into it (connected folder-tab look).
     <section className="-mt-3 pb-6">
+      {/* Hierarchy breadcrumb — shows where the current view sits in the
+          zoom path (year ‹ month ‹ week). Each crumb jumps to that scope. */}
+      <Breadcrumb
+        periods={periodByScope}
+        scope={scope}
+        onJump={setScope}
+      />
+
       {/* Folder tabs riding on the card. items-end so the shorter inactive
           tabs recede; the active tab is full-height + card-coloured so it
           flows seamlessly into the card below. */}
@@ -136,8 +153,8 @@ export function Vision() {
       {locked ? (
         <LockedNotice scope={scope} />
       ) : loading ? (
-        <div className="vision-page">
-          <p className="text-ink-300 text-sm py-10 text-center">טוען…</p>
+        <div className="vision-page py-10">
+          <CompassLoader size="md" />
         </div>
       ) : (
         <VisionEditor
@@ -177,6 +194,57 @@ function toIsoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+}
+
+// ─── Breadcrumb ───────────────────────────────────────────────────────────────
+
+function Breadcrumb({
+  periods,
+  scope,
+  onJump,
+}: {
+  periods: PeriodMap;
+  scope: VisionScope;
+  onJump: (s: VisionScope) => void;
+}) {
+  const crumbs: { s: VisionScope; label: string }[] = [
+    { s: 'yearly', label: formatScopeCrumb('yearly', periods.yearly, null) },
+    {
+      s: 'monthly',
+      label: formatScopeCrumb('monthly', periods.monthly, periods.yearly),
+    },
+    {
+      s: 'weekly',
+      label: formatScopeCrumb('weekly', periods.weekly, periods.monthly),
+    },
+  ];
+  return (
+    <div
+      dir="rtl"
+      aria-label="מסלול חזון"
+      className="flex items-center gap-1 px-2 mb-1.5 text-[12px] min-w-0"
+    >
+      {crumbs.map((c, i) => (
+        <Fragment key={c.s}>
+          {i > 0 && (
+            <ChevronLeft size={12} className="text-ink-500 shrink-0" aria-hidden />
+          )}
+          <button
+            type="button"
+            onClick={() => onJump(c.s)}
+            aria-current={c.s === scope ? 'true' : undefined}
+            className={`truncate transition-colors ${
+              c.s === scope
+                ? 'text-forest-500 font-semibold'
+                : 'text-ink-500 hover:text-ink-300'
+            }`}
+          >
+            {c.label}
+          </button>
+        </Fragment>
+      ))}
+    </div>
+  );
 }
 
 // ─── Tab ────────────────────────────────────────────────────────────────────
