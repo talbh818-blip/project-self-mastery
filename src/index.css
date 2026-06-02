@@ -62,6 +62,13 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Loading indicator — orbiting dots around the compass logo.
+   See src/components/CompassLoader.tsx. */
+@keyframes compass-loader-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+
 /* ----------------------------------------------------------------------------
  * Light theme — applied via data-theme="light" on <html>. Overrides the
  * surface + ink tokens; forest accents stay the same so brand identity

@@ -33,6 +33,7 @@ import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionNode } from './VisionQuestion';
 import { VisionToolbar } from './VisionToolbar';
 import { DateBar } from './DateBar';
+import { CompassLoader } from '../../components/CompassLoader';
 import {
   pickQuestion,
   STARTER_QUESTION_COUNT,
@@ -149,7 +150,9 @@ export function VisionEditor({
           onToggleAssist={toggleAssist}
           saveStatus={saveStatus}
         />
-        <p className="text-ink-300 text-sm">טוען עורך…</p>
+        <div className="py-8">
+          <CompassLoader size="md" />
+        </div>
       </div>
     );
   }

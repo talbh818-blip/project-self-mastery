@@ -17,6 +17,7 @@ import {
   type UserActivity,
 } from './queries';
 import type { Profile } from './types';
+import { CompassLoader } from '../../components/CompassLoader';
 
 type Row = {
   profile: Profile;
@@ -149,7 +150,9 @@ export function AdminScreen() {
       )}
 
       {rows === null && !error && (
-        <div className="text-sm text-ink-300 py-8 text-center">טוען…</div>
+        <div className="py-8">
+          <CompassLoader size="md" />
+        </div>
       )}
 
       {rows && rows.length === 0 && (

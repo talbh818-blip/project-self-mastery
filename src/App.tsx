@@ -11,6 +11,7 @@ import { User } from './screens/User';
 import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { TermsOfUse } from './screens/TermsOfUse';
 import { Admin } from './screens/Admin';
+import { LoaderPreview } from './screens/LoaderPreview';
 
 export default function App() {
   return (
@@ -18,6 +19,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          {/* Temporary preview of the loader — remove after sign-off. */}
+          <Route path="/loader-preview" element={<LoaderPreview />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route index element={<Habits />} />

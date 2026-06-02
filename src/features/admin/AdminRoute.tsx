@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useCurrentProfile } from './ProfileContext';
+import { CompassLoader } from '../../components/CompassLoader';
 
 // Gates a route to admin users only. Non-admins are redirected to the home
 // (habits) screen. The server enforces this too — RLS will refuse any data
@@ -7,11 +8,7 @@ import { useCurrentProfile } from './ProfileContext';
 export function AdminRoute() {
   const { isAdmin, loading } = useCurrentProfile();
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-base text-ink-100">
-        טוען…
-      </div>
-    );
+    return <CompassLoader fullscreen size="lg" />;
   }
   if (!isAdmin) return <Navigate to="/" replace />;
   return <Outlet />;

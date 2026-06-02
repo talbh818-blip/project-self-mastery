@@ -27,6 +27,7 @@ import {
   type CourseBookWithCount,
   type CourseVideo,
 } from '../features/course/queries';
+import { CompassLoader } from '../components/CompassLoader';
 
 export function Course() {
   const [books, setBooks] = useState<CourseBookWithCount[] | null>(null);
@@ -61,7 +62,9 @@ export function Course() {
       {error ? (
         <p className="text-red-400 text-sm py-10 text-center">{error}</p>
       ) : !books ? (
-        <p className="text-ink-300 text-sm py-10 text-center">טוען…</p>
+        <div className="py-10">
+          <CompassLoader size="md" />
+        </div>
       ) : books.length === 0 ? (
         <EmptyShelf />
       ) : (
@@ -321,7 +324,11 @@ function VideoList({
   onSelect: (v: CourseVideo) => void;
 }) {
   if (loading) {
-    return <p className="text-ink-300 text-sm py-6 text-center">טוען…</p>;
+    return (
+      <div className="py-6">
+        <CompassLoader size="sm" />
+      </div>
+    );
   }
   if (error) {
     return <p className="text-red-400 text-sm py-6 text-center">{error}</p>;

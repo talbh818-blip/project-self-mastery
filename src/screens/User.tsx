@@ -27,6 +27,7 @@ import {
 } from '../features/user/mutations';
 import { TicketSheet } from '../features/user/TicketSheet';
 import type { Theme } from '../features/admin/types';
+import { CompassLoader } from '../components/CompassLoader';
 
 export function User() {
   const { user, signOut } = useAuth();
@@ -115,7 +116,9 @@ export function User() {
     return (
       <section className="pt-2">
         <h1 className="text-2xl font-semibold text-ink-100 mb-4">משתמש</h1>
-        <p className="text-ink-300 text-sm">טוען…</p>
+        <div className="py-8">
+          <CompassLoader size="md" />
+        </div>
       </section>
     );
   }

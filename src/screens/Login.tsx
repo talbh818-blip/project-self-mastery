@@ -1,15 +1,12 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { CompassLoader } from '../components/CompassLoader';
 
 export function Login() {
   const { session, loading, signInWithGoogle } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-base text-ink-100">
-        טוען…
-      </div>
-    );
+    return <CompassLoader fullscreen size="lg" />;
   }
   if (session) return <Navigate to="/" replace />;
 
