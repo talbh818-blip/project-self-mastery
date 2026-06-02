@@ -1367,9 +1367,9 @@ function MonthCell({
     ? '1px solid rgba(212,232,218,0.6)'
     : '1px solid transparent';
 
-  // Day-of-month number inside the cell — near-white on filled cells (good
-  // contrast over the habit color), legible cream on empty ones.
-  const numColor = filled ? 'rgba(255,255,255,0.95)' : 'rgba(212,232,218,0.7)';
+  // Day-of-month number inside the cell — intentionally faint, so it reads as
+  // a subtle watermark rather than competing with the heatmap color.
+  const numColor = filled ? 'rgba(255,255,255,0.35)' : 'rgba(212,232,218,0.2)';
 
   return (
     <button
@@ -1383,7 +1383,7 @@ function MonthCell({
       aria-label={`יום ${date.getDate()}`}
     >
       <span
-        className="text-[10px] leading-none font-semibold tabular-nums"
+        className="text-[7px] leading-none font-normal tabular-nums"
         style={{ color: numColor }}
       >
         {date.getDate()}
