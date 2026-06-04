@@ -165,8 +165,11 @@ export const POSITIVE_HABIT_ICONS: readonly string[] = cleanIconNames([
   'Code', 'Monitor',
   // Travel / movement
   'Map', 'Plane', 'Train', 'Car', 'Sailboat',
-  // Spiritual
-  'Star', 'Cross', 'Compass', 'HandHeart', 'Church',
+  // Spiritual. Audience-neutral set only — Christianity-specific glyphs
+  // (Cross, Church) are intentionally NOT exposed in the picker. They
+  // remain in the ICONS map below so any habits that already use them
+  // continue to render correctly.
+  'Star', 'Compass', 'HandHeart',
   // Family / care
   'Baby',
   // Achievement / motivation
@@ -258,10 +261,14 @@ export const POSITIVE_HABIT_EMOJIS: readonly string[] = cleanEmojis([
   // Achievement
   '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🚀', '🌟', '🎉', '🌈',
   '🎁', '🎀', '🏁', '🚩', '🎗️',
-  // Spiritual / mindset (☪️ Islam and ☸️ Wheel of dharma intentionally
-  // excluded — see git history for the user-requested removal)
+  // Spiritual / mindset. The app's primary audience is Jewish /
+  // generally-spiritual, so Christianity (⛪) and Islam (🕌, ☪️) are
+  // intentionally excluded from the picker; ☸️ Wheel of dharma is also
+  // excluded per earlier user request. Kept: 🕉️ Om, ☮️ Peace, ☯️ Yin
+  // yang, ✡️ Star of David, 🛐 Place of worship, 🕍 Synagogue, 🛕 Hindu
+  // temple.
   '⭐', '✨', '🔥', '❤️', '🙏', '💖', '🌸', '🦋', '🕉️', '☮️',
-  '☯️', '✡️', '🛐', '⛪', '🕍', '🕌', '🛕',
+  '☯️', '✡️', '🛐', '🕍', '🛕',
   // Eyes / awareness
   '👁️', '👀',
   // Nature & weather
