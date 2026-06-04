@@ -99,7 +99,7 @@ export function VisionLayers({
           onActivate={() => onPick('yearly', anchor)}
           onIconClick={() => onIconClick('yearly')}
         >
-          <span className="truncate">חזון שנתי {year}</span>
+          <span className="truncate min-w-0">חזון שנתי {year}</span>
         </Centre>
         <SidePill
           dir="next"
@@ -124,7 +124,7 @@ export function VisionLayers({
           onActivate={() => onPick('monthly', anchor)}
           onIconClick={() => onIconClick('monthly')}
         >
-          <span className="truncate">חזון חודשי · {monthName(anchor)}</span>
+          <span className="truncate min-w-0">חזון חודשי · {monthName(anchor)}</span>
         </Centre>
         <SidePill
           dir="next"
@@ -146,8 +146,9 @@ export function VisionLayers({
           onActivate={() => onPick('weekly', anchor)}
           onIconClick={() => onIconClick('weekly')}
         >
-          <span className="shrink-0">חזון שבועי</span>
-          {/* date range first — muted, LTR so the numbers don't reorder in RTL */}
+          {/* Label truncates first when cramped; the dates + pill stay. */}
+          <span className="truncate min-w-0">חזון שבועי</span>
+          {/* date range — muted, LTR so the numbers don't reorder in RTL */}
           <span
             dir="ltr"
             className="shrink-0 text-[11px] font-normal text-ink-300/80 tabular-nums"
@@ -223,35 +224,41 @@ function Centre({
     >
       <span
         key={animKey}
-        className="vision-label-anim relative flex items-center justify-center gap-1.5 min-w-0 px-1.5 h-full"
+        className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
       >
-        {/* Icon TILE — empty rounded square until an icon is chosen; tapping
-            opens the picker for this level. Part of the centred group, right
-            beside the title. */}
-        <button
-          type="button"
-          onClick={onIconClick}
-          aria-label="בחר אייקון לחזון"
-          title="בחר אייקון לחזון"
-          className="shrink-0 w-7 h-7 rounded-lg bg-surface-raised flex items-center justify-center text-ink-100 hover:brightness-125 transition"
-        >
-          {icon ? <HabitIcon name={icon} size={16} /> : null}
-        </button>
-
-        {/* Title — taps activate this level. Content-sized so the
-            [icon + title] group sits CENTRED in the row. */}
-        <button
-          type="button"
-          onClick={onActivate}
-          className="min-w-0 inline-flex items-center justify-center gap-1.5 h-full"
-        >
-          {children}
-        </button>
-
-        {/* "Written" badge — absolutely pinned to the far LEFT so it doesn't
-            push the centred group off-centre. */}
+        {/* Right balance spacer — same width as the left badge so the centred
+            group stays truly centred. Hidden together with the badge on
+            narrow rows. */}
         {done && (
-          <span className="absolute inset-y-0 left-1.5 flex items-center pointer-events-none">
+          <span aria-hidden className="hidden min-[430px]:block shrink-0 w-[15px]" />
+        )}
+
+        {/* Centred group: icon tile (right) + title. The title TRUNCATES with
+            an ellipsis when there's no room; the icon tile is shrink-0 so it's
+            never swallowed and always sits to the title's right. */}
+        <span className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
+          <button
+            type="button"
+            onClick={onIconClick}
+            aria-label="בחר אייקון לחזון"
+            title="בחר אייקון לחזון"
+            className="shrink-0 w-7 h-7 rounded-lg bg-surface-raised flex items-center justify-center text-ink-100 hover:brightness-125 transition"
+          >
+            {icon ? <HabitIcon name={icon} size={16} /> : null}
+          </button>
+          <button
+            type="button"
+            onClick={onActivate}
+            className="min-w-0 inline-flex items-center gap-1.5 h-full overflow-hidden"
+          >
+            {children}
+          </button>
+        </span>
+
+        {/* "Written" badge — far LEFT. Lowest priority: hidden on narrow rows
+            (it's not critical), so the title gets the space instead. */}
+        {done && (
+          <span className="hidden min-[430px]:flex shrink-0 items-center">
             <WrittenBadge />
           </span>
         )}
