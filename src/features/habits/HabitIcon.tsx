@@ -1,33 +1,49 @@
 import {
   // Health / fitness
-  Dumbbell, Bike, Footprints, Heart, Activity, Apple,
+  Dumbbell, Bike, Footprints, Heart, HeartPulse, Activity, Apple, Stethoscope,
+  Pill, Volleyball,
   // Mindfulness / wellness
-  Sparkles, Sun, Sunrise, Sunset, Moon, Bed, Smile, Flame, Mountain, Wind,
+  Sparkles, Sparkle, Sun, Sunrise, Sunset, Moon, Bed, Smile, Flame, Mountain,
+  MountainSnow, Wind, Hourglass, Infinity, BrainCircuit,
   // Books / learning
   BookOpen, Book, GraduationCap, Brain, Lightbulb, Pencil, PenTool,
+  Newspaper, ScrollText, FileText, Languages, School, Library,
   // Productivity / planning
-  NotebookPen, Calendar, Clock, Timer, ListChecks, Target, Briefcase,
+  NotebookPen, Calendar, CalendarCheck, Clock, AlarmClock, Timer, ListChecks,
+  Target, Briefcase, Flag,
   // Hydration / nutrition
-  Droplet, GlassWater, Coffee, Salad, Carrot,
+  Droplet, GlassWater, Coffee, Salad, Carrot, ChefHat, UtensilsCrossed,
+  Sandwich, Soup, Wheat, Egg, Milk, Bean, Citrus, Grape, Cherry, Croissant,
+  Fish, Beef, Drumstick, Vegan,
   // Bad habits / addictions
   Cigarette, Wine, Beer, Cookie, Pizza, Candy,
   Smartphone, Tv, Gamepad2, ShoppingCart, MousePointerClick,
+  Bug, BatteryLow, TrendingDown, Frown,
   // Communication / social
-  Phone, MessageCircle, Users, Mail,
+  Phone, MessageCircle, MessageSquare, Users, Mail, Bell, Handshake,
+  HeartHandshake, Gift,
   // Money / finance
-  DollarSign, PiggyBank, CreditCard, Wallet,
+  DollarSign, PiggyBank, CreditCard, Wallet, TrendingUp, Coins, Banknote,
   // Creativity / hobbies
-  Music, Guitar, Palette, Camera, Film,
+  Music, Guitar, Palette, Camera, Film, Video, Mic, Headphones, Drum,
+  Paintbrush, Scissors, Hammer, Wrench, PartyPopper, Stamp,
   // Spiritual / reflective
-  Star, Cross, Compass, HandHeart,
+  Star, Cross, Compass, HandHeart, Church,
+  // Tech / work
+  Code, Monitor,
+  // Travel / movement
+  Map, Plane, Train, Car, Sailboat,
+  // Family / care
+  Baby,
   // Misc positive
-  CheckCircle2, Zap, Leaf, TreePine, Bird, PawPrint,
+  CheckCircle2, Zap, Leaf, TreePine, TreeDeciduous, Bird, PawPrint, Flower,
+  Sprout, Globe, Cloud, CloudRain, Snowflake, Tent, Waves,
   // Achievement / motivation (positive)
   Trophy, Award, Medal, Rocket, ThumbsUp, Crown,
   // Warnings / breaking habits (negative)
   Skull, AlertTriangle, Ban, XCircle, ThumbsDown, Dices,
   // Awareness / monitoring
-  Eye,
+  Eye, ScanEye, Telescope, Microscope, Atom,
   HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
@@ -41,34 +57,50 @@ import { Emoji } from '../../components/Emoji';
 // Unknown icon names fall back to HelpCircle.
 const ICONS: Record<string, LucideIcon> = {
   // Health / fitness
-  Dumbbell, Bike, Footprints, Heart, Activity, Apple,
+  Dumbbell, Bike, Footprints, Heart, HeartPulse, Activity, Apple, Stethoscope,
+  Pill, Volleyball,
   // Mindfulness / wellness
-  Sparkles, Sun, Sunrise, Sunset, Moon, Bed, Smile, Flame, Mountain, Wind,
+  Sparkles, Sparkle, Sun, Sunrise, Sunset, Moon, Bed, Smile, Flame, Mountain,
+  MountainSnow, Wind, Hourglass, Infinity, BrainCircuit,
   // Books / learning
   BookOpen, Book, GraduationCap, Brain, Lightbulb, Pencil, PenTool,
+  Newspaper, ScrollText, FileText, Languages, School, Library,
   // Productivity
-  NotebookPen, Calendar, Clock, Timer, ListChecks, Target, Briefcase,
+  NotebookPen, Calendar, CalendarCheck, Clock, AlarmClock, Timer, ListChecks,
+  Target, Briefcase, Flag,
   // Hydration / nutrition
-  Droplet, GlassWater, Coffee, Salad, Carrot,
+  Droplet, GlassWater, Coffee, Salad, Carrot, ChefHat, UtensilsCrossed,
+  Sandwich, Soup, Wheat, Egg, Milk, Bean, Citrus, Grape, Cherry, Croissant,
+  Fish, Beef, Drumstick, Vegan,
   // Bad habits / addictions
   Cigarette, Wine, Beer, Cookie, Pizza, Candy,
   Smartphone, Tv, Gamepad2, ShoppingCart, MousePointerClick,
+  Bug, BatteryLow, TrendingDown, Frown,
   // Communication
-  Phone, MessageCircle, Users, Mail,
+  Phone, MessageCircle, MessageSquare, Users, Mail, Bell, Handshake,
+  HeartHandshake, Gift,
   // Money
-  DollarSign, PiggyBank, CreditCard, Wallet,
+  DollarSign, PiggyBank, CreditCard, Wallet, TrendingUp, Coins, Banknote,
   // Creativity
-  Music, Guitar, Palette, Camera, Film,
+  Music, Guitar, Palette, Camera, Film, Video, Mic, Headphones, Drum,
+  Paintbrush, Scissors, Hammer, Wrench, PartyPopper, Stamp,
   // Spiritual
-  Star, Cross, Compass, HandHeart,
+  Star, Cross, Compass, HandHeart, Church,
+  // Tech / work
+  Code, Monitor,
+  // Travel
+  Map, Plane, Train, Car, Sailboat,
+  // Family / care
+  Baby,
   // Misc positive
-  CheckCircle2, Zap, Leaf, TreePine, Bird, PawPrint,
+  CheckCircle2, Zap, Leaf, TreePine, TreeDeciduous, Bird, PawPrint, Flower,
+  Sprout, Globe, Cloud, CloudRain, Snowflake, Tent, Waves,
   // Achievement / motivation
   Trophy, Award, Medal, Rocket, ThumbsUp, Crown,
   // Warnings / breaking
   Skull, AlertTriangle, Ban, XCircle, ThumbsDown, Dices,
   // Awareness
-  Eye,
+  Eye, ScanEye, Telescope, Microscope, Atom,
 };
 
 // ----------------------------------------------------------------------------
@@ -76,30 +108,48 @@ const ICONS: Record<string, LucideIcon> = {
 // ----------------------------------------------------------------------------
 export const POSITIVE_HABIT_ICONS: readonly string[] = [
   // Health & fitness
-  'Dumbbell', 'Bike', 'Footprints', 'Activity', 'Heart', 'Apple',
+  'Dumbbell', 'Bike', 'Footprints', 'Activity', 'Heart', 'HeartPulse',
+  'Apple', 'Stethoscope', 'Pill', 'Volleyball',
   // Mindfulness / wellness
-  'Sparkles', 'Sun', 'Sunrise', 'Sunset', 'Moon', 'Bed', 'Smile', 'Flame',
-  'Mountain', 'Wind',
+  'Sparkles', 'Sparkle', 'Sun', 'Sunrise', 'Sunset', 'Moon', 'Bed', 'Smile',
+  'Flame', 'Mountain', 'MountainSnow', 'Wind', 'Hourglass', 'Infinity',
   // Books / learning
-  'BookOpen', 'Book', 'GraduationCap', 'Brain', 'Lightbulb', 'Pencil', 'PenTool',
+  'BookOpen', 'Book', 'Library', 'GraduationCap', 'School', 'Brain',
+  'BrainCircuit', 'Lightbulb', 'Pencil', 'PenTool', 'Newspaper',
+  'ScrollText', 'FileText', 'Languages',
   // Productivity
-  'NotebookPen', 'Calendar', 'Clock', 'Timer', 'ListChecks', 'Target', 'Briefcase',
+  'NotebookPen', 'Calendar', 'CalendarCheck', 'Clock', 'AlarmClock', 'Timer',
+  'ListChecks', 'Target', 'Flag', 'Briefcase',
   // Hydration & healthy food
-  'Droplet', 'GlassWater', 'Coffee', 'Salad', 'Carrot',
-  // Communication
-  'Phone', 'MessageCircle', 'Users', 'Mail',
+  'Droplet', 'GlassWater', 'Milk', 'Coffee', 'Salad', 'Carrot', 'Apple',
+  'Bean', 'Wheat', 'Egg', 'Sandwich', 'Soup', 'ChefHat', 'UtensilsCrossed',
+  'Fish', 'Beef', 'Drumstick', 'Citrus', 'Grape', 'Cherry', 'Croissant',
+  'Vegan',
+  // Communication / social
+  'Phone', 'MessageCircle', 'MessageSquare', 'Users', 'Mail', 'Bell',
+  'Handshake', 'HeartHandshake', 'Gift',
   // Money (saving)
-  'DollarSign', 'PiggyBank', 'Wallet',
+  'DollarSign', 'PiggyBank', 'Wallet', 'Coins', 'Banknote', 'TrendingUp',
   // Creativity
-  'Music', 'Guitar', 'Palette', 'Camera', 'Film',
+  'Music', 'Mic', 'Headphones', 'Guitar', 'Drum', 'Palette', 'Paintbrush',
+  'Camera', 'Film', 'Video', 'Scissors', 'Hammer', 'Wrench', 'Stamp',
+  'PartyPopper',
+  // Tech / work
+  'Code', 'Monitor',
+  // Travel / movement
+  'Map', 'Plane', 'Train', 'Car', 'Sailboat',
   // Spiritual
-  'Star', 'Cross', 'Compass', 'HandHeart',
+  'Star', 'Cross', 'Compass', 'HandHeart', 'Church',
+  // Family / care
+  'Baby',
   // Achievement / motivation
   'Trophy', 'Award', 'Medal', 'Rocket', 'ThumbsUp', 'Crown',
   // Nature / misc positive
-  'CheckCircle2', 'Zap', 'Leaf', 'TreePine', 'Bird', 'PawPrint',
-  // Awareness
-  'Eye',
+  'CheckCircle2', 'Zap', 'Leaf', 'TreePine', 'TreeDeciduous', 'Flower',
+  'Sprout', 'Bird', 'PawPrint', 'Globe', 'Cloud', 'CloudRain', 'Snowflake',
+  'Tent', 'Waves',
+  // Awareness / focus
+  'Eye', 'ScanEye', 'Telescope', 'Microscope', 'Atom',
 ];
 
 // ----------------------------------------------------------------------------
@@ -109,17 +159,21 @@ export const NEGATIVE_HABIT_ICONS: readonly string[] = [
   // Substances
   'Cigarette', 'Wine', 'Beer',
   // Junk food
-  'Cookie', 'Pizza', 'Candy',
+  'Cookie', 'Pizza', 'Candy', 'Croissant',
   // Screens / games
-  'Smartphone', 'Tv', 'Gamepad2', 'MousePointerClick',
+  'Smartphone', 'Tv', 'Monitor', 'Gamepad2', 'MousePointerClick',
   // Shopping / spending
-  'ShoppingCart', 'CreditCard',
+  'ShoppingCart', 'CreditCard', 'TrendingDown',
   // Caffeine (sometimes a habit to cut)
   'Coffee',
   // Gambling
   'Dices',
+  // Time / energy drain
+  'Hourglass', 'BatteryLow', 'Bug',
+  // Negative emotions
+  'Frown', 'ThumbsDown',
   // Warnings / breaking
-  'Skull', 'AlertTriangle', 'Ban', 'XCircle', 'ThumbsDown', 'Flame',
+  'Skull', 'AlertTriangle', 'Ban', 'XCircle', 'Flame',
   // Awareness
   'Eye',
 ];
@@ -140,45 +194,81 @@ export const CUSTOM_HABIT_ICONS = HABIT_ICONS;
 export const POSITIVE_HABIT_EMOJIS: readonly string[] = [
   // Fitness & body
   '🏃', '🚴', '🏋️', '🧘', '🤸', '🥊', '⚽', '🏀', '🏊', '🚶', '💪',
+  '🧗', '🏌️', '🏄', '🚣', '🤽', '🥋', '🏐', '🎾', '🎳', '🛹', '🛼',
+  '⛸️', '🎿', '🏂', '🤿', '🥏',
   // Healthy food
   '🍎', '🥗', '🥦', '🥕', '🍓', '🥑', '🍌', '🥚', '🍞', '🥛',
+  '🥬', '🌽', '🥒', '🫐', '🍇', '🍊', '🍋', '🍐', '🍒', '🍅',
+  '🐟', '🍳', '🥜', '🌶️', '🫑',
   // Healthy drinks
-  '💧', '☕', '🍵', '🧋', '🥤',
+  '💧', '☕', '🍵', '🧋', '🥤', '🧉',
   // Sleep / wellness
-  '😴', '🛏️', '🌙', '☀️', '🌅', '🧠', '💭', '🕯️', '🌿',
+  '😴', '🛏️', '🌙', '☀️', '🌅', '🌄', '🧠', '💭', '🕯️', '🌿',
+  '🛁', '🚿', '🪥', '🧼', '🧴', '🪒',
+  // Health / medical
+  '💊', '🩺', '🦷', '🧬', '🫀', '🫁',
   // Books / learning
-  '📚', '📖', '📝', '✏️', '🎓', '💡', '📊',
-  // Productivity
-  '💼', '📅', '⏰', '⏱️', '✅', '🎯', '🗒️',
+  '📚', '📖', '📝', '✏️', '🎓', '💡', '📊', '📰', '📜', '🖊️',
+  '🔖', '📑', '📒',
+  // Productivity / focus
+  '💼', '📅', '⏰', '⏱️', '✅', '🎯', '🗒️', '📌', '📍', '📎',
+  '🗓️', '🧭',
   // Money (saving)
-  '💰', '💵', '🏦',
+  '💰', '💵', '🪙', '💴', '💶', '💷', '🏦', '📈', '💱',
   // Music & creative
-  '🎵', '🎶', '🎸', '🎹', '🎨', '📷', '🎬',
+  '🎵', '🎶', '🎸', '🎹', '🎨', '📷', '🎬', '🎥', '📹', '🎤',
+  '🎧', '🎻', '🥁', '🎺', '🎷', '🖌️', '🖼️', '🧵', '🧶', '✂️',
+  '📐', '📏', '🛠️', '🔧', '🔨', '⚙️', '⛏️', '🪛',
+  // Tech / work
+  '💻', '🖥️', '⌨️', '🖱️', '💾', '📡',
+  // Travel / movement
+  '✈️', '🚆', '🚇', '🚗', '🚙', '🚌', '🛴', '⛵', '🛶', '🚢',
+  '🗺️', '🧳',
+  // Family / care
+  '👶', '👨‍👩‍👧', '🤱', '👨‍👩‍👦',
+  // Communication
+  '🗣️', '💬', '📣', '🔔', '✉️', '📧', '🤝', '🤗',
   // Achievement
   '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🚀', '🌟', '🎉', '🌈',
+  '🎁', '🎀', '🏁', '🚩', '🎗️',
   // Spiritual / mindset
-  '⭐', '✨', '🔥', '❤️', '🙏', '💖', '🌸', '🦋',
-  // Nature
-  '🌳', '🌱', '🌻', '🌊', '🏔️', '🐦', '🐶',
+  '⭐', '✨', '🔥', '❤️', '🙏', '💖', '🌸', '🦋', '🕉️', '☮️',
+  '☯️', '✡️', '☪️', '☸️', '🛐', '⛪', '🕍', '🕌', '🛕',
+  // Eyes / awareness
+  '👁️', '👀',
+  // Nature & weather
+  '🌳', '🌲', '🌱', '🌻', '🌷', '🌹', '🌺', '🌼', '🪷', '🌾',
+  '🌵', '🌴', '🪴', '🍀', '🍃', '🍂', '🍁',
+  '🌊', '🏔️', '⛰️', '🏝️', '🏖️',
+  '☁️', '⛅', '🌧️', '⛄', '❄️', '🌧️', '🌪️', '🌈',
+  // Stars / space
+  '⭐', '💫', '☄️', '🌠', '🌌', '🪐',
+  // Animals
+  '🐶', '🐱', '🐰', '🦊', '🐻', '🐨', '🐼', '🐯', '🦁', '🐢',
+  '🦋', '🐦', '🦉', '🐝', '🐬', '🐳',
+  // Positive emotions
+  '🤩', '😊', '😃', '😄', '😁', '🥰', '😎', '🤔', '😌', '🥳',
 ];
 
 export const NEGATIVE_HABIT_EMOJIS: readonly string[] = [
   // Substances
-  '🚬', '🍺', '🍷', '🍸', '🥃', '🥂',
+  '🚬', '🍺', '🍷', '🍸', '🥃', '🥂', '🍾', '💉', '🧪', '💊',
   // Junk food
   '🍕', '🍔', '🍟', '🌭', '🍿', '🍩', '🍰', '🍫', '🍭', '🍪',
-  // Screens / games
-  '📱', '📺', '🎮', '💻', '⌨️',
+  '🍦', '🍨', '🧁', '🥓', '🍳',
+  // Screens / games / social
+  '📱', '📺', '🎮', '💻', '⌨️', '🖥️', '📞',
   // Shopping / money waste
-  '💸', '🛍️', '💳',
+  '💸', '🛍️', '💳', '📉',
   // Gambling
-  '🎰', '🎲',
+  '🎰', '🎲', '🃏',
   // Lazy / oversleeping
-  '🛋️',
+  '🛋️', '🥱', '😪', '⏳', '⌛',
   // Negative emotions
-  '😡', '🤬', '😤',
+  '😡', '🤬', '😤', '🤥', '😈', '👿', '🙄', '😒', '😞', '😟',
+  '😣', '😭', '😢', '💔',
   // Generic warnings
-  '⛔', '🚫', '❌', '⚠️', '💀',
+  '⛔', '🚫', '❌', '⚠️', '💀', '☠️', '🔞', '🚭', '🚯',
 ];
 
 // Combined emoji list — for back-compat.
