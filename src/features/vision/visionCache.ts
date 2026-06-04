@@ -1,41 +1,32 @@
 // ============================================================================
-// visionCache — session + cross-session cache for vision entries.
+// visionCache — IN-MEMORY (session-only) cache for vision entries.
 // ----------------------------------------------------------------------------
-// Goal: kill the "טוען…" flash. Loading a period the user has already seen
-// (this session OR a previous one) should be INSTANT, with the network fetch
-// happening in the background (stale-while-revalidate).
+// Purpose: avoid the "loading" flash when navigating back to a period you
+// already viewed THIS session, while always revalidating against the DB.
 //
-// Two layers:
-//   • In-memory Map — survives in-app navigation (leaving and returning to
-//     the Vision screen) until a full page reload. Instant.
-//   • localStorage  — survives reloads / new sessions, so the very first
-//     view after reopening the app is instant too. Seeds the memory map on
-//     demand.
+// Deliberately NOT persisted to localStorage. A persistent per-device cache
+// caused a cross-device sync bug: device B would paint its own stale copy
+// and never reflect what device A had written. Keeping the cache in memory
+// means every fresh session / new device starts empty and fetches the true
+// current row from Supabase. Within a session the cache stays correct
+// because every successful save writes through (setCachedEntry), and the
+// editor revalidates + live-syncs via Realtime (see useVisionEntry).
 //
-// `loadEntry` de-duplicates concurrent fetches for the same key, so the
-// editor's revalidation and a prefetch can't double-hit the network.
-//
-// NOTE: this is a *read* cache only. It never decides what to save — the
-// save path in useVisionEntry stays the single source of truth and just
-// calls setCachedEntry() after a successful write to keep the cache fresh.
+// This is a READ cache only — it never decides what to save.
 // ============================================================================
 import { fetchVisionEntry, type VisionEntry } from './queries';
 import type { VisionScope } from './period';
 
-const LS_PREFIX = 'vision-cache:';
 const memKey = (u: string, s: VisionScope, p: string) => `${u}:${s}:${p}`;
-const lsKey = (u: string, s: VisionScope, p: string) =>
-  `${LS_PREFIX}${u}:${s}:${p}`;
 
 const mem = new Map<string, VisionEntry | null>();
 const inflight = new Map<string, Promise<VisionEntry | null>>();
 
 /**
  * Synchronously read the cached entry.
- *   • returns VisionEntry      → cached row
- *   • returns null             → cached "no row exists"
- *   • returns undefined        → not cached (caller should show loading)
- * Falls back to localStorage (and warms the memory map) on a memory miss.
+ *   • VisionEntry  → cached row
+ *   • null         → cached "no row exists"
+ *   • undefined    → not cached this session (caller should show loading)
  */
 export function getCachedEntry(
   userId: string,
@@ -43,21 +34,10 @@ export function getCachedEntry(
   periodKey: string,
 ): VisionEntry | null | undefined {
   const k = memKey(userId, scope, periodKey);
-  if (mem.has(k)) return mem.get(k);
-  try {
-    const raw = localStorage.getItem(lsKey(userId, scope, periodKey));
-    if (raw !== null) {
-      const parsed = JSON.parse(raw) as VisionEntry | null;
-      mem.set(k, parsed);
-      return parsed;
-    }
-  } catch {
-    // ignore parse / access failures — treat as cache miss
-  }
-  return undefined;
+  return mem.has(k) ? mem.get(k) : undefined;
 }
 
-/** Write through to both cache layers. Call after any successful fetch/save. */
+/** Write through to the memory cache. Call after any successful fetch/save. */
 export function setCachedEntry(
   userId: string,
   scope: VisionScope,
@@ -65,14 +45,6 @@ export function setCachedEntry(
   entry: VisionEntry | null,
 ): void {
   mem.set(memKey(userId, scope, periodKey), entry);
-  try {
-    localStorage.setItem(
-      lsKey(userId, scope, periodKey),
-      JSON.stringify(entry),
-    );
-  } catch {
-    // quota / private-mode — memory cache still works for this session
-  }
 }
 
 /**
@@ -90,7 +62,7 @@ export function loadEntry(
 
   const p = fetchVisionEntry(userId, scope, periodKey)
     .then((row) => {
-      setCachedEntry(userId, scope, periodKey, row);
+      mem.set(k, row);
       return row;
     })
     .finally(() => {
@@ -110,6 +82,6 @@ export function prefetchEntry(
   const k = memKey(userId, scope, periodKey);
   if (mem.has(k) || inflight.has(k)) return;
   void loadEntry(userId, scope, periodKey).catch(() => {
-    /* prefetch failures are silent; the real load will surface errors */
+    /* prefetch failures are silent; the real load surfaces errors */
   });
 }

@@ -53,7 +53,7 @@ export function Vision() {
     prevLevelRef.current = level;
   }, [level]);
 
-  const { entry, loading, status, scheduleSave, setDocumentDate } =
+  const { entry, loading, status, contentVersion, scheduleSave, setDocumentDate } =
     useVisionEntry(level, periodKey);
 
   // Default the DateBar to today when there's no entry yet.
@@ -101,9 +101,10 @@ export function Vision() {
         </div>
       ) : (
         <VisionEditor
-          // resetKey re-mounts the editor when the period changes so it loads
-          // the right document.
-          resetKey={`${level}:${periodKey}`}
+          // resetKey re-mounts the editor when the period changes — and when
+          // contentVersion bumps (external/live content replaced what's
+          // shown), so cross-device edits become visible.
+          resetKey={`${level}:${periodKey}:${contentVersion}`}
           scope={level}
           zoomDir={zoomDir}
           initialContent={entry?.content ?? null}
