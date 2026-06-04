@@ -884,16 +884,8 @@ function HabitRow({
           {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={26} strokeWidth={1.8} />
-          {/* Difficulty dot — bottom-left corner of the tile */}
-          <span
-            className={`absolute bottom-1 left-1 w-1 h-1 rounded-full ${
-              habit.difficulty === 'easy'
-                ? 'bg-green-400'
-                : habit.difficulty === 'medium'
-                ? 'bg-yellow-400'
-                : 'bg-red-500'
-            }`}
-          />
+          {/* Difficulty is intentionally NOT shown on the row icon — the
+              colored dot lives only in the detail sheet now. */}
         </button>
 
         <div className="grid gap-1 sm:gap-2" style={{gridTemplateColumns: 'repeat(7, minmax(0, 1fr))'}}>
@@ -1248,17 +1240,8 @@ function MonthHabitRow({
           {...dragListeners}
         >
           <HabitIcon name={habit.icon} size={24} strokeWidth={1.8} />
-          {/* Difficulty dot — same position as the week view (bottom-left
-              of the tile) */}
-          <span
-            className={`absolute bottom-1 left-1 w-1 h-1 rounded-full ${
-              habit.difficulty === 'easy'
-                ? 'bg-green-400'
-                : habit.difficulty === 'medium'
-                ? 'bg-yellow-400'
-                : 'bg-red-500'
-            }`}
-          />
+          {/* Difficulty is intentionally NOT shown on the row icon — the
+              colored dot lives only in the detail sheet now. */}
         </button>
 
         {/* Name + stats — tappable for detail, no drag */}

@@ -136,6 +136,28 @@ export function HabitDetailSheet({
               left). No more huge gap. */}
           <div className="space-y-1.5 text-[13px]">
             <Row label="יעד">{formatFrequency(habit)}</Row>
+            <Row label="קושי">
+              {/* Dot + label. The dot is the same indicator that used to
+                  live on every habit tile in the list — moved here so it
+                  surfaces only when the user explicitly opens this sheet. */}
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className={`w-2 h-2 rounded-full ${
+                    habit.difficulty === 'easy'
+                      ? 'bg-green-400'
+                      : habit.difficulty === 'medium'
+                      ? 'bg-yellow-400'
+                      : 'bg-red-500'
+                  }`}
+                />
+                {habit.difficulty === 'easy'
+                  ? 'קל'
+                  : habit.difficulty === 'medium'
+                  ? 'בינוני'
+                  : 'קשה'}
+              </span>
+            </Row>
             {stats && (
               <>
                 <Row
