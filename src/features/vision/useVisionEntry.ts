@@ -140,6 +140,7 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
             document_date: new Date(draft.updatedAt)
               .toISOString()
               .slice(0, 10),
+            icon: null,
             created_at: new Date(draft.updatedAt).toISOString(),
             updated_at: new Date(draft.updatedAt).toISOString(),
           },

@@ -96,20 +96,6 @@ export function Vision() {
     [userId, level, periodKey],
   );
 
-  // Live-track whether the ACTIVE entry has content as the user types, so the
-  // check-mark appears/disappears instantly (not only after the debounced
-  // save). Wraps scheduleSave.
-  const handleEditorChange = useCallback(
-    (json: unknown) => {
-      const empty = isVisionContentEmpty(json);
-      setWritten((prev) =>
-        prev[level] === !empty ? prev : { ...prev, [level]: !empty },
-      );
-      scheduleSave(json);
-    },
-    [level, scheduleSave],
-  );
-
   // Editor zoom direction: deeper level (year→month→week) = zoom IN, broader
   // = zoom OUT. Compared to the previous level; ref updates after commit.
   const prevLevelRef = useRef<VisionScope>(level);
@@ -121,6 +107,21 @@ export function Vision() {
 
   const { entry, loading, status, contentVersion, scheduleSave, setDocumentDate } =
     useVisionEntry(level, periodKey);
+
+  // Live-track whether the ACTIVE entry has content as the user types, so the
+  // check-mark appears/disappears instantly (not only after the debounced
+  // save). Wraps scheduleSave — declared AFTER useVisionEntry so scheduleSave
+  // is in scope.
+  const handleEditorChange = useCallback(
+    (json: unknown) => {
+      const empty = isVisionContentEmpty(json);
+      setWritten((prev) =>
+        prev[level] === !empty ? prev : { ...prev, [level]: !empty },
+      );
+      scheduleSave(json);
+    },
+    [level, scheduleSave],
+  );
 
   // Default the DateBar to today when there's no entry yet.
   const todayIso = useMemo(() => toIsoDate(today), [today]);
