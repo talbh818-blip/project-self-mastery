@@ -16,6 +16,19 @@
 // ============================================================================
 
 export const EMOJI_TO_FLUENT_NAME: Record<string, string> = {
+  // ---- Vision-themed emojis (used by the vision icon picker) ----
+  // Directory names verified against microsoft/fluentui-emoji (all 200).
+  // (🦋 🌊 🌌 📈 already exist further down — not re-added here.)
+  '👑': 'Crown',
+  '💎': 'Gem stone',
+  '🦅': 'Eagle',
+  '🕊️': 'Dove',
+  '⚡': 'High voltage',
+  '💯': 'Hundred points',
+  '🔑': 'Key',
+  '🗝️': 'Old key',
+  '🏹': 'Bow and arrow',
+  '⚓': 'Anchor',
   // ---- Special / standalone emojis used outside the habit picker ----
   '🔥': 'Fire',
   '✨': 'Sparkles',

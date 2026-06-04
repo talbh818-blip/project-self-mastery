@@ -18,7 +18,7 @@
 // The "jump to current period" control ("השבוע" / "החודש" / "השנה") lives in
 // the editor's DateBar row, not here.
 // ============================================================================
-import { ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, NotebookPen } from 'lucide-react';
 import { HabitIcon } from '../habits/HabitIcon';
 import {
   addAnchor,
@@ -241,23 +241,27 @@ function Centre({
           onClick={onActivate}
           className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 h-full"
         >
-          {done && <DoneCheck />}
           {children}
         </button>
+
+        {/* "Written" badge — pinned to the far LEFT (the title button above is
+            flex-1, so this sits at the left edge), left of all the title text.
+            Shown only when the entry has content. */}
+        {done && <WrittenBadge />}
       </span>
     </div>
   );
 }
 
-/** "Written" badge — a thin white check inside a thin white circle outline
- *  (just the stroke, no fill), matching the weight of the check itself. */
-function DoneCheck() {
+/** "Written" indicator — a notebook-with-pen glyph (no check mark), marking
+ *  that this vision has been written. */
+function WrittenBadge() {
   return (
-    <CheckCircle2
-      size={16}
-      strokeWidth={1.25}
+    <NotebookPen
+      size={15}
+      strokeWidth={1.75}
       aria-label="נכתב"
-      className="shrink-0 text-white"
+      className="shrink-0 text-forest-400"
     />
   );
 }

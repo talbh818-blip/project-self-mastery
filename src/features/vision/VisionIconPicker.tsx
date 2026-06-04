@@ -9,12 +9,8 @@
 // ============================================================================
 import { useMemo, useState } from 'react';
 import { X, Trash2, Search } from 'lucide-react';
-import {
-  HabitIcon,
-  HABIT_EMOJIS,
-  HABIT_ICONS,
-} from '../habits/HabitIcon';
-import { EMOJI_TO_FLUENT_NAME } from '../../components/fluent-emoji-map';
+import { HabitIcon } from '../habits/HabitIcon';
+import { VISION_EMOJIS, VISION_ICONS } from './visionIconCatalog';
 
 type Props = {
   open: boolean;
@@ -31,18 +27,14 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
   const [tab, setTab] = useState<Tab>('emoji');
   const [query, setQuery] = useState('');
 
-  // Filter by name. Lucide icons match on their (English) icon name; emojis
-  // match on their Fluent descriptive name (e.g. "Soccer ball", "Person
-  // running"), or on the emoji char itself.
+  // Filter the curated catalogue by Hebrew keywords (or the value itself).
   const filtered = useMemo(() => {
-    const base = tab === 'emoji' ? HABIT_EMOJIS : HABIT_ICONS;
+    const base = tab === 'emoji' ? VISION_EMOJIS : VISION_ICONS;
     const q = query.trim().toLowerCase();
     if (!q) return base;
-    return base.filter((item) => {
-      if (tab === 'icon') return item.toLowerCase().includes(q);
-      const name = EMOJI_TO_FLUENT_NAME[item];
-      return (name ? name.toLowerCase().includes(q) : false) || item === query.trim();
-    });
+    return base.filter(
+      (item) => item.he.includes(q) || item.v.toLowerCase().includes(q),
+    );
   }, [tab, query]);
 
   if (!open) return null;
@@ -128,7 +120,7 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="חיפוש לפי שם (באנגלית)…"
+              placeholder="חיפוש… (כתר, יהלום, נץ, מטרה…)"
               className="w-full h-9 pr-9 pl-3 rounded-lg bg-surface-raised text-ink-100 text-[13px] placeholder:text-ink-300 ring-1 ring-surface-border focus:ring-forest-700 outline-none"
             />
           </div>
@@ -143,20 +135,21 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
           ) : (
             <div className="grid grid-cols-6 gap-1.5">
               {filtered.map((item) => {
-                const selected = item === value;
+                const selected = item.v === value;
                 return (
                   <button
-                    key={item}
+                    key={item.v}
                     type="button"
-                    onClick={() => choose(item)}
-                    aria-label={item}
+                    onClick={() => choose(item.v)}
+                    aria-label={item.he}
+                    title={item.he}
                     className={`aspect-square rounded-xl flex items-center justify-center transition-colors ${
                       selected
                         ? 'bg-forest-700/25 ring-1 ring-forest-700 text-forest-500'
                         : 'bg-surface-raised hover:bg-surface-raised/70 text-ink-100'
                     }`}
                   >
-                    <HabitIcon name={item} size={22} />
+                    <HabitIcon name={item.v} size={22} />
                   </button>
                 );
               })}
