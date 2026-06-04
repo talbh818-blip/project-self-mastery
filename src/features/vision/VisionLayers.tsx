@@ -214,17 +214,20 @@ function Centre({
     <div
       className={`flex-1 min-w-0 rounded-xl text-sm font-semibold transition-colors ${
         active
-          ? 'bg-forest-700/20 text-forest-500 ring-1 ring-forest-700'
+          ? // Active = green ring + faint green bg, but the TEXT stays light
+            // (ink-100) and icons keep their own colours — only the frame
+            // signals selection.
+            'bg-forest-700/20 text-ink-100 ring-1 ring-forest-700'
           : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
       }`}
     >
       <span
         key={animKey}
-        className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
+        className="vision-label-anim relative flex items-center justify-center gap-1.5 min-w-0 px-1.5 h-full"
       >
-        {/* Icon TILE — empty rounded square (Habits-tile colour) until an
-            icon is chosen; tapping opens the picker for this level. Sits at
-            the right edge, immediately beside the title (no gap). */}
+        {/* Icon TILE — empty rounded square until an icon is chosen; tapping
+            opens the picker for this level. Part of the centred group, right
+            beside the title. */}
         <button
           type="button"
           onClick={onIconClick}
@@ -235,18 +238,23 @@ function Centre({
           {icon ? <HabitIcon name={icon} size={16} /> : null}
         </button>
 
-        {/* Title — taps activate this level. flex-1 (big tap target); content
-            hugs the right (next to the icon tile), and the "written" badge is
-            pushed to the far LEFT by the grow spacer. */}
+        {/* Title — taps activate this level. Content-sized so the
+            [icon + title] group sits CENTRED in the row. */}
         <button
           type="button"
           onClick={onActivate}
-          className="flex-1 min-w-0 inline-flex items-center gap-1.5 h-full"
+          className="min-w-0 inline-flex items-center justify-center gap-1.5 h-full"
         >
           {children}
-          <span className="grow" aria-hidden />
-          {done && <WrittenBadge />}
         </button>
+
+        {/* "Written" badge — absolutely pinned to the far LEFT so it doesn't
+            push the centred group off-centre. */}
+        {done && (
+          <span className="absolute inset-y-0 left-1.5 flex items-center pointer-events-none">
+            <WrittenBadge />
+          </span>
+        )}
       </span>
     </div>
   );
@@ -260,7 +268,7 @@ function WrittenBadge() {
       size={15}
       strokeWidth={1.75}
       aria-label="נכתב"
-      className="shrink-0 text-white/75"
+      className="shrink-0 text-white/40"
     />
   );
 }
