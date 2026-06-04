@@ -234,9 +234,11 @@ function Centre({
           </span>
         )}
 
-        {/* Centred group: icon tile (right) + title. The title TRUNCATES with
-            an ellipsis when there's no room; the icon tile is shrink-0 so it's
-            never swallowed and always sits to the title's right. */}
+        {/* Centred group. The icon tile sits to the title's RIGHT (shrink-0,
+            never swallowed). A spacer the SAME width as the icon tile sits to
+            the title's LEFT — so the icon + left-spacer cancel out and the
+            TITLE TEXT alone is centred in the row (the icon just hangs off its
+            right). The title TRUNCATES with an ellipsis when there's no room. */}
         <span className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
           <button
             type="button"
@@ -254,6 +256,8 @@ function Centre({
           >
             {children}
           </button>
+          {/* Mirror of the icon tile — keeps the title text centred. */}
+          <span aria-hidden className="shrink-0 w-7" />
         </span>
 
         {/* Left balance spacer — same width as the right badge so the centred
