@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { VisionLayers } from '../features/vision/VisionLayers';
+import { VisionIconPicker } from '../features/vision/VisionIconPicker';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { fetchVisionRowMeta } from '../features/vision/queries';
 import { updateVisionEntryIcon } from '../features/vision/mutations';
@@ -83,17 +84,28 @@ export function Vision() {
     };
   }, [userId, yearKey, monthKey, weekKey]);
 
-  // Pick (or clear) the icon for the CURRENTLY ACTIVE level. Optimistic local
-  // update so the row badge changes instantly; persists in the background.
-  const pickIcon = useCallback(
+  // Which level's icon picker is open (null = closed). Opened by tapping a
+  // row's icon tile in VisionLayers — so any level's icon can be set, not
+  // just the active one.
+  const [iconPickerLevel, setIconPickerLevel] = useState<VisionScope | null>(
+    null,
+  );
+  // Apply the picked icon to the level whose tile was tapped. Optimistic
+  // local update so the tile changes instantly; persists in the background.
+  const applyIcon = useCallback(
     (icon: string | null) => {
-      setIcons((prev) => ({ ...prev, [level]: icon }));
+      const lvl = iconPickerLevel;
+      if (!lvl) return;
+      setIcons((prev) => ({ ...prev, [lvl]: icon }));
       if (!userId) return;
-      void updateVisionEntryIcon(userId, level, periodKey, icon).catch((err) =>
-        console.error('[vision] icon save failed', err),
-      );
+      void updateVisionEntryIcon(
+        userId,
+        lvl,
+        getPeriodKey(lvl, anchor),
+        icon,
+      ).catch((err) => console.error('[vision] icon save failed', err));
     },
-    [userId, level, periodKey],
+    [iconPickerLevel, userId, anchor],
   );
 
   // Editor zoom direction: deeper level (year→month→week) = zoom IN, broader
@@ -155,6 +167,7 @@ export function Vision() {
         level={level}
         anchor={anchor}
         onPick={pick}
+        onIconClick={setIconPickerLevel}
         icons={icons}
         written={written}
       />
@@ -180,11 +193,17 @@ export function Vision() {
           documentDate={documentDate}
           onDateChange={(iso) => void setDocumentDate(iso)}
           jumpToNow={jumpToNow}
-          icon={icons[level] ?? null}
-          onPickIcon={pickIcon}
           onChange={handleEditorChange}
         />
       )}
+
+      {/* Icon picker — opened by tapping any layer row's icon tile. */}
+      <VisionIconPicker
+        open={iconPickerLevel !== null}
+        value={iconPickerLevel ? icons[iconPickerLevel] ?? null : null}
+        onPick={applyIcon}
+        onClose={() => setIconPickerLevel(null)}
+      />
     </section>
   );
 }

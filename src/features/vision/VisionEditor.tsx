@@ -57,10 +57,6 @@ type Props = {
   onDateChange: (iso: string) => void;
   /** "Jump to current period" control shown in the DateBar; null = hidden. */
   jumpToNow: { label: string; onJump: () => void } | null;
-  /** This entry's icon (Lucide name or emoji char), or null. */
-  icon: string | null;
-  /** Pick a new icon for this entry, or null to clear it. */
-  onPickIcon: (icon: string | null) => void;
   onChange: (json: unknown) => void;
 };
 
@@ -75,8 +71,6 @@ export function VisionEditor({
   documentDate,
   onDateChange,
   jumpToNow,
-  icon,
-  onPickIcon,
   onChange,
 }: Props) {
   const editor = useEditor(
@@ -159,8 +153,6 @@ export function VisionEditor({
           onToggleAssist={toggleAssist}
           saveStatus={saveStatus}
           jumpToNow={jumpToNow}
-          icon={icon}
-          onPickIcon={onPickIcon}
         />
         <div className="py-8">
           <CompassLoader size="md" />
@@ -199,8 +191,6 @@ export function VisionEditor({
           onToggleAssist={toggleAssist}
           saveStatus={saveStatus}
           jumpToNow={jumpToNow}
-          icon={icon}
-          onPickIcon={onPickIcon}
         />
         <EditorContent editor={editor} />
       </div>

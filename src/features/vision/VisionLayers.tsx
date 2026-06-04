@@ -38,7 +38,9 @@ type Props = {
   anchor: Date;
   /** Activate a level at a given anchor (centre tap or side step). */
   onPick: (level: VisionScope, anchor: Date) => void;
-  /** Per-level icon (Lucide name or emoji char) shown next to each title. */
+  /** Open the icon picker for a given level (tap on that row's icon tile). */
+  onIconClick: (level: VisionScope) => void;
+  /** Per-level icon (Lucide name or emoji char) shown in each row's tile. */
   icons?: Partial<Record<VisionScope, string | null>>;
   /** Per-level "has written content" → shows the check-mark badge. */
   written?: Partial<Record<VisionScope, boolean>>;
@@ -55,7 +57,14 @@ function weekRangeLabel(anchor: Date): string {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
-export function VisionLayers({ level, anchor, onPick, icons, written }: Props) {
+export function VisionLayers({
+  level,
+  anchor,
+  onPick,
+  onIconClick,
+  icons,
+  written,
+}: Props) {
   const year = anchor.getFullYear();
 
   const prevYear = addAnchor('yearly', anchor, -1);
@@ -87,7 +96,8 @@ export function VisionLayers({ level, anchor, onPick, icons, written }: Props) {
           animKey={`y-${year}`}
           icon={icons?.yearly ?? null}
           done={written?.yearly ?? false}
-          onClick={() => onPick('yearly', anchor)}
+          onActivate={() => onPick('yearly', anchor)}
+          onIconClick={() => onIconClick('yearly')}
         >
           <span className="truncate">חזון שנתי {year}</span>
         </Centre>
@@ -111,7 +121,8 @@ export function VisionLayers({ level, anchor, onPick, icons, written }: Props) {
           animKey={`m-${getMonthKey(anchor)}`}
           icon={icons?.monthly ?? null}
           done={written?.monthly ?? false}
-          onClick={() => onPick('monthly', anchor)}
+          onActivate={() => onPick('monthly', anchor)}
+          onIconClick={() => onIconClick('monthly')}
         >
           <span className="truncate">חזון חודשי · {monthName(anchor)}</span>
         </Centre>
@@ -132,7 +143,8 @@ export function VisionLayers({ level, anchor, onPick, icons, written }: Props) {
           animKey={`w-${getWeekKey(anchor)}`}
           icon={icons?.weekly ?? null}
           done={written?.weekly ?? false}
-          onClick={() => onPick('weekly', anchor)}
+          onActivate={() => onPick('weekly', anchor)}
+          onIconClick={() => onIconClick('weekly')}
         >
           <span className="shrink-0">חזון שבועי</span>
           {/* date range first — muted, LTR so the numbers don't reorder in RTL */}
@@ -182,7 +194,8 @@ function Centre({
   animKey,
   icon,
   done = false,
-  onClick,
+  onActivate,
+  onIconClick,
   children,
 }: {
   active: boolean;
@@ -190,33 +203,49 @@ function Centre({
   icon?: string | null;
   /** Entry has written content → show the check-mark badge. */
   done?: boolean;
-  onClick: () => void;
+  onActivate: () => void;
+  onIconClick: () => void;
   children: React.ReactNode;
 }) {
+  // Container is a DIV (not a button) so it can hold TWO buttons — the icon
+  // tile (opens the picker) and the title (activates the level) — without
+  // nesting <button> inside <button>.
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={`flex-1 min-w-0 rounded-xl text-sm font-semibold transition-colors ${
         active
           ? 'bg-forest-700/10 text-ink-100 ring-1 ring-forest-700/30'
           : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
       }`}
     >
-      {/* keyed so the label re-mounts (soft fade) when the period changes.
-          Order from the START (right edge in RTL): done-check → chosen icon
-          → title. The caller supplies the title element(s). */}
       <span
         key={animKey}
-        className="vision-label-anim flex items-center justify-center gap-1.5 min-w-0 px-2"
+        className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
       >
-        {done && <DoneCheck />}
-        {icon && (
-          <HabitIcon name={icon} size={16} className="shrink-0 text-current" />
-        )}
-        {children}
+        {/* Icon TILE — empty rounded square (Habits-tile colour) until an
+            icon is chosen; tapping opens the picker for this level. */}
+        <button
+          type="button"
+          onClick={onIconClick}
+          aria-label="בחר אייקון לחזון"
+          title="בחר אייקון לחזון"
+          className="shrink-0 w-7 h-7 rounded-lg bg-surface-raised flex items-center justify-center text-ink-100 hover:brightness-125 transition"
+        >
+          {icon ? <HabitIcon name={icon} size={16} /> : null}
+        </button>
+
+        {/* Title — taps activate this level. flex-1 so it's the main target
+            and the label sits centred in the remaining space. */}
+        <button
+          type="button"
+          onClick={onActivate}
+          className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 h-full"
+        >
+          {done && <DoneCheck />}
+          {children}
+        </button>
       </span>
-    </button>
+    </div>
   );
 }
 

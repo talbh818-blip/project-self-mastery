@@ -10,11 +10,9 @@
 // is consolidated here so the toolbar stays focused on text formatting.
 // ============================================================================
 import { useState } from 'react';
-import { Calendar, CalendarCheck, CheckCircle2, Smile } from 'lucide-react';
+import { Calendar, CalendarCheck, CheckCircle2 } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
-import { HabitIcon } from '../habits/HabitIcon';
 import { DatePickerSheet } from './DatePickerSheet';
-import { VisionIconPicker } from './VisionIconPicker';
 import type { SaveStatus } from './useVisionEntry';
 
 type Props = {
@@ -28,10 +26,6 @@ type Props = {
   saveStatus: SaveStatus;
   /** "Jump to current period" (השבוע / החודש / השנה); null = hidden. */
   jumpToNow: { label: string; onJump: () => void } | null;
-  /** This entry's icon (Lucide name or emoji char), or null. */
-  icon: string | null;
-  /** Pick a new icon, or null to clear it. */
-  onPickIcon: (icon: string | null) => void;
 };
 
 const HEB_MONTHS_FULL = [
@@ -52,11 +46,8 @@ export function DateBar({
   onToggleAssist,
   saveStatus,
   jumpToNow,
-  icon,
-  onPickIcon,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   return (
     <>
@@ -105,28 +96,6 @@ export function DateBar({
           <span>כתיבה מודרכת</span>
         </button>
 
-        {/* Icon picker — sits immediately to the LEFT of the Assist toggle.
-            Shows the chosen icon when set, else a neutral "pick" affordance. */}
-        <button
-          type="button"
-          onClick={() => setIconPickerOpen(true)}
-          aria-label="בחר אייקון לחזון"
-          title="בחר אייקון לחזון"
-          className={`
-            shrink-0 inline-flex items-center justify-center
-            h-7 w-7 rounded-lg transition-all
-            ${icon
-              ? 'bg-forest-700/25 ring-1 ring-forest-700 text-forest-500'
-              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
-          `}
-        >
-          {icon ? (
-            <HabitIcon name={icon} size={16} />
-          ) : (
-            <Smile size={15} strokeWidth={1.8} />
-          )}
-        </button>
-
         {/* Spacer pushes the controls below to the visual LEFT. */}
         <div className="grow" />
 
@@ -158,13 +127,6 @@ export function DateBar({
         value={value}
         onConfirm={onChange}
         onClose={() => setPickerOpen(false)}
-      />
-
-      <VisionIconPicker
-        open={iconPickerOpen}
-        value={icon}
-        onPick={onPickIcon}
-        onClose={() => setIconPickerOpen(false)}
       />
     </>
   );
