@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
@@ -169,9 +169,19 @@ export function HabitPickerSheet({
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
+    // For list formats, drop blank/whitespace-only items so we don't persist
+    // empty rows; plain text just gets trimmed at the ends.
+    const cleanedDescription =
+      descriptionFormat === 'text'
+        ? description.trim()
+        : description
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .join('\n');
     const input: CreateHabitInput = {
       name: name.trim(),
-      description: description.trim() || null,
+      description: cleanedDescription || null,
       description_format: descriptionFormat,
       icon,
       type,
@@ -352,19 +362,20 @@ export function HabitPickerSheet({
                   ))}
                 </div>
               </div>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={descriptionFormat === 'text' ? 2 : 3}
-                placeholder={
-                  descriptionFormat === 'text'
-                    ? 'משפט קצר שמתאר את ההרגל…'
-                    : 'כל שורה = פריט'
-                }
-                className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500 resize-none leading-relaxed"
-              />
-              {descriptionFormat !== 'text' && (
-                <DescriptionPreview format={descriptionFormat} text={description} />
+              {descriptionFormat === 'text' ? (
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  placeholder="משפט קצר שמתאר את ההרגל…"
+                  className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500 resize-none leading-relaxed"
+                />
+              ) : (
+                <ListEditor
+                  format={descriptionFormat}
+                  value={description}
+                  onChange={setDescription}
+                />
               )}
             </section>
 
@@ -565,29 +576,79 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Compact live preview of how the description's list items will render. Each
-// non-empty line becomes one row, prefixed per the chosen format. Hidden when
-// the format is 'text' (the caller only mounts it for list formats).
-function DescriptionPreview({
+// Inline list editor — one input row per item with its prefix (•, 1., ☐)
+// sitting right beside the text, so the bullets live *inside* the writing
+// area instead of in a separate preview. Enter adds a new item; Backspace on
+// an empty item merges back to the previous one. Items are stored as the
+// newline-joined `value` string (matching the plain-text format's storage).
+function ListEditor({
   format,
-  text,
+  value,
+  onChange,
 }: {
-  format: DescriptionFormat;
-  text: string;
+  format: Exclude<DescriptionFormat, 'text'>;
+  value: string;
+  onChange: (next: string) => void;
 }) {
-  const items = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  if (items.length === 0) return null;
+  // Always show at least one (empty) row so there's somewhere to type.
+  const items = value.length ? value.split('\n') : [''];
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
+
+  const commit = (next: string[]) => onChange(next.join('\n'));
+
+  const prefixFor = (i: number) =>
+    format === 'bullets' ? '•' : format === 'numbers' ? `${i + 1}.` : '☐';
+
+  const updateItem = (i: number, text: string) => {
+    const next = [...items];
+    next[i] = text;
+    commit(next);
+  };
+
+  const handleKeyDown = (
+    i: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const next = [...items];
+      next.splice(i + 1, 0, '');
+      commit(next);
+      requestAnimationFrame(() => inputsRef.current[i + 1]?.focus());
+    } else if (e.key === 'Backspace' && items[i] === '' && items.length > 1) {
+      e.preventDefault();
+      const next = [...items];
+      next.splice(i, 1);
+      commit(next);
+      requestAnimationFrame(() => {
+        const prev = inputsRef.current[Math.max(0, i - 1)];
+        prev?.focus();
+        const len = prev?.value.length ?? 0;
+        prev?.setSelectionRange(len, len);
+      });
+    }
+  };
+
   return (
-    <ul className="mt-2 px-3 py-2 rounded-xl bg-surface-base/60 border border-surface-border space-y-1">
+    <div className="rounded-xl bg-surface-raised border border-surface-border px-3 py-2 space-y-1 focus-within:border-forest-500 transition-colors">
       {items.map((item, i) => (
-        <li key={i} className="flex items-start gap-2 text-[13px] text-ink-100 leading-snug">
-          <span className="shrink-0 text-ink-300 tabular-nums mt-px">
-            {format === 'bullets' ? '•' : format === 'numbers' ? `${i + 1}.` : '☐'}
+        <div key={i} className="flex items-center gap-2">
+          <span className="shrink-0 w-4 text-center text-ink-300 text-sm tabular-nums select-none">
+            {prefixFor(i)}
           </span>
-          <span className="min-w-0">{item}</span>
-        </li>
+          <input
+            ref={(el) => {
+              inputsRef.current[i] = el;
+            }}
+            value={item}
+            onChange={(e) => updateItem(i, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(i, e)}
+            placeholder={i === 0 ? 'פריט…' : ''}
+            className="flex-1 min-w-0 bg-transparent text-ink-100 placeholder-ink-500 text-sm focus:outline-none"
+          />
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 
