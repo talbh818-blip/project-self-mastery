@@ -1,6 +1,10 @@
 export type HabitType = 'positive' | 'negative';
 export type LogStatus = 'V' | 'X' | 'auto_x';
 export type Difficulty = 'easy' | 'medium' | 'hard';
+// How the habit's description text should be rendered. For the list formats
+// the `description` column holds one item per line; for 'text' it's a plain
+// sentence (the legacy default).
+export type DescriptionFormat = 'text' | 'bullets' | 'numbers' | 'checklist';
 export type SlotIndex = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 export type FrequencyPeriod = 'daily' | 'weekly' | 'monthly';
 
@@ -56,6 +60,7 @@ export type Habit = {
   icon: string;
   type: HabitType;
   description: string | null;
+  description_format: DescriptionFormat; // how to render `description`
   color: string; // hex
   frequency_period: FrequencyPeriod;
   frequency_target: number; // > 0

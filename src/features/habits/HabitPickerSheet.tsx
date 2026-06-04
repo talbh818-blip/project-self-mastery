@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
   HabitIcon,
@@ -11,6 +11,7 @@ import {
 } from './HabitIcon';
 import {
   HABIT_COLORS,
+  type DescriptionFormat,
   type Difficulty,
   type FrequencyPeriod,
   type Habit,
@@ -44,6 +45,7 @@ const DEFAULTS = {
   icon: HABIT_ICONS[0],
   name: '',
   description: '',
+  description_format: 'text' as DescriptionFormat,
   color: HABIT_COLORS[5].hex, // ירוק (index 5 in the 21-swatch palette)
   difficulty: 'medium' as Difficulty,
   frequency_period: 'daily' as FrequencyPeriod,
@@ -67,6 +69,9 @@ export function HabitPickerSheet({
   const [iconMode, setIconMode] = useState<'icons' | 'emojis'>('icons');
   const [name, setName] = useState<string>(DEFAULTS.name);
   const [description, setDescription] = useState<string>(DEFAULTS.description);
+  const [descriptionFormat, setDescriptionFormat] = useState<DescriptionFormat>(
+    DEFAULTS.description_format,
+  );
   const [color, setColor] = useState<string>(DEFAULTS.color);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULTS.difficulty);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
@@ -99,6 +104,7 @@ export function HabitPickerSheet({
       setIconMode(HABIT_ICONS.includes(editingHabit.icon) ? 'icons' : 'emojis');
       setName(editingHabit.name);
       setDescription(editingHabit.description ?? '');
+      setDescriptionFormat(editingHabit.description_format ?? 'text');
       setColor(editingHabit.color);
       setDifficulty(editingHabit.difficulty ?? DEFAULTS.difficulty);
       // Show advanced when any non-default value is set.
@@ -118,6 +124,7 @@ export function HabitPickerSheet({
       setIconMode('icons');
       setName(DEFAULTS.name);
       setDescription(DEFAULTS.description);
+      setDescriptionFormat(DEFAULTS.description_format);
       setColor(DEFAULTS.color);
       setDifficulty(DEFAULTS.difficulty);
       setShowAdvanced(false);
@@ -165,6 +172,7 @@ export function HabitPickerSheet({
     const input: CreateHabitInput = {
       name: name.trim(),
       description: description.trim() || null,
+      description_format: descriptionFormat,
       icon,
       type,
       color,
@@ -309,6 +317,55 @@ export function HabitPickerSheet({
                 maxLength={60}
                 className="w-full px-3 py-2.5 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500"
               />
+            </section>
+
+            {/* Step 3.5 — description, with a format the user picks (plain
+                sentence / bullets / numbers / checklist). Kept compact: the
+                format toggle shares the title row, and the textarea is short. */}
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <SectionTitle>תיאור (לא חובה)</SectionTitle>
+                <div className="flex gap-0.5 bg-surface-raised rounded-full p-0.5">
+                  {(
+                    [
+                      ['text', AlignLeft, 'משפט'],
+                      ['bullets', List, 'בולטים'],
+                      ['numbers', ListOrdered, 'מספרים'],
+                      ['checklist', ListChecks, "צ׳קליסט"],
+                    ] as const
+                  ).map(([fmt, Icon, label]) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => setDescriptionFormat(fmt)}
+                      aria-label={label}
+                      aria-pressed={descriptionFormat === fmt}
+                      title={label}
+                      className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                        descriptionFormat === fmt
+                          ? 'bg-forest-700 text-cream-50'
+                          : 'text-ink-300 hover:text-ink-100'
+                      }`}
+                    >
+                      <Icon size={14} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={descriptionFormat === 'text' ? 2 : 3}
+                placeholder={
+                  descriptionFormat === 'text'
+                    ? 'משפט קצר שמתאר את ההרגל…'
+                    : 'כל שורה = פריט'
+                }
+                className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500 resize-none leading-relaxed"
+              />
+              {descriptionFormat !== 'text' && (
+                <DescriptionPreview format={descriptionFormat} text={description} />
+              )}
             </section>
 
             {/* Step 4 — difficulty. Question phrasing depends on type. */}
@@ -505,6 +562,32 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h3 className="text-xs uppercase tracking-wider text-ink-500 mb-2">
       {children}
     </h3>
+  );
+}
+
+// Compact live preview of how the description's list items will render. Each
+// non-empty line becomes one row, prefixed per the chosen format. Hidden when
+// the format is 'text' (the caller only mounts it for list formats).
+function DescriptionPreview({
+  format,
+  text,
+}: {
+  format: DescriptionFormat;
+  text: string;
+}) {
+  const items = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (items.length === 0) return null;
+  return (
+    <ul className="mt-2 px-3 py-2 rounded-xl bg-surface-base/60 border border-surface-border space-y-1">
+      {items.map((item, i) => (
+        <li key={i} className="flex items-start gap-2 text-[13px] text-ink-100 leading-snug">
+          <span className="shrink-0 text-ink-300 tabular-nums mt-px">
+            {format === 'bullets' ? '•' : format === 'numbers' ? `${i + 1}.` : '☐'}
+          </span>
+          <span className="min-w-0">{item}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import type {
+  DescriptionFormat,
   Difficulty,
   FrequencyPeriod,
   Habit,
@@ -16,6 +17,7 @@ import { toDateString } from './week';
 export type CreateHabitInput = {
   name: string;
   description: string | null;
+  description_format: DescriptionFormat;
   icon: string;
   type: HabitType;
   color: string; // hex
@@ -45,6 +47,7 @@ export async function createHabitInSlot(params: {
       catalog_id: null,
       name: input.name.trim(),
       description: input.description?.trim() || null,
+      description_format: input.description_format,
       icon: input.icon,
       type: input.type,
       color: input.color,
@@ -165,6 +168,7 @@ export function nextAmountInCycle(
 export type UpdateHabitInput = {
   name: string;
   description: string | null;
+  description_format: DescriptionFormat;
   icon: string;
   type: HabitType;
   color: string;
@@ -185,6 +189,7 @@ export async function updateHabit(
     .update({
       name: input.name.trim(),
       description: input.description?.trim() || null,
+      description_format: input.description_format,
       icon: input.icon,
       type: input.type,
       color: input.color,
