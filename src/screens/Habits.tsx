@@ -1022,20 +1022,39 @@ function HabitRow({
           >
             <ChevronsDown
               size={16}
-              className={`transition-transform ${descOpen ? 'rotate-180' : ''}`}
+              className={descOpen ? 'rotate-180' : ''}
+              style={{ transition: 'transform 360ms cubic-bezier(0.65, 0, 0.35, 1)' }}
             />
           </button>
         )}
       </div>
 
-      {/* Expandable description — rendered directly below the habit, in the
-          format the user chose. State persists via localStorage. */}
-      {hasDescription && descOpen && (
-        <div className="mt-2 pt-2 border-t border-surface-border">
-          <HabitDescription
-            description={habit.description!}
-            format={habit.description_format}
-          />
+      {/* Expandable description — opens/closes like a drawer with a smooth,
+          symmetric ease-in-out. Uses the grid-rows 0fr↔1fr technique so the
+          height animates naturally (no pixel measuring), plus an opacity fade
+          for extra polish. State persists via localStorage. */}
+      {hasDescription && (
+        <div
+          className="grid"
+          style={{
+            gridTemplateRows: descOpen ? '1fr' : '0fr',
+            transition: 'grid-template-rows 360ms cubic-bezier(0.65, 0, 0.35, 1)',
+          }}
+        >
+          <div
+            className="overflow-hidden min-h-0"
+            style={{
+              opacity: descOpen ? 1 : 0,
+              transition: 'opacity 300ms cubic-bezier(0.65, 0, 0.35, 1)',
+            }}
+          >
+            <div className="mt-2 pt-2 border-t border-surface-border">
+              <HabitDescription
+                description={habit.description!}
+                format={habit.description_format}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>
