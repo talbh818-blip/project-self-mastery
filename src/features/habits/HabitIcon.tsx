@@ -104,9 +104,36 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 // ----------------------------------------------------------------------------
+// Defensive list cleanup. Two failure modes we want to catch automatically:
+//   (a) an emoji character mistyped into an icon-name list
+//   (b) a Lucide name referenced but never imported into ICONS
+// Both produced the "tab shows the wrong thing" bug the user reported. The
+// helpers below filter each list at module load and dedupe duplicates so
+// the IconGrid never receives an item that won't render properly.
+// ----------------------------------------------------------------------------
+function cleanIconNames(names: readonly string[]): readonly string[] {
+  const seen = new Set<string>();
+  return names.filter((n) => {
+    if (!(n in ICONS)) return false; // emoji char or missing Lucide import
+    if (seen.has(n)) return false;
+    seen.add(n);
+    return true;
+  });
+}
+function cleanEmojis(emojis: readonly string[]): readonly string[] {
+  const seen = new Set<string>();
+  return emojis.filter((e) => {
+    if (!e || e in ICONS) return false; // empty or stray icon name
+    if (seen.has(e)) return false;
+    seen.add(e);
+    return true;
+  });
+}
+
+// ----------------------------------------------------------------------------
 // Icons curated for POSITIVE habits — things to build.
 // ----------------------------------------------------------------------------
-export const POSITIVE_HABIT_ICONS: readonly string[] = [
+export const POSITIVE_HABIT_ICONS: readonly string[] = cleanIconNames([
   // Health & fitness
   'Dumbbell', 'Bike', 'Footprints', 'Activity', 'Heart', 'HeartPulse',
   'Apple', 'Stethoscope', 'Pill', 'Volleyball',
@@ -121,7 +148,7 @@ export const POSITIVE_HABIT_ICONS: readonly string[] = [
   'NotebookPen', 'Calendar', 'CalendarCheck', 'Clock', 'AlarmClock', 'Timer',
   'ListChecks', 'Target', 'Flag', 'Briefcase',
   // Hydration & healthy food
-  'Droplet', 'GlassWater', 'Milk', 'Coffee', 'Salad', 'Carrot', 'Apple',
+  'Droplet', 'GlassWater', 'Milk', 'Coffee', 'Salad', 'Carrot',
   'Bean', 'Wheat', 'Egg', 'Sandwich', 'Soup', 'ChefHat', 'UtensilsCrossed',
   'Fish', 'Beef', 'Drumstick', 'Citrus', 'Grape', 'Cherry', 'Croissant',
   'Vegan',
@@ -150,12 +177,12 @@ export const POSITIVE_HABIT_ICONS: readonly string[] = [
   'Tent', 'Waves',
   // Awareness / focus
   'Eye', 'ScanEye', 'Telescope', 'Microscope', 'Atom',
-];
+]);
 
 // ----------------------------------------------------------------------------
 // Icons curated for NEGATIVE habits — addictions to break.
 // ----------------------------------------------------------------------------
-export const NEGATIVE_HABIT_ICONS: readonly string[] = [
+export const NEGATIVE_HABIT_ICONS: readonly string[] = cleanIconNames([
   // Substances
   'Cigarette', 'Wine', 'Beer',
   // Junk food
@@ -176,7 +203,7 @@ export const NEGATIVE_HABIT_ICONS: readonly string[] = [
   'Skull', 'AlertTriangle', 'Ban', 'XCircle', 'Flame',
   // Awareness
   'Eye',
-];
+]);
 
 // Combined list — kept for back-compat callers (e.g. emoji-mode detection
 // in HabitPickerSheet that needs to know "is this name an icon").
@@ -191,7 +218,7 @@ export const CUSTOM_HABIT_ICONS = HABIT_ICONS;
 // ----------------------------------------------------------------------------
 // Emojis — split by habit type.
 // ----------------------------------------------------------------------------
-export const POSITIVE_HABIT_EMOJIS: readonly string[] = [
+export const POSITIVE_HABIT_EMOJIS: readonly string[] = cleanEmojis([
   // Fitness & body
   '🏃', '🚴', '🏋️', '🧘', '🤸', '🥊', '⚽', '🏀', '🏊', '🚶', '💪',
   '🧗', '🏌️', '🏄', '🚣', '🤽', '🥋', '🏐', '🎾', '🎳', '🛹', '🛼',
@@ -231,9 +258,10 @@ export const POSITIVE_HABIT_EMOJIS: readonly string[] = [
   // Achievement
   '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🚀', '🌟', '🎉', '🌈',
   '🎁', '🎀', '🏁', '🚩', '🎗️',
-  // Spiritual / mindset
+  // Spiritual / mindset (☪️ Islam and ☸️ Wheel of dharma intentionally
+  // excluded — see git history for the user-requested removal)
   '⭐', '✨', '🔥', '❤️', '🙏', '💖', '🌸', '🦋', '🕉️', '☮️',
-  '☯️', '✡️', '☪️', '☸️', '🛐', '⛪', '🕍', '🕌', '🛕',
+  '☯️', '✡️', '🛐', '⛪', '🕍', '🕌', '🛕',
   // Eyes / awareness
   '👁️', '👀',
   // Nature & weather
@@ -248,9 +276,9 @@ export const POSITIVE_HABIT_EMOJIS: readonly string[] = [
   '🦋', '🐦', '🦉', '🐝', '🐬', '🐳',
   // Positive emotions
   '🤩', '😊', '😃', '😄', '😁', '🥰', '😎', '🤔', '😌', '🥳',
-];
+]);
 
-export const NEGATIVE_HABIT_EMOJIS: readonly string[] = [
+export const NEGATIVE_HABIT_EMOJIS: readonly string[] = cleanEmojis([
   // Substances
   '🚬', '🍺', '🍷', '🍸', '🥃', '🥂', '🍾', '💉', '🧪', '💊',
   // Junk food
@@ -269,7 +297,7 @@ export const NEGATIVE_HABIT_EMOJIS: readonly string[] = [
   '😣', '😭', '😢', '💔',
   // Generic warnings
   '⛔', '🚫', '❌', '⚠️', '💀', '☠️', '🔞', '🚭', '🚯',
-];
+]);
 
 // Combined emoji list — for back-compat.
 export const HABIT_EMOJIS: readonly string[] = [
