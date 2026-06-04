@@ -168,8 +168,8 @@ function LayerRow({
 }) {
   return (
     <div
-      className={`flex items-stretch gap-1.5 h-10 rounded-2xl p-1 transition-colors ${
-        active ? 'bg-forest-700/[0.06]' : ''
+      className={`flex items-stretch gap-1.5 h-10 rounded-2xl p-1 transition-opacity duration-300 ${
+        active ? 'opacity-100' : 'opacity-55'
       }`}
     >
       {children}
@@ -199,7 +199,7 @@ function Centre({
       onClick={onClick}
       className={`flex-1 min-w-0 rounded-xl text-sm font-semibold transition-colors ${
         active
-          ? 'bg-forest-700/20 text-forest-500 ring-1 ring-forest-700'
+          ? 'bg-forest-700/10 text-ink-100 ring-1 ring-forest-700/30'
           : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
       }`}
     >
