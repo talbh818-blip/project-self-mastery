@@ -1008,10 +1008,12 @@ function HabitRow({
           <span className="text-sm font-medium text-ink-100 truncate min-w-0">
             {habit.name}
           </span>
-          {/* Weekly / monthly target progress (daily habits show nothing) */}
+          {/* Weekly / monthly target progress (daily habits show nothing).
+              Muted + tiny, inside a very faint pill so it reads as secondary
+              info next to the name without blending into it. */}
           {periodLabel && (
-            <span className="text-[10px] text-ink-100 shrink-0">
-              · {periodLabel}: {periodDone}/{habit.frequency_target}
+            <span className="shrink-0 text-[9px] leading-none text-ink-300 px-1.5 py-0.5 rounded-md bg-ink-100/5 border border-surface-border/50">
+              {periodLabel}: {periodDone}/{habit.frequency_target}
             </span>
           )}
         </button>
