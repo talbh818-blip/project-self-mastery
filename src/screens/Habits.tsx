@@ -1081,6 +1081,16 @@ function HabitRow({
                   ? 'בינוני'
                   : 'קשה'}
               </span>
+              {/* Current streak — only for a positive streak of more than
+                  3 days. Placed before the points so (RTL) it reads first. */}
+              {currentStreak > 3 && (
+                <>
+                  <span className="text-ink-500">·</span>
+                  <span className="text-amber-400 inline-flex items-center gap-0.5">
+                    <Emoji emoji="🔥" size={11} /> {currentStreak}
+                  </span>
+                </>
+              )}
               {/* Points from this habit (all-time) */}
               <span className="text-ink-500">·</span>
               <span
@@ -1093,11 +1103,6 @@ function HabitRow({
                 }
               >
                 {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
-              </span>
-              {/* Current streak */}
-              <span className="text-ink-500">·</span>
-              <span className="text-amber-400 inline-flex items-center gap-0.5">
-                <Emoji emoji="🔥" size={11} /> {currentStreak}
               </span>
             </div>
 
