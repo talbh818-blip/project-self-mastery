@@ -225,7 +225,7 @@ export function HabitDetailSheet({
                 className="flex-1 py-3 rounded-2xl bg-red-700 hover:bg-red-600 text-cream-50 font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
               >
                 <Archive size={16} />
-                {working ? 'מאחסן…' : 'אישור ארכוב'}
+                {working ? 'מעביר…' : 'העבר לארכיון'}
               </button>
             </>
           ) : (
@@ -236,7 +236,7 @@ export function HabitDetailSheet({
               className="flex-1 py-3 rounded-2xl bg-surface-raised hover:bg-red-950/50 hover:text-red-400 text-ink-100 font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               <Archive size={16} />
-              ארכוב
+              ארכיון
             </button>
           )}
         </div>
