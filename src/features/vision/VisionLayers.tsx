@@ -105,8 +105,9 @@ export function VisionLayers({ level, anchor, today, onPick, onToday }: Props) {
         />
       </LayerRow>
 
-      {/* ─── Weekly ─── */}
-      <div className="vision-chips flex items-stretch gap-1.5 overflow-x-auto">
+      {/* ─── Weekly ─── all weeks share the row equally (flex-1) so they
+          always fit without overflow/clipping; "השבוע" stays a fixed chip. */}
+      <div className="flex items-stretch gap-1">
         {weeks.map((w, i) => {
           const isSel = level === 'weekly' && w.key === selectedWeekKey;
           return (
@@ -115,28 +116,28 @@ export function VisionLayers({ level, anchor, today, onPick, onToday }: Props) {
               type="button"
               disabled={w.future}
               onClick={() => onPick('weekly', w.anchor)}
-              className={`shrink-0 h-9 px-3 rounded-xl text-[13px] font-medium transition-colors disabled:opacity-25 ${
+              className={`flex-1 min-w-0 h-9 rounded-xl text-[12px] font-medium transition-colors disabled:opacity-25 ${
                 isSel
                   ? 'bg-forest-700/20 text-forest-500 ring-1 ring-forest-700'
                   : 'bg-surface-raised text-ink-300 hover:text-ink-100'
               }`}
             >
-              שבוע {i + 1}
+              <span className="block truncate px-1">שבוע {i + 1}</span>
             </button>
           );
         })}
-        {/* This-week jump */}
+        {/* This-week jump — fixed width, never squeezed. */}
         <button
           type="button"
           onClick={onToday}
           aria-label="חזרה לשבוע הנוכחי"
-          className={`shrink-0 h-9 px-3 rounded-xl text-[13px] font-medium inline-flex items-center gap-1.5 transition-colors ${
+          className={`shrink-0 h-9 px-2.5 rounded-xl text-[12px] font-medium inline-flex items-center gap-1 transition-colors ${
             todayWeekKey === selectedWeekKey && level === 'weekly'
               ? 'text-forest-500'
               : 'text-ink-300 hover:text-ink-100'
           }`}
         >
-          <CalendarCheck size={15} />
+          <CalendarCheck size={15} className="shrink-0" />
           השבוע
         </button>
       </div>
