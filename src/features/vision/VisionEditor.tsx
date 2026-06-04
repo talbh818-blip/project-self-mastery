@@ -15,7 +15,7 @@
 // we've seen it on for an empty doc, we auto-inject STARTER_QUESTION_COUNT
 // questions so the user has something to react to.
 // ============================================================================
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useEditor,
   EditorContent,
@@ -31,9 +31,12 @@ import type { SaveStatus } from './useVisionEntry';
 import { useAssistMode } from './useAssistMode';
 import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionNode } from './VisionQuestion';
+import { VisionImage } from './VisionImage';
 import { VisionToolbar } from './VisionToolbar';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
+import { uploadVisionImage } from './storage';
+import { useAuth } from '../../hooks/useAuth';
 import {
   pickQuestion,
   STARTER_QUESTION_COUNT,
@@ -73,6 +76,37 @@ export function VisionEditor({
   jumpToNow,
   onChange,
 }: Props) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  // True while at least one image upload is in flight. Surfaces a soft
+  // "uploading" hint so a paste/drop isn't completely silent.
+  const [uploadingCount, setUploadingCount] = useState(0);
+
+  // Upload + insert at the current selection. Captured by closure inside the
+  // editor's paste/drop handlers and by the toolbar's "+" callback below.
+  // `editorRef` resolves the editor lazily so the closure doesn't trap a stale
+  // editor instance when useEditor remounts on resetKey changes.
+  const editorRef = useRef<Editor | null>(null);
+  const uploadAndInsert = useCallback(
+    async (file: File) => {
+      const ed = editorRef.current;
+      if (!ed || !userId) return;
+      setUploadingCount((c) => c + 1);
+      try {
+        const { path, width, height } = await uploadVisionImage(userId, file);
+        ed.chain()
+          .focus()
+          .setVisionImage({ path, width, height, alt: file.name })
+          .run();
+      } catch (err) {
+        console.error('[vision] image upload failed', err);
+      } finally {
+        setUploadingCount((c) => Math.max(0, c - 1));
+      }
+    },
+    [userId],
+  );
+
   const editor = useEditor(
     {
       extensions: [
@@ -85,6 +119,7 @@ export function VisionEditor({
         TaskList,
         TaskItem.configure({ nested: true }),
         VisionQuestionNode,
+        VisionImage,
       ],
       content: normaliseContent(initialContent) as Content,
       editable: !readOnly,
@@ -95,6 +130,25 @@ export function VisionEditor({
           dir: 'rtl',
           class: 'focus:outline-none',
         },
+        // Intercept clipboard / drag-drop image files: upload them to private
+        // storage and insert a visionImage node at the caret. Returning true
+        // tells ProseMirror we've handled the event — without that, the
+        // browser would also paste a base64 <img> on top.
+        handlePaste(_view, event) {
+          const files = filesFrom(event.clipboardData);
+          if (files.length === 0) return false;
+          event.preventDefault();
+          for (const file of files) void uploadAndInsert(file);
+          return true;
+        },
+        handleDrop(_view, event) {
+          const dt = (event as DragEvent).dataTransfer;
+          const files = filesFrom(dt);
+          if (files.length === 0) return false;
+          event.preventDefault();
+          for (const file of files) void uploadAndInsert(file);
+          return true;
+        },
       },
       onUpdate({ editor }) {
         onChange(editor.getJSON());
@@ -104,6 +158,11 @@ export function VisionEditor({
     // changes — Tiptap's `useEditor` does not react to `content` changes.
     [resetKey],
   );
+
+  // Keep editorRef in sync so handlers/closures see the latest editor.
+  useEffect(() => {
+    editorRef.current = editor ?? null;
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -200,11 +259,30 @@ export function VisionEditor({
             editor={editor}
             assistOn={assistOn}
             onInsertQuestion={insertOneQuestion}
+            onPickImage={uploadAndInsert}
+            uploadingCount={uploadingCount}
+            canUpload={!!userId}
           />
         </ToolbarShell>
       )}
     </>
   );
+}
+
+// Pull `image/*` File entries out of a clipboard or drag event. Ignores any
+// non-image payload so plain-text paste still goes through Tiptap's defaults.
+function filesFrom(
+  source: DataTransfer | null | undefined,
+): File[] {
+  if (!source) return [];
+  const list = source.files;
+  if (!list || list.length === 0) return [];
+  const out: File[] = [];
+  for (let i = 0; i < list.length; i++) {
+    const f = list.item(i);
+    if (f && f.type.startsWith('image/')) out.push(f);
+  }
+  return out;
 }
 
 /**

@@ -35,6 +35,8 @@ import {
   ListChecks,
   Highlighter,
   Plus,
+  ImagePlus,
+  Loader2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -49,11 +51,34 @@ export function VisionToolbar({
   editor,
   assistOn,
   onInsertQuestion,
+  onPickImage,
+  uploadingCount,
+  canUpload,
 }: {
   editor: Editor;
   assistOn: boolean;
   onInsertQuestion: () => void;
+  /** Called with the file the user picked / dropped via the "+" button. */
+  onPickImage: (file: File) => void | Promise<void>;
+  /** Number of uploads currently in flight (paste + drop + picker combined). */
+  uploadingCount: number;
+  /** False until auth resolves — disables the "+" button so we never try to
+   *  upload anonymously. */
+  canUpload: boolean;
 }) {
+  // The "+" button forwards its click to a hidden file input. We reset the
+  // input's value on every change so picking the SAME file twice in a row
+  // still fires onChange the second time (browsers de-dupe identical values).
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handlePlusClick = () => fileInputRef.current?.click();
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    for (const f of files) {
+      if (f.type.startsWith('image/')) await onPickImage(f);
+    }
+  };
+
   // Icon for the list popover trigger reflects the active list type.
   const listIcon: LucideIcon = editor.isActive('orderedList')
     ? ListOrdered
@@ -74,6 +99,29 @@ export function VisionToolbar({
         shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)]
       "
     >
+      {/* Insert image ("+"). Lives at the right edge in RTL — the first thing
+          the eye lands on. Click → hidden file input → upload + insert. */}
+      <ToolButton
+        label="הוסף תמונה"
+        onClick={handlePlusClick}
+        disabled={!canUpload}
+      >
+        {uploadingCount > 0 ? (
+          <Loader2 size={23} className="animate-spin" />
+        ) : (
+          <ImagePlus size={23} />
+        )}
+      </ToolButton>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      <Sep />
+
       {/* Undo / Redo */}
       <ToolButton
         label="ביטול"
