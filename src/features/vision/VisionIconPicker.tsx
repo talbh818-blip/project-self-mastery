@@ -62,20 +62,20 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
     >
       <div
         dir="rtl"
-        className="w-full max-w-[300px] bg-surface-card rounded-2xl shadow-xl flex flex-col animate-modal-rise-in overflow-hidden max-h-[58vh]"
+        className="w-full max-w-md bg-surface-card rounded-3xl shadow-xl flex flex-col animate-modal-rise-in overflow-hidden max-h-[85vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-surface-border">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-surface-border">
           <button
             type="button"
             onClick={onClose}
             aria-label="סגור"
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-300 hover:bg-surface-raised hover:text-ink-100"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-ink-100"
           >
-            <X size={16} />
+            <X size={18} />
           </button>
-          <span className="text-[13px] font-semibold text-ink-100">
+          <span className="text-sm font-semibold text-ink-100">
             אייקון לחזון
           </span>
           {/* Clear — only meaningful when an icon is already set. */}
@@ -88,14 +88,14 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
             disabled={!value}
             aria-label="הסר אייקון"
             title="הסר אייקון"
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-ink-300 hover:bg-surface-raised hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-300"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-ink-300 hover:bg-surface-raised hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-ink-300"
           >
-            <Trash2 size={15} />
+            <Trash2 size={17} />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1.5 px-3 pt-2">
+        <div className="flex gap-1.5 px-4 pt-3">
           {(
             [
               ['emoji', 'אימוג׳י'],
@@ -106,7 +106,7 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`flex-1 h-7 rounded-lg text-[11px] font-semibold transition-colors ${
+              className={`flex-1 h-8 rounded-lg text-[12px] font-semibold transition-colors ${
                 tab === key
                   ? 'bg-forest-700/20 text-forest-500 ring-1 ring-forest-700'
                   : 'bg-surface-raised text-ink-300 hover:text-ink-100'
@@ -118,30 +118,30 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
         </div>
 
         {/* Search — matches the English name of the icon / emoji. */}
-        <div className="px-3 pt-2">
+        <div className="px-4 pt-3">
           <div className="relative">
             <Search
-              size={14}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none"
+              size={15}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 pointer-events-none"
             />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="חיפוש לפי שם (באנגלית)…"
-              className="w-full h-8 pr-8 pl-2.5 rounded-lg bg-surface-raised text-ink-100 text-[12px] placeholder:text-ink-300 ring-1 ring-surface-border focus:ring-forest-700 outline-none"
+              className="w-full h-9 pr-9 pl-3 rounded-lg bg-surface-raised text-ink-100 text-[13px] placeholder:text-ink-300 ring-1 ring-surface-border focus:ring-forest-700 outline-none"
             />
           </div>
         </div>
 
-        {/* Grid */}
-        <div className="overflow-y-auto themed-scroll px-3 py-2 mt-1">
+        {/* Grid — height capped to ~6 rows; scrolls beyond that. */}
+        <div className="overflow-y-auto themed-scroll px-3 py-3 max-h-[440px]">
           {filtered.length === 0 ? (
             <p className="text-center text-[12px] text-ink-300 py-6">
               לא נמצאו תוצאות
             </p>
           ) : (
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-6 gap-1.5">
               {filtered.map((item) => {
                 const selected = item === value;
                 return (
@@ -150,13 +150,13 @@ export function VisionIconPicker({ open, value, onPick, onClose }: Props) {
                     type="button"
                     onClick={() => choose(item)}
                     aria-label={item}
-                    className={`aspect-square rounded-lg flex items-center justify-center transition-colors ${
+                    className={`aspect-square rounded-xl flex items-center justify-center transition-colors ${
                       selected
                         ? 'bg-forest-700/25 ring-1 ring-forest-700 text-forest-500'
                         : 'bg-surface-raised hover:bg-surface-raised/70 text-ink-100'
                     }`}
                   >
-                    <HabitIcon name={item} size={20} />
+                    <HabitIcon name={item} size={22} />
                   </button>
                 );
               })}
