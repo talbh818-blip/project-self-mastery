@@ -4,6 +4,7 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
+  ChevronsDown,
   LayoutGrid,
   Plus,
   Rows3,
@@ -50,6 +51,7 @@ import {
   type SlotView,
 } from '../features/habits/types';
 import { HabitIcon } from '../features/habits/HabitIcon';
+import { HabitDescription } from '../features/habits/HabitDescription';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
 import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
 import { ArchiveSheet } from '../features/habits/ArchiveSheet';
@@ -863,6 +865,30 @@ function HabitRow({
   }, 0);
   const isWeekly = habit.frequency_period === 'weekly';
 
+  // Description expander. Remembered per-habit in localStorage so it stays
+  // open (or closed) across visits.
+  const hasDescription = !!habit.description && habit.description.trim().length > 0;
+  const descKey = `habit-desc-open-${habit.id}`;
+  const [descOpen, setDescOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(descKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleDesc = () => {
+    setDescOpen((prev) => {
+      const next = !prev;
+      try {
+        if (next) localStorage.setItem(descKey, '1');
+        else localStorage.removeItem(descKey);
+      } catch {
+        /* ignore storage failures */
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card px-2 sm:px-3 py-2.5">
       {/* Top row: icon tile (its own block) + cells grid (separate block).
@@ -950,39 +976,68 @@ function HabitRow({
 
       {/* Bottom: habit name + type pill + weekly progress on a single line.
           The name truncates with ellipsis instead of wrapping. Type pill and
-          progress stay shrink-0 so they're never cut. */}
-      <button
-        type="button"
-        onClick={onShowDetail}
-        className="mt-2 w-full flex items-center gap-1.5 min-w-0 text-right hover:opacity-80 transition-opacity"
-        aria-label="פרטי הרגל"
-      >
-        <span className="text-sm font-medium text-ink-100 truncate min-w-0">
-          {habit.name}
-        </span>
-        {/* Type pill */}
-        <span
-          className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
-            habit.type === 'positive'
-              ? 'border-forest-500/60 text-forest-400'
-              : 'border-red-500/60 text-red-400'
-          }`}
+          progress stay shrink-0 so they're never cut. A chevron at the far
+          end (left in RTL) toggles the description expander. */}
+      <div className="mt-2 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onShowDetail}
+          className="flex-1 min-w-0 flex items-center gap-1.5 text-right hover:opacity-80 transition-opacity"
+          aria-label="פרטי הרגל"
         >
-          {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
-        </span>
-        {/* Weekly frequency progress */}
-        {isWeekly && (
-          <span className="text-[10px] text-ink-100 shrink-0">
-            · {weeklyCompletions}/{habit.frequency_target} השבוע
+          <span className="text-sm font-medium text-ink-100 truncate min-w-0">
+            {habit.name}
           </span>
-        )}
-        {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
-        {currentStreak >= 3 && (
-          <span className="shrink-0 text-[10px] text-amber-400 inline-flex items-center gap-0.5">
-            · <Emoji emoji="🔥" size={11} /> {currentStreak}
+          {/* Type pill */}
+          <span
+            className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
+              habit.type === 'positive'
+                ? 'border-forest-500/60 text-forest-400'
+                : 'border-red-500/60 text-red-400'
+            }`}
+          >
+            {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
           </span>
+          {/* Weekly frequency progress */}
+          {isWeekly && (
+            <span className="text-[10px] text-ink-100 shrink-0">
+              · {weeklyCompletions}/{habit.frequency_target} השבוע
+            </span>
+          )}
+          {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
+          {currentStreak >= 3 && (
+            <span className="shrink-0 text-[10px] text-amber-400 inline-flex items-center gap-0.5">
+              · <Emoji emoji="🔥" size={11} /> {currentStreak}
+            </span>
+          )}
+        </button>
+        {/* Description expander toggle — only when there's a description. */}
+        {hasDescription && (
+          <button
+            type="button"
+            onClick={toggleDesc}
+            className="shrink-0 -m-1 p-1 text-ink-300 hover:text-ink-100 transition-colors"
+            aria-label={descOpen ? 'הסתר תיאור' : 'הצג תיאור'}
+            aria-expanded={descOpen}
+          >
+            <ChevronsDown
+              size={16}
+              className={`transition-transform ${descOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
         )}
-      </button>
+      </div>
+
+      {/* Expandable description — rendered directly below the habit, in the
+          format the user chose. State persists via localStorage. */}
+      {hasDescription && descOpen && (
+        <div className="mt-2 pt-2 border-t border-surface-border">
+          <HabitDescription
+            description={habit.description!}
+            format={habit.description_format}
+          />
+        </div>
+      )}
     </div>
   );
 }
