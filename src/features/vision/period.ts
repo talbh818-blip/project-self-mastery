@@ -369,3 +369,54 @@ function isoWeekStart(weekYear: number, week: number): Date {
   target.setDate(week1Monday.getDate() + (week - 1) * 7);
   return target;
 }
+
+// ============================================================================
+// Anchor-based navigation (single coherent position in the year→month→week
+// pyramid). The Vision screen holds ONE anchor Date + a zoom level; every
+// label and period key is derived from that anchor, so the breadcrumb is
+// always internally consistent even when stepping crosses a month/year edge.
+// ============================================================================
+
+/** Move the anchor by `delta` units of the given level (years/months/weeks). */
+export function addAnchor(
+  level: VisionScope,
+  anchor: Date,
+  delta: number,
+): Date {
+  const d = new Date(anchor);
+  if (level === 'yearly') d.setFullYear(d.getFullYear() + delta);
+  else if (level === 'monthly') d.setMonth(d.getMonth() + delta);
+  else d.setDate(d.getDate() + delta * 7);
+  return d;
+}
+
+/** Hebrew month name for a date, e.g. "מאי". */
+export function monthName(date: Date): string {
+  return HEB_MONTHS[date.getMonth()];
+}
+
+/** 1-indexed position of the anchor's ISO week within the anchor's calendar
+ *  month (week containing the 1st = week 1). */
+export function weekOfMonthOf(anchor: Date): number {
+  return weekOfMonth(getWeekKey(anchor), getMonthKey(anchor));
+}
+
+/** How many ISO weeks overlap the anchor's calendar month (4 or 5, rarely 6). */
+export function weeksInMonthOf(anchor: Date): number {
+  const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+  const monthEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
+  const firstWeekStart = parsePeriodStart(
+    'weekly',
+    getPeriodKey('weekly', monthStart),
+  );
+  const lastWeekStart = parsePeriodStart(
+    'weekly',
+    getPeriodKey('weekly', monthEnd),
+  );
+  return (
+    Math.round(
+      (lastWeekStart.getTime() - firstWeekStart.getTime()) /
+        (1000 * 60 * 60 * 24 * 7),
+    ) + 1
+  );
+}

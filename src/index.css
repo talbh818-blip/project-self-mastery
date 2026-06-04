@@ -484,7 +484,7 @@ html[data-theme="light"] {
 .vision-editor .ProseMirror {
   direction: rtl;
   text-align: right;
-  min-height: 22vh;
+  min-height: 30vh;
   padding-bottom: 1.5rem;
   outline: none;
   color: var(--color-ink-100);
