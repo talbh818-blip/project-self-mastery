@@ -94,12 +94,23 @@ export function VisionEditor({
       setUploadingCount((c) => c + 1);
       try {
         const { path, width, height } = await uploadVisionImage(userId, file);
-        ed.chain()
+        // Log the run result so a silent reject (e.g. schema didn't accept the
+        // block at the caret) is visible in the console. Without this a failed
+        // command looked exactly like a missing-image bug.
+        const ok = ed
+          .chain()
           .focus()
           .setVisionImage({ path, width, height, alt: file.name })
           .run();
+        console.log('[vision] setVisionImage →', { ok, path, width, height });
+        if (!ok) {
+          window.alert('לא הצלחנו להכניס את התמונה למסמך — נסה למקם את הסמן בשורה חדשה ולנסות שוב.');
+        }
       } catch (err) {
         console.error('[vision] image upload failed', err);
+        const msg =
+          (err as { message?: string } | null)?.message ?? 'שגיאה לא ידועה';
+        window.alert(`העלאת התמונה נכשלה: ${msg}`);
       } finally {
         setUploadingCount((c) => Math.max(0, c - 1));
       }
