@@ -226,7 +226,7 @@ function DoneCheck() {
   return (
     <CheckCircle2
       size={16}
-      strokeWidth={2}
+      strokeWidth={1.25}
       aria-label="נכתב"
       className="shrink-0 text-white"
     />
