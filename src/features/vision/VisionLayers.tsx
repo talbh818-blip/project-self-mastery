@@ -226,11 +226,12 @@ function Centre({
         key={animKey}
         className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
       >
-        {/* Right balance spacer — same width as the left badge so the centred
-            group stays truly centred. Hidden together with the badge on
-            narrow rows. */}
+        {/* "Written" badge — far RIGHT. Lowest priority: hidden on narrow rows
+            (it's not critical), so the title gets the space instead. */}
         {done && (
-          <span aria-hidden className="hidden min-[430px]:block shrink-0 w-[15px]" />
+          <span className="hidden min-[430px]:flex shrink-0 items-center">
+            <WrittenBadge />
+          </span>
         )}
 
         {/* Centred group: icon tile (right) + title. The title TRUNCATES with
@@ -255,12 +256,11 @@ function Centre({
           </button>
         </span>
 
-        {/* "Written" badge — far LEFT. Lowest priority: hidden on narrow rows
-            (it's not critical), so the title gets the space instead. */}
+        {/* Left balance spacer — same width as the right badge so the centred
+            group stays truly centred. Hidden together with the badge on
+            narrow rows. */}
         {done && (
-          <span className="hidden min-[430px]:flex shrink-0 items-center">
-            <WrittenBadge />
-          </span>
+          <span aria-hidden className="hidden min-[430px]:block shrink-0 w-[15px]" />
         )}
       </span>
     </div>
