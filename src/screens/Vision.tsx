@@ -13,8 +13,9 @@ import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { VisionLayers } from '../features/vision/VisionLayers';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
-import { fetchVisionIcons } from '../features/vision/queries';
+import { fetchVisionRowMeta } from '../features/vision/queries';
 import { updateVisionEntryIcon } from '../features/vision/mutations';
+import { isVisionContentEmpty } from '../features/vision/content';
 import { useAuth } from '../hooks/useAuth';
 import { CompassLoader } from '../components/CompassLoader';
 import {
@@ -24,6 +25,7 @@ import {
 } from '../features/vision/period';
 
 type ScopeIcons = Partial<Record<VisionScope, string | null>>;
+type ScopeFlags = Partial<Record<VisionScope, boolean>>;
 
 // Nesting depth — drives the editor's zoom direction on level switches.
 const SCOPE_DEPTH: Record<VisionScope, number> = {
@@ -58,17 +60,24 @@ export function Vision() {
   const weekKey = getPeriodKey('weekly', anchor);
 
   const [icons, setIcons] = useState<ScopeIcons>({});
+  // Which rows already have written content → drives the "written" check-mark.
+  const [written, setWritten] = useState<ScopeFlags>({});
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    fetchVisionIcons(userId, [yearKey, monthKey, weekKey])
+    fetchVisionRowMeta(userId, [yearKey, monthKey, weekKey])
       .then((rows) => {
         if (cancelled) return;
-        const next: ScopeIcons = {};
-        for (const r of rows) next[r.scope] = r.icon;
-        setIcons(next);
+        const nextIcons: ScopeIcons = {};
+        const nextWritten: ScopeFlags = {};
+        for (const r of rows) {
+          nextIcons[r.scope] = r.icon;
+          nextWritten[r.scope] = !isVisionContentEmpty(r.content);
+        }
+        setIcons(nextIcons);
+        setWritten(nextWritten);
       })
-      .catch((err) => console.error('[vision] icons fetch failed', err));
+      .catch((err) => console.error('[vision] row-meta fetch failed', err));
     return () => {
       cancelled = true;
     };
@@ -85,6 +94,20 @@ export function Vision() {
       );
     },
     [userId, level, periodKey],
+  );
+
+  // Live-track whether the ACTIVE entry has content as the user types, so the
+  // check-mark appears/disappears instantly (not only after the debounced
+  // save). Wraps scheduleSave.
+  const handleEditorChange = useCallback(
+    (json: unknown) => {
+      const empty = isVisionContentEmpty(json);
+      setWritten((prev) =>
+        prev[level] === !empty ? prev : { ...prev, [level]: !empty },
+      );
+      scheduleSave(json);
+    },
+    [level, scheduleSave],
   );
 
   // Editor zoom direction: deeper level (year→month→week) = zoom IN, broader
@@ -127,7 +150,13 @@ export function Vision() {
   return (
     // -mt-3 tightens the gap with the global brand header.
     <section className="-mt-3 pb-3">
-      <VisionLayers level={level} anchor={anchor} onPick={pick} icons={icons} />
+      <VisionLayers
+        level={level}
+        anchor={anchor}
+        onPick={pick}
+        icons={icons}
+        written={written}
+      />
 
       {/* Body — flat-top writing surface flush under the nav's divider. */}
       {locked ? (
@@ -152,7 +181,7 @@ export function Vision() {
           jumpToNow={jumpToNow}
           icon={icons[level] ?? null}
           onPickIcon={pickIcon}
-          onChange={scheduleSave}
+          onChange={handleEditorChange}
         />
       )}
     </section>

@@ -18,7 +18,7 @@
 // The "jump to current period" control ("השבוע" / "החודש" / "השנה") lives in
 // the editor's DateBar row, not here.
 // ============================================================================
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { HabitIcon } from '../habits/HabitIcon';
 import {
   addAnchor,
@@ -28,6 +28,7 @@ import {
   isFuturePeriod,
   monthName,
   monthShort,
+  parsePeriodStart,
   weekOfMonthOf,
   type VisionScope,
 } from './period';
@@ -39,9 +40,22 @@ type Props = {
   onPick: (level: VisionScope, anchor: Date) => void;
   /** Per-level icon (Lucide name or emoji char) shown next to each title. */
   icons?: Partial<Record<VisionScope, string | null>>;
+  /** Per-level "has written content" → shows the check-mark badge. */
+  written?: Partial<Record<VisionScope, boolean>>;
 };
 
-export function VisionLayers({ level, anchor, onPick, icons }: Props) {
+/** "1.4 – 7.4" for the week containing `anchor`. Uses the app's canonical
+ *  week start (parsePeriodStart) so the range matches the real week
+ *  boundaries, then +6 days for the end. */
+function weekRangeLabel(anchor: Date): string {
+  const start = parsePeriodStart('weekly', getWeekKey(anchor));
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const fmt = (d: Date) => `${d.getDate()}.${d.getMonth() + 1}`;
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+export function VisionLayers({ level, anchor, onPick, icons, written }: Props) {
   const year = anchor.getFullYear();
 
   const prevYear = addAnchor('yearly', anchor, -1);
@@ -72,9 +86,10 @@ export function VisionLayers({ level, anchor, onPick, icons }: Props) {
           active={level === 'yearly'}
           animKey={`y-${year}`}
           icon={icons?.yearly ?? null}
+          done={written?.yearly ?? false}
           onClick={() => onPick('yearly', anchor)}
         >
-          חזון שנתי {year}
+          <span className="truncate">חזון שנתי {year}</span>
         </Centre>
         <SidePill
           dir="next"
@@ -95,9 +110,10 @@ export function VisionLayers({ level, anchor, onPick, icons }: Props) {
           active={level === 'monthly'}
           animKey={`m-${getMonthKey(anchor)}`}
           icon={icons?.monthly ?? null}
+          done={written?.monthly ?? false}
           onClick={() => onPick('monthly', anchor)}
         >
-          חזון חודשי · {monthName(anchor)}
+          <span className="truncate">חזון חודשי · {monthName(anchor)}</span>
         </Centre>
         <SidePill
           dir="next"
@@ -115,9 +131,21 @@ export function VisionLayers({ level, anchor, onPick, icons }: Props) {
           active={level === 'weekly'}
           animKey={`w-${getWeekKey(anchor)}`}
           icon={icons?.weekly ?? null}
+          done={written?.weekly ?? false}
           onClick={() => onPick('weekly', anchor)}
         >
-          חזון שבועי · שבוע {weekOfMonthOf(anchor)}
+          <span className="shrink-0">חזון שבועי</span>
+          {/* "שבוע N" in a rounded pill */}
+          <span className="shrink-0 rounded-full bg-forest-700/30 text-forest-400 px-2 py-0.5 text-[11px] font-semibold leading-none">
+            שבוע {weekOfMonthOf(anchor)}
+          </span>
+          {/* date range — muted, LTR so the numbers don't reorder in RTL */}
+          <span
+            dir="ltr"
+            className="shrink-0 text-[11px] font-normal text-ink-300/80 tabular-nums"
+          >
+            {weekRangeLabel(anchor)}
+          </span>
         </Centre>
         <SidePill
           dir="next"
@@ -153,12 +181,15 @@ function Centre({
   active,
   animKey,
   icon,
+  done = false,
   onClick,
   children,
 }: {
   active: boolean;
   animKey: string;
   icon?: string | null;
+  /** Entry has written content → show the check-mark badge. */
+  done?: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -173,18 +204,33 @@ function Centre({
       }`}
     >
       {/* keyed so the label re-mounts (soft fade) when the period changes.
-          The chosen icon sits at the START (right edge in RTL), next to the
-          title text. */}
+          Order from the START (right edge in RTL): done-check → chosen icon
+          → title. The caller supplies the title element(s). */}
       <span
         key={animKey}
         className="vision-label-anim flex items-center justify-center gap-1.5 min-w-0 px-2"
       >
+        {done && <DoneCheck />}
         {icon && (
           <HabitIcon name={icon} size={16} className="shrink-0 text-current" />
         )}
-        <span className="truncate">{children}</span>
+        {children}
       </span>
     </button>
+  );
+}
+
+/** "Written" badge — a white check inside a small forest circle. Theme-safe
+ *  (the brand green reads on both light and dark cards). */
+function DoneCheck() {
+  return (
+    <span
+      aria-label="נכתב"
+      title="נכתב"
+      className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full bg-forest-600"
+    >
+      <Check size={11} strokeWidth={3} className="text-white" />
+    </span>
   );
 }
 

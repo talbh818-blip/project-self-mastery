@@ -21,28 +21,32 @@ export type VisionEntry = {
   updated_at: string;
 };
 
+export type VisionRowMeta = {
+  scope: VisionScope;
+  period_key: string;
+  icon: string | null;
+  content: unknown;
+};
+
 /**
- * Fetch just the icons for a set of period keys (used to badge all three
- * rows of the layered navigator at once). Period-key formats are distinct
+ * Fetch the lightweight per-row metadata (icon + content) for a set of period
+ * keys — used to badge all three rows of the layered navigator at once (the
+ * chosen icon and a "written" check-mark). Period-key formats are distinct
  * per scope (YYYY / YYYY-MM / YYYY-Www) so an `in (...)` on period_key alone
  * never collides across scopes.
  */
-export async function fetchVisionIcons(
+export async function fetchVisionRowMeta(
   userId: string,
   periodKeys: string[],
-): Promise<{ scope: VisionScope; period_key: string; icon: string | null }[]> {
+): Promise<VisionRowMeta[]> {
   if (periodKeys.length === 0) return [];
   const { data, error } = await supabase
     .from('vision_entries')
-    .select('scope, period_key, icon')
+    .select('scope, period_key, icon, content')
     .eq('user_id', userId)
     .in('period_key', periodKeys);
   if (error) throw error;
-  return (data ?? []) as {
-    scope: VisionScope;
-    period_key: string;
-    icon: string | null;
-  }[];
+  return (data ?? []) as VisionRowMeta[];
 }
 
 export async function fetchVisionEntry(
