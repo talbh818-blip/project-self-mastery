@@ -4,7 +4,6 @@ import {
   BarChart3,
   ChevronRight,
   ChevronLeft,
-  ChevronsDown,
   LayoutGrid,
   Plus,
   Rows3,
@@ -1024,11 +1023,25 @@ function HabitRow({
           aria-label={descOpen ? 'הסתר פרטים' : 'הצג פרטים'}
           aria-expanded={descOpen}
         >
-          <ChevronsDown
-            size={16}
+          {/* Two small, clearly-separated chevron arrowheads pointing down
+              (flips to point up when open). Custom SVG so the gap between the
+              two heads is crisp at this small size. */}
+          <svg
+            width={17}
+            height={17}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.25}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
             className={descOpen ? 'rotate-180' : ''}
             style={{ transition: 'transform 360ms cubic-bezier(0.65, 0, 0.35, 1)' }}
-          />
+          >
+            <path d="M7 6l5 4 5-4" />
+            <path d="M7 13l5 4 5-4" />
+          </svg>
         </button>
       </div>
 
