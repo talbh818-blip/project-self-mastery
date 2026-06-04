@@ -18,7 +18,7 @@
 // The "jump to current period" control ("השבוע" / "החודש" / "השנה") lives in
 // the editor's DateBar row, not here.
 // ============================================================================
-import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { HabitIcon } from '../habits/HabitIcon';
 import {
   addAnchor,
@@ -135,16 +135,16 @@ export function VisionLayers({ level, anchor, onPick, icons, written }: Props) {
           onClick={() => onPick('weekly', anchor)}
         >
           <span className="shrink-0">חזון שבועי</span>
-          {/* "שבוע N" in a rounded pill */}
-          <span className="shrink-0 rounded-full bg-forest-700/30 text-forest-400 px-2 py-0.5 text-[11px] font-semibold leading-none">
-            שבוע {weekOfMonthOf(anchor)}
-          </span>
-          {/* date range — muted, LTR so the numbers don't reorder in RTL */}
+          {/* date range first — muted, LTR so the numbers don't reorder in RTL */}
           <span
             dir="ltr"
             className="shrink-0 text-[11px] font-normal text-ink-300/80 tabular-nums"
           >
             {weekRangeLabel(anchor)}
+          </span>
+          {/* then "שבוע N" in a rounded pill */}
+          <span className="shrink-0 rounded-full bg-forest-700/30 text-forest-400 px-2 py-0.5 text-[11px] font-semibold leading-none">
+            שבוע {weekOfMonthOf(anchor)}
           </span>
         </Centre>
         <SidePill
@@ -220,17 +220,16 @@ function Centre({
   );
 }
 
-/** "Written" badge — a white check inside a small forest circle. Theme-safe
- *  (the brand green reads on both light and dark cards). */
+/** "Written" badge — a thin white check inside a thin white circle outline
+ *  (just the stroke, no fill), matching the weight of the check itself. */
 function DoneCheck() {
   return (
-    <span
+    <CheckCircle2
+      size={16}
+      strokeWidth={2}
       aria-label="נכתב"
-      title="נכתב"
-      className="shrink-0 inline-flex items-center justify-center w-4 h-4 rounded-full bg-forest-600"
-    >
-      <Check size={11} strokeWidth={3} className="text-white" />
-    </span>
+      className="shrink-0 text-white"
+    />
   );
 }
 
