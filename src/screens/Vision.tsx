@@ -8,17 +8,22 @@
 // (level, anchor), so the breadcrumb is always internally consistent — even
 // when stepping a week crosses a month/year boundary.
 // ============================================================================
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { VisionLayers } from '../features/vision/VisionLayers';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
+import { fetchVisionIcons } from '../features/vision/queries';
+import { updateVisionEntryIcon } from '../features/vision/mutations';
+import { useAuth } from '../hooks/useAuth';
 import { CompassLoader } from '../components/CompassLoader';
 import {
   getPeriodKey,
   isFuturePeriod,
   type VisionScope,
 } from '../features/vision/period';
+
+type ScopeIcons = Partial<Record<VisionScope, string | null>>;
 
 // Nesting depth — drives the editor's zoom direction on level switches.
 const SCOPE_DEPTH: Record<VisionScope, number> = {
@@ -35,6 +40,8 @@ const PLACEHOLDERS: Record<VisionScope, string> = {
 
 export function Vision() {
   const today = useMemo(() => new Date(), []);
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
 
   // Single position in the pyramid: a zoom level + an anchor date.
   const [level, setLevel] = useState<VisionScope>('yearly');
@@ -42,6 +49,43 @@ export function Vision() {
 
   const periodKey = getPeriodKey(level, anchor);
   const locked = isFuturePeriod(level, periodKey);
+
+  // The three period keys for the current anchor — one per row of the
+  // layered navigator. Each row shows its own icon (persistently), so we
+  // load all three at once whenever the anchor moves.
+  const yearKey = getPeriodKey('yearly', anchor);
+  const monthKey = getPeriodKey('monthly', anchor);
+  const weekKey = getPeriodKey('weekly', anchor);
+
+  const [icons, setIcons] = useState<ScopeIcons>({});
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    fetchVisionIcons(userId, [yearKey, monthKey, weekKey])
+      .then((rows) => {
+        if (cancelled) return;
+        const next: ScopeIcons = {};
+        for (const r of rows) next[r.scope] = r.icon;
+        setIcons(next);
+      })
+      .catch((err) => console.error('[vision] icons fetch failed', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, yearKey, monthKey, weekKey]);
+
+  // Pick (or clear) the icon for the CURRENTLY ACTIVE level. Optimistic local
+  // update so the row badge changes instantly; persists in the background.
+  const pickIcon = useCallback(
+    (icon: string | null) => {
+      setIcons((prev) => ({ ...prev, [level]: icon }));
+      if (!userId) return;
+      void updateVisionEntryIcon(userId, level, periodKey, icon).catch((err) =>
+        console.error('[vision] icon save failed', err),
+      );
+    },
+    [userId, level, periodKey],
+  );
 
   // Editor zoom direction: deeper level (year→month→week) = zoom IN, broader
   // = zoom OUT. Compared to the previous level; ref updates after commit.
@@ -83,7 +127,7 @@ export function Vision() {
   return (
     // -mt-3 tightens the gap with the global brand header.
     <section className="-mt-3 pb-3">
-      <VisionLayers level={level} anchor={anchor} onPick={pick} />
+      <VisionLayers level={level} anchor={anchor} onPick={pick} icons={icons} />
 
       {/* Body — flat-top writing surface flush under the nav's divider. */}
       {locked ? (
@@ -106,6 +150,8 @@ export function Vision() {
           documentDate={documentDate}
           onDateChange={(iso) => void setDocumentDate(iso)}
           jumpToNow={jumpToNow}
+          icon={icons[level] ?? null}
+          onPickIcon={pickIcon}
           onChange={scheduleSave}
         />
       )}

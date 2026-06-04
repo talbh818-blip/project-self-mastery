@@ -193,6 +193,7 @@
   - RTL מלא (caret, יישור, placeholder).
   - תחושת מחברת: line-height גדול, הרבה padding, ללא frames מיותרים.
 - **שמירה אוטומטית** דרך debounce של 1 שנייה. אינדיקטור בפינה: `שומר…` / `נשמר` / `שגיאה בשמירה`. בלי כפתור "שמור".
+- **אייקון פר-חזון:** כפתור ב-`DateBar` (משמאל ל"כתיבה מודרכת") פותח `VisionIconPicker` — גיליון בחירת אייקון/אימוג'י (מאגר ההרגלים: `HABIT_ICONS` + `HABIT_EMOJIS`, מוצג דרך `HabitIcon`). הבחירה נשמרת לעמודה `icon` של ה-`vision_entry` ומוצגת **ליד כותרת כל שלוש השורות** ב-`VisionLayers` (כל רמה — שנתי/חודשי/שבועי — עם האייקון שלה, באופן קבוע). הטעינה: `fetchVisionIcons` מביא את 3 האייקונים של ה-anchor הנוכחי בקריאה אחת; הבחירה אופטימית + `updateVisionEntryIcon`. מיגרציה: `0021_vision_entry_icon.sql`.
 
 ### מודל נתונים (`vision_entries`)
 - מפתח: `(user_id, scope, period_key)` ייחודי.

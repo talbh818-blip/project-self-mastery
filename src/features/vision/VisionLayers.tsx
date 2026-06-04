@@ -19,6 +19,7 @@
 // the editor's DateBar row, not here.
 // ============================================================================
 import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { HabitIcon } from '../habits/HabitIcon';
 import {
   addAnchor,
   getMonthKey,
@@ -36,9 +37,11 @@ type Props = {
   anchor: Date;
   /** Activate a level at a given anchor (centre tap or side step). */
   onPick: (level: VisionScope, anchor: Date) => void;
+  /** Per-level icon (Lucide name or emoji char) shown next to each title. */
+  icons?: Partial<Record<VisionScope, string | null>>;
 };
 
-export function VisionLayers({ level, anchor, onPick }: Props) {
+export function VisionLayers({ level, anchor, onPick, icons }: Props) {
   const year = anchor.getFullYear();
 
   const prevYear = addAnchor('yearly', anchor, -1);
@@ -68,6 +71,7 @@ export function VisionLayers({ level, anchor, onPick }: Props) {
         <Centre
           active={level === 'yearly'}
           animKey={`y-${year}`}
+          icon={icons?.yearly ?? null}
           onClick={() => onPick('yearly', anchor)}
         >
           חזון שנתי {year}
@@ -90,6 +94,7 @@ export function VisionLayers({ level, anchor, onPick }: Props) {
         <Centre
           active={level === 'monthly'}
           animKey={`m-${getMonthKey(anchor)}`}
+          icon={icons?.monthly ?? null}
           onClick={() => onPick('monthly', anchor)}
         >
           חזון חודשי · {monthName(anchor)}
@@ -109,6 +114,7 @@ export function VisionLayers({ level, anchor, onPick }: Props) {
         <Centre
           active={level === 'weekly'}
           animKey={`w-${getWeekKey(anchor)}`}
+          icon={icons?.weekly ?? null}
           onClick={() => onPick('weekly', anchor)}
         >
           חזון שבועי · שבוע {weekOfMonthOf(anchor)}
@@ -146,11 +152,13 @@ function LayerRow({
 function Centre({
   active,
   animKey,
+  icon,
   onClick,
   children,
 }: {
   active: boolean;
   animKey: string;
+  icon?: string | null;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -164,9 +172,17 @@ function Centre({
           : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
       }`}
     >
-      {/* keyed so the label re-mounts (soft fade) when the period changes */}
-      <span key={animKey} className="vision-label-anim block truncate px-2">
-        {children}
+      {/* keyed so the label re-mounts (soft fade) when the period changes.
+          The chosen icon sits at the START (right edge in RTL), next to the
+          title text. */}
+      <span
+        key={animKey}
+        className="vision-label-anim flex items-center justify-center gap-1.5 min-w-0 px-2"
+      >
+        {icon && (
+          <HabitIcon name={icon} size={16} className="shrink-0 text-current" />
+        )}
+        <span className="truncate">{children}</span>
       </span>
     </button>
   );
