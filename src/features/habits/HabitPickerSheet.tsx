@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
@@ -576,11 +576,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Inline list editor — one input row per item with its prefix (•, 1., ☐)
-// sitting right beside the text, so the bullets live *inside* the writing
-// area instead of in a separate preview. Enter adds a new item; Backspace on
-// an empty item merges back to the previous one. Items are stored as the
-// newline-joined `value` string (matching the plain-text format's storage).
+// Inline list editor. A single <textarea> holds one item per line (so the
+// user can select & delete across multiple lines natively), while a gutter
+// overlay renders each line's prefix (•, 1., ☐) right beside the text — the
+// bullets live *inside* the writing area. Capped at MAX_LIST_ITEMS lines.
+const MAX_LIST_ITEMS = 10;
+const LIST_LINE_HEIGHT = '1.6rem';
+
 function ListEditor({
   format,
   value,
@@ -590,64 +592,58 @@ function ListEditor({
   value: string;
   onChange: (next: string) => void;
 }) {
-  // Always show at least one (empty) row so there's somewhere to type.
-  const items = value.length ? value.split('\n') : [''];
-  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
-
-  const commit = (next: string[]) => onChange(next.join('\n'));
+  const lines = value.length ? value.split('\n') : [''];
+  const lineCount = lines.length;
 
   const prefixFor = (i: number) =>
     format === 'bullets' ? '•' : format === 'numbers' ? `${i + 1}.` : '☐';
 
-  const updateItem = (i: number, text: string) => {
-    const next = [...items];
-    next[i] = text;
-    commit(next);
+  const handleChange = (raw: string) => {
+    // Enforce the 10-line cap: extra lines (e.g. from Enter or a paste) are
+    // dropped, which effectively blocks adding an 11th item.
+    const ls = raw.split('\n');
+    onChange(ls.length > MAX_LIST_ITEMS ? ls.slice(0, MAX_LIST_ITEMS).join('\n') : raw);
   };
 
-  const handleKeyDown = (
-    i: number,
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const next = [...items];
-      next.splice(i + 1, 0, '');
-      commit(next);
-      requestAnimationFrame(() => inputsRef.current[i + 1]?.focus());
-    } else if (e.key === 'Backspace' && items[i] === '' && items.length > 1) {
-      e.preventDefault();
-      const next = [...items];
-      next.splice(i, 1);
-      commit(next);
-      requestAnimationFrame(() => {
-        const prev = inputsRef.current[Math.max(0, i - 1)];
-        prev?.focus();
-        const len = prev?.value.length ?? 0;
-        prev?.setSelectionRange(len, len);
-      });
-    }
-  };
+  // rows always >= line count (capped at 10), so the textarea never scrolls
+  // internally and the absolutely-positioned gutter stays aligned.
+  const rows = Math.min(MAX_LIST_ITEMS, Math.max(2, lineCount));
 
   return (
-    <div className="rounded-xl bg-surface-raised border border-surface-border px-3 py-2 space-y-1 focus-within:border-forest-500 transition-colors">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="shrink-0 w-4 text-center text-ink-300 text-sm tabular-nums select-none">
+    <div className="relative">
+      <textarea
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        dir="rtl"
+        wrap="off"
+        rows={rows}
+        placeholder="פריט…"
+        className="w-full rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500 resize-none block"
+        style={{
+          lineHeight: LIST_LINE_HEIGHT,
+          paddingTop: '0.5rem',
+          paddingBottom: '0.5rem',
+          paddingLeft: '0.75rem',
+          paddingRight: '1.9rem', // reserve the right gutter (RTL start side)
+        }}
+      />
+      {/* Prefix gutter — pinned to the right (line start in RTL), one prefix
+          per logical line, sharing the textarea's line-height + top padding. */}
+      <div
+        aria-hidden="true"
+        className="absolute top-0 right-0 pointer-events-none text-ink-300 text-sm tabular-nums select-none text-center"
+        style={{
+          paddingTop: '0.5rem',
+          width: '1.9rem',
+          lineHeight: LIST_LINE_HEIGHT,
+        }}
+      >
+        {lines.map((_, i) => (
+          <div key={i} style={{ height: LIST_LINE_HEIGHT }}>
             {prefixFor(i)}
-          </span>
-          <input
-            ref={(el) => {
-              inputsRef.current[i] = el;
-            }}
-            value={item}
-            onChange={(e) => updateItem(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            placeholder={i === 0 ? 'פריט…' : ''}
-            className="flex-1 min-w-0 bg-transparent text-ink-100 placeholder-ink-500 text-sm focus:outline-none"
-          />
-        </div>
-      ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
