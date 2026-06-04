@@ -86,7 +86,7 @@ const DATA_RANGE_LABEL: Record<DataRange, string> = {
 
 export function Habits() {
   const { user } = useAuth();
-  const { profile } = useCurrentProfile();
+  const { profile, loading: profileLoading } = useCurrentProfile();
   const today = useMemo(() => new Date(), []);
   const tomorrow = useMemo(() => {
     const t = new Date(today);
@@ -168,15 +168,23 @@ export function Habits() {
   // admin edits flow through to the same number the user sees everywhere.
   const totalScore = (data.stats?.totalScore ?? 0) + (profile?.score_adjustment ?? 0);
 
-  // Detect score deltas to drive the pop/float animation. We hold the
-  // animation key on a ref so the FIRST render after load doesn't trigger
-  // an animation (we treat the initial value as "no change").
+  // The tree's score math (totalScore − cycle_score_floor) is only meaningful
+  // once BOTH the habit data AND the profile have loaded. Until then we hold
+  // the tree card in a skeleton and suppress score animations — otherwise the
+  // briefly-zero floor makes the meter flash "ready to plant" and fires a
+  // bogus "+N" pop as the score jumps from 0 to its real value on first load.
+  const treeReady = data.status === 'ready' && !profileLoading;
+
+  // Detect score deltas to drive the pop/float animation. Tracking only
+  // begins once everything is loaded, and the first settled value is treated
+  // as "no change" (no animation), so a page refresh never animates.
   const prevScoreRef = useRef<number | null>(null);
   const [scoreAnim, setScoreAnim] = useState<{ key: number; delta: number } | null>(null);
   useEffect(() => {
+    if (!treeReady) return; // don't track score changes mid-load
     const prev = prevScoreRef.current;
     prevScoreRef.current = totalScore;
-    if (prev === null) return; // skip first time
+    if (prev === null) return; // first settled value — no animation
     if (totalScore === prev) return;
     const delta = totalScore - prev;
     const key = Date.now();
@@ -186,7 +194,7 @@ export function Habits() {
       setScoreAnim((cur) => (cur && cur.key === key ? null : cur));
     }, ms);
     return () => clearTimeout(t);
-  }, [totalScore]);
+  }, [totalScore, treeReady]);
 
   const nextEmptySlot: SlotIndex | null = useMemo(() => {
     if (data.status !== 'ready') return null;
@@ -204,6 +212,7 @@ export function Habits() {
         totalScore={totalScore}
         userId={user?.id ?? ''}
         scoreAnim={scoreAnim}
+        ready={treeReady}
       />
 
       {/* Action row: + הרגל | view toggle | archive | period nav.

@@ -165,9 +165,14 @@ type Props = {
   userId: string;
   /** Forwarded from the parent's score-change detector. */
   scoreAnim: ScoreAnim;
+  /** True once BOTH the habit data and the profile have loaded. Until then
+   *  the card renders a skeleton — otherwise the briefly-mismatched
+   *  totalScore / cycle_score_floor flashes a wrong (often "ready to plant")
+   *  state on every refresh. */
+  ready?: boolean;
 };
 
-export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
+export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props) {
   // ── Persistence ──────────────────────────────────────────────────────────
   // trees_planted now lives on the profile row in Supabase so admin can edit
   // it (and so it survives across devices). We mirror it into local state for
@@ -262,6 +267,24 @@ export function TreeCard({ totalScore, userId, scoreAnim }: Props) {
 
   // ── Field popup state ────────────────────────────────────────────────────
   const [fieldOpen, setFieldOpen] = useState(false);
+
+  // While the score + profile are still loading, show a quiet skeleton of the
+  // same height instead of computing the tree state from half-loaded data
+  // (which flashed a wrong "ready to plant" meter + a bogus "+N" pop).
+  if (!ready) {
+    return (
+      <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative overflow-hidden">
+        <div className="flex items-center gap-3 animate-pulse">
+          <div className="shrink-0 w-20 h-16 rounded-xl bg-surface-raised" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-3 w-24 rounded bg-surface-raised" />
+            <div className="h-2 w-full rounded-full bg-surface-raised" />
+            <div className="h-3 w-16 rounded bg-surface-raised" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
