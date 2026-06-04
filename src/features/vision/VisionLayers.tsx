@@ -26,6 +26,7 @@ import {
   getWeekKey,
   isFuturePeriod,
   monthName,
+  monthShort,
   weekOfMonthOf,
   type VisionScope,
 } from './period';
@@ -79,11 +80,11 @@ export function VisionLayers({ level, anchor, onPick }: Props) {
         />
       </LayerRow>
 
-      {/* ─── Monthly ─── */}
+      {/* ─── Monthly ─── (side pills use SHORT month names to fit w-16) */}
       <LayerRow active={level === 'monthly'}>
         <SidePill
           dir="prev"
-          label={monthName(prevMonth)}
+          label={monthShort(prevMonth.getMonth())}
           onClick={() => onPick('monthly', prevMonth)}
         />
         <Centre
@@ -95,19 +96,16 @@ export function VisionLayers({ level, anchor, onPick }: Props) {
         </Centre>
         <SidePill
           dir="next"
-          label={monthName(nextMonth)}
+          label={monthShort(nextMonth.getMonth())}
           disabled={nextMonthFuture}
           onClick={() => onPick('monthly', nextMonth)}
         />
       </LayerRow>
 
-      {/* ─── Weekly ─── */}
+      {/* ─── Weekly ─── chevron-only side arrows: step a week each tap
+          (keep tapping to go further back/forward). */}
       <LayerRow active={level === 'weekly'}>
-        <SidePill
-          dir="prev"
-          label={`שבוע ${weekOfMonthOf(prevWeek)}`}
-          onClick={() => onPick('weekly', prevWeek)}
-        />
+        <SidePill dir="prev" onClick={() => onPick('weekly', prevWeek)} />
         <Centre
           active={level === 'weekly'}
           animKey={`w-${getWeekKey(anchor)}`}
@@ -117,7 +115,6 @@ export function VisionLayers({ level, anchor, onPick }: Props) {
         </Centre>
         <SidePill
           dir="next"
-          label={`שבוע ${weekOfMonthOf(nextWeek)}`}
           disabled={nextWeekFuture}
           onClick={() => onPick('weekly', nextWeek)}
         />
@@ -175,6 +172,8 @@ function Centre({
   );
 }
 
+// Fixed-width (w-16) so all three layers' centre buttons line up exactly.
+// `label` optional: when omitted (weekly) the pill is a chevron-only arrow.
 function SidePill({
   dir,
   label,
@@ -182,27 +181,35 @@ function SidePill({
   onClick,
 }: {
   dir: 'prev' | 'next';
-  label: string;
+  label?: string;
   disabled?: boolean;
   onClick: () => void;
 }) {
   const Chevron = dir === 'prev' ? ChevronRight : ChevronLeft;
+  const a11y =
+    dir === 'prev'
+      ? label
+        ? `הקודם: ${label}`
+        : 'התקופה הקודמת'
+      : label
+        ? `הבא: ${label}`
+        : 'התקופה הבאה';
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={dir === 'prev' ? `הקודם: ${label}` : `הבא: ${label}`}
-      className="shrink-0 inline-flex items-center gap-0.5 px-2 rounded-xl bg-surface-raised text-ink-300 hover:text-ink-100 text-[12px] disabled:opacity-25 transition-colors"
+      aria-label={a11y}
+      className="w-16 shrink-0 inline-flex items-center justify-center gap-0.5 rounded-xl bg-surface-raised text-ink-300 hover:text-ink-100 text-[12px] disabled:opacity-25 transition-colors"
     >
       {dir === 'prev' ? (
         <>
           <Chevron size={14} className="text-forest-500 shrink-0" />
-          <span>{label}</span>
+          {label && <span className="truncate">{label}</span>}
         </>
       ) : (
         <>
-          <span>{label}</span>
+          {label && <span className="truncate">{label}</span>}
           <Chevron size={14} className="text-forest-500 shrink-0" />
         </>
       )}
