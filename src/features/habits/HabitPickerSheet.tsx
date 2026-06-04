@@ -50,9 +50,6 @@ const DEFAULTS = {
   difficulty: 'medium' as Difficulty,
   frequency_period: 'daily' as FrequencyPeriod,
   frequency_target: 1,
-  is_quantitative: false,
-  quantitative_target: 10,
-  quantitative_unit: '',
 };
 
 export function HabitPickerSheet({
@@ -81,15 +78,6 @@ export function HabitPickerSheet({
   const [frequencyTarget, setFrequencyTarget] = useState<number>(
     DEFAULTS.frequency_target,
   );
-  const [isQuantitative, setIsQuantitative] = useState<boolean>(
-    DEFAULTS.is_quantitative,
-  );
-  const [quantitativeTarget, setQuantitativeTarget] = useState<number>(
-    DEFAULTS.quantitative_target,
-  );
-  const [quantitativeUnit, setQuantitativeUnit] = useState<string>(
-    DEFAULTS.quantitative_unit,
-  );
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,11 +101,19 @@ export function HabitPickerSheet({
           editingHabit.frequency_target !== 1 ||
           editingHabit.is_quantitative,
       );
-      setFrequencyPeriod(editingHabit.frequency_period);
-      setFrequencyTarget(editingHabit.frequency_target);
-      setIsQuantitative(editingHabit.is_quantitative);
-      setQuantitativeTarget(editingHabit.quantitative_target ?? DEFAULTS.quantitative_target);
-      setQuantitativeUnit(editingHabit.quantitative_unit ?? '');
+      // Legacy quantitative habits map onto the unified model: a daily target
+      // equal to the old per-day count. The per-cell counter is now driven
+      // purely by "daily target > 1".
+      if (editingHabit.is_quantitative) {
+        setFrequencyPeriod('daily');
+        setFrequencyTarget(
+          editingHabit.quantitative_target ??
+            Math.max(2, editingHabit.frequency_target),
+        );
+      } else {
+        setFrequencyPeriod(editingHabit.frequency_period);
+        setFrequencyTarget(editingHabit.frequency_target);
+      }
     } else {
       setType(DEFAULTS.type);
       setIcon(DEFAULTS.icon);
@@ -130,9 +126,6 @@ export function HabitPickerSheet({
       setShowAdvanced(false);
       setFrequencyPeriod(DEFAULTS.frequency_period);
       setFrequencyTarget(DEFAULTS.frequency_target);
-      setIsQuantitative(DEFAULTS.is_quantitative);
-      setQuantitativeTarget(DEFAULTS.quantitative_target);
-      setQuantitativeUnit(DEFAULTS.quantitative_unit);
     }
     setSubmitting(false);
     setError(null);
@@ -179,6 +172,10 @@ export function HabitPickerSheet({
             .map((l) => l.trim())
             .filter(Boolean)
             .join('\n');
+    // The per-cell click counter (formerly the separate "ספירה כמותית"
+    // toggle) is now driven purely by a daily target greater than 1: each
+    // tap counts 1→target, and the day only "completes" at the target.
+    const isCounting = frequencyPeriod === 'daily' && frequencyTarget > 1;
     const input: CreateHabitInput = {
       name: name.trim(),
       description: cleanedDescription || null,
@@ -189,9 +186,9 @@ export function HabitPickerSheet({
       difficulty,
       frequency_period: frequencyPeriod,
       frequency_target: frequencyTarget,
-      is_quantitative: isQuantitative,
-      quantitative_target: isQuantitative ? quantitativeTarget : null,
-      quantitative_unit: isQuantitative ? quantitativeUnit.trim() || null : null,
+      is_quantitative: isCounting,
+      quantitative_target: isCounting ? frequencyTarget : null,
+      quantitative_unit: null,
     };
     try {
       await onSubmit(input);
@@ -494,49 +491,13 @@ export function HabitPickerSheet({
                       min={1}
                       max={frequencyPeriod === 'daily' ? 24 : frequencyPeriod === 'weekly' ? 7 : 31}
                     />
-                  </div>
-
-                  {/* Quantitative toggle */}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setIsQuantitative((v) => !v)}
-                      className="flex items-center justify-between w-full py-2 group"
-                    >
-                      <div className="text-right">
-                        <div className="text-sm text-ink-100">
-                          ספירה כמותית
-                        </div>
-                        <div className="text-xs text-ink-500 mt-0.5">
-                          לציין כמות (עמודים, דקות וכו') במקום רק בוצע/לא
-                        </div>
-                      </div>
-                      <Toggle on={isQuantitative} />
-                    </button>
-
-                    {isQuantitative && (
-                      <div className="mt-3 space-y-3">
-                        <div>
-                          <SectionTitle>יעד לפעם</SectionTitle>
-                          <NumberStepper
-                            value={quantitativeTarget}
-                            onChange={setQuantitativeTarget}
-                            min={1}
-                            max={9999}
-                            step={1}
-                          />
-                        </div>
-                        <div>
-                          <SectionTitle>יחידה</SectionTitle>
-                          <input
-                            value={quantitativeUnit}
-                            onChange={(e) => setQuantitativeUnit(e.target.value)}
-                            placeholder="עמודים, דקות, ק״מ..."
-                            maxLength={20}
-                            className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 placeholder-ink-500 text-sm focus:outline-none focus:border-forest-500"
-                          />
-                        </div>
-                      </div>
+                    {/* When the daily target is >1, the cell becomes a tap
+                        counter (1→target) and only "completes" at the target. */}
+                    {frequencyPeriod === 'daily' && frequencyTarget > 1 && (
+                      <p className="text-xs text-ink-500 mt-2 leading-snug">
+                        כל לחיצה על המשבצת תספור 1 עד {frequencyTarget} — ההרגל
+                        נחשב כבוצע ביום רק כשמגיעים ל-{frequencyTarget}.
+                      </p>
                     )}
                   </div>
                 </div>
@@ -798,18 +759,3 @@ function NumberStepper({
   );
 }
 
-function Toggle({ on }: { on: boolean }) {
-  return (
-    <span
-      className={`relative inline-flex items-center w-10 h-6 rounded-full transition-colors ${
-        on ? 'bg-forest-700' : 'bg-surface-border'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 w-5 h-5 rounded-full bg-cream-50 transition-all ${
-          on ? 'right-0.5' : 'left-0.5'
-        }`}
-      />
-    </span>
-  );
-}

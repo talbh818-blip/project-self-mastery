@@ -287,7 +287,16 @@ function formatFrequency(habit: Habit): string {
       : `${habit.frequency_target} פעמים`;
 
   let main = `${timesLabel} ${periodLabel}`;
-  if (habit.is_quantitative && habit.quantitative_target) {
+  // In the unified model a daily counting habit stores quantitative_target ===
+  // frequency_target with no unit, which would just repeat the frequency. Only
+  // show the extra per-time clause when it actually adds information (a unit,
+  // or a legacy target that differs from the frequency).
+  if (
+    habit.is_quantitative &&
+    habit.quantitative_target &&
+    (habit.quantitative_unit?.trim() ||
+      habit.quantitative_target !== habit.frequency_target)
+  ) {
     const unit = habit.quantitative_unit?.trim();
     const unitSuffix = unit ? ` ${unit}` : '';
     main += ` · יעד ${habit.quantitative_target}${unitSuffix} בכל פעם`;
