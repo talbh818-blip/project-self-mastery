@@ -866,7 +866,25 @@ function HabitRow({
     const m = effectiveFor(dateStr) ?? slot.marks[dateStr];
     return m === 'V' ? acc + 1 : acc;
   }, 0);
-  const isWeekly = habit.frequency_period === 'weekly';
+
+  // Period-target progress shown next to the name. Daily habits show nothing;
+  // weekly counts V's in the visible week, monthly counts V's across the whole
+  // calendar month that the visible week sits in.
+  let periodLabel: string | null = null;
+  let periodDone = 0;
+  if (habit.frequency_period === 'weekly') {
+    periodLabel = 'יעד שבועי';
+    periodDone = weeklyCompletions;
+  } else if (habit.frequency_period === 'monthly') {
+    periodLabel = 'יעד חודשי';
+    const ref = days[Math.floor(days.length / 2)] ?? days[0] ?? today;
+    const y = ref.getFullYear();
+    const m = ref.getMonth();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      if (effectiveFor(toDateString(new Date(y, m, d))) === 'V') periodDone++;
+    }
+  }
 
   // Description expander. Remembered per-habit in localStorage so it stays
   // open (or closed) across visits.
@@ -990,10 +1008,10 @@ function HabitRow({
           <span className="text-sm font-medium text-ink-100 truncate min-w-0">
             {habit.name}
           </span>
-          {/* Weekly frequency progress */}
-          {isWeekly && (
+          {/* Weekly / monthly target progress (daily habits show nothing) */}
+          {periodLabel && (
             <span className="text-[10px] text-ink-100 shrink-0">
-              · {weeklyCompletions}/{habit.frequency_target} השבוע
+              · {periodLabel}: {periodDone}/{habit.frequency_target}
             </span>
           )}
         </button>
