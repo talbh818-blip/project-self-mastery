@@ -180,8 +180,8 @@ function LayerRow({
 }) {
   return (
     <div
-      className={`flex items-stretch gap-1.5 h-10 rounded-2xl p-1 transition-opacity duration-300 ${
-        active ? 'opacity-100' : 'opacity-55'
+      className={`flex items-stretch gap-1.5 h-10 rounded-2xl p-1 transition-colors ${
+        active ? 'bg-forest-700/[0.06]' : ''
       }`}
     >
       {children}
@@ -214,7 +214,7 @@ function Centre({
     <div
       className={`flex-1 min-w-0 rounded-xl text-sm font-semibold transition-colors ${
         active
-          ? 'bg-forest-700/10 text-ink-100 ring-1 ring-forest-700/30'
+          ? 'bg-forest-700/20 text-forest-500 ring-1 ring-forest-700'
           : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
       }`}
     >
@@ -223,7 +223,8 @@ function Centre({
         className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
       >
         {/* Icon TILE — empty rounded square (Habits-tile colour) until an
-            icon is chosen; tapping opens the picker for this level. */}
+            icon is chosen; tapping opens the picker for this level. Sits at
+            the right edge, immediately beside the title (no gap). */}
         <button
           type="button"
           onClick={onIconClick}
@@ -234,20 +235,18 @@ function Centre({
           {icon ? <HabitIcon name={icon} size={16} /> : null}
         </button>
 
-        {/* Title — taps activate this level. flex-1 so it's the main target
-            and the label sits centred in the remaining space. */}
+        {/* Title — taps activate this level. flex-1 (big tap target); content
+            hugs the right (next to the icon tile), and the "written" badge is
+            pushed to the far LEFT by the grow spacer. */}
         <button
           type="button"
           onClick={onActivate}
-          className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 h-full"
+          className="flex-1 min-w-0 inline-flex items-center gap-1.5 h-full"
         >
           {children}
+          <span className="grow" aria-hidden />
+          {done && <WrittenBadge />}
         </button>
-
-        {/* "Written" badge — pinned to the far LEFT (the title button above is
-            flex-1, so this sits at the left edge), left of all the title text.
-            Shown only when the entry has content. */}
-        {done && <WrittenBadge />}
       </span>
     </div>
   );
@@ -261,7 +260,7 @@ function WrittenBadge() {
       size={15}
       strokeWidth={1.75}
       aria-label="נכתב"
-      className="shrink-0 text-forest-400"
+      className="shrink-0 text-white/75"
     />
   );
 }
