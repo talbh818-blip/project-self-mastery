@@ -135,10 +135,24 @@ export function scoreHabit(params: {
 
   const logsByDate = new Map<string, LogStatus>();
   const amountsByDate = new Map<string, number>();
+  // For quantitative (counting) habits, a day only "completes" — i.e. counts
+  // as a V and earns points — once the logged amount reaches the per-day
+  // target. A partial count is recorded for display (amountsByDate) but is
+  // NOT treated as a completed day: it scores nothing and, on past days, the
+  // grace/auto_x logic lapses it like any unmet day.
+  const quantTarget =
+    habit.is_quantitative ? Math.max(1, habit.quantitative_target ?? 1) : 0;
   for (const log of habitLogs) {
-    logsByDate.set(log.date, log.status);
     if (log.amount !== null && log.amount !== undefined) {
       amountsByDate.set(log.date, log.amount);
+    }
+    if (habit.is_quantitative && log.status === 'V') {
+      if ((log.amount ?? 0) >= quantTarget) {
+        logsByDate.set(log.date, 'V');
+      }
+      // partial → intentionally left unlogged (no logsByDate entry)
+    } else {
+      logsByDate.set(log.date, log.status);
     }
   }
 
