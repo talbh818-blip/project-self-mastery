@@ -395,6 +395,11 @@ export function monthName(date: Date): string {
   return HEB_MONTHS[date.getMonth()];
 }
 
+/** Short Hebrew month name by 0-indexed month, e.g. monthShort(4) === "מאי". */
+export function monthShort(monthIndex: number): string {
+  return HEB_MONTHS_SHORT[monthIndex];
+}
+
 /** 1-indexed position of the anchor's ISO week within the anchor's calendar
  *  month (week containing the 1st = week 1). */
 export function weekOfMonthOf(anchor: Date): number {

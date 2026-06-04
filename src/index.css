@@ -589,6 +589,13 @@ html {
 /* Hide the scrollbar on the date-picker wheels (Chromium / WebKit). */
 .vision-wheel::-webkit-scrollbar { display: none; }
 
+/* Drill-down chip strip — horizontal scroll without a visible scrollbar. */
+.vision-chips {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.vision-chips::-webkit-scrollbar { display: none; }
+
 /* Vision Assist question block — looks like a prompt sticker laid over the
    notebook. Bold text on the right, two action buttons (↻ swap, ✕ delete)
    that fade in on hover (always visible on touch devices via the no-hover

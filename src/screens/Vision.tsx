@@ -72,6 +72,13 @@ export function Vision() {
   };
   const goToday = () => setAnchor(today);
 
+  // Zoom IN: dive into a concrete child period (a month from yearly, a week
+  // from monthly). Sets the anchor first, then the deeper level.
+  const drill = (targetLevel: VisionScope, targetAnchor: Date) => {
+    setAnchor(targetAnchor);
+    setLevel(targetLevel);
+  };
+
   return (
     // -mt-3 tightens the gap with the global brand header.
     <section className="-mt-3 pb-3">
@@ -82,6 +89,7 @@ export function Vision() {
         onSetLevel={setLevel}
         onStep={step}
         onToday={goToday}
+        onDrill={drill}
       />
 
       {/* Body — flat-top writing surface flush under the nav's divider. */}

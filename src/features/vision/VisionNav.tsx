@@ -26,9 +26,12 @@ import { ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   addAnchor,
   getPeriodKey,
+  getWeekKey,
   getYearKey,
   isFuturePeriod,
   monthName,
+  monthShort,
+  parsePeriodStart,
   weekOfMonthOf,
   weeksInMonthOf,
   type VisionScope,
@@ -41,6 +44,16 @@ type Props = {
   onSetLevel: (level: VisionScope) => void;
   onStep: (delta: number) => void;
   onToday: () => void;
+  /** Zoom IN: jump to a concrete child period (month at yearly, week at monthly). */
+  onDrill: (level: VisionScope, anchor: Date) => void;
+};
+
+type Child = {
+  label: string;
+  anchor: Date;
+  level: VisionScope;
+  future: boolean;
+  isCurrent: boolean;
 };
 
 export function VisionNav({
@@ -50,6 +63,7 @@ export function VisionNav({
   onSetLevel,
   onStep,
   onToday,
+  onDrill,
 }: Props) {
   const isCurrent =
     getPeriodKey(level, anchor) === getPeriodKey(level, today);
@@ -77,13 +91,53 @@ export function VisionNav({
         ? `חודש ${anchor.getMonth() + 1} מתוך 12`
         : `שבוע ${weekOfMonthOf(anchor)} מתוך ${weeksInMonthOf(anchor)}`;
 
-  // ── Progress dots ──
+  // ── Progress dots (only at the deepest level, to show position in month) ──
   const dots =
-    level === 'monthly'
-      ? { count: 12, index: anchor.getMonth() }
-      : level === 'weekly'
-        ? { count: weeksInMonthOf(anchor), index: weekOfMonthOf(anchor) - 1 }
-        : null;
+    level === 'weekly'
+      ? { count: weeksInMonthOf(anchor), index: weekOfMonthOf(anchor) - 1 }
+      : null;
+
+  // ── Drill-down children (zoom IN): months at yearly, weeks at monthly ──
+  const children: Child[] = [];
+  if (level === 'yearly') {
+    const y = anchor.getFullYear();
+    for (let m = 0; m < 12; m++) {
+      const a = new Date(y, m, 1);
+      const key = getPeriodKey('monthly', a);
+      children.push({
+        label: monthShort(m),
+        anchor: a,
+        level: 'monthly',
+        future: isFuturePeriod('monthly', key),
+        isCurrent: key === getPeriodKey('monthly', today),
+      });
+    }
+  } else if (level === 'monthly') {
+    const y = anchor.getFullYear();
+    const m = anchor.getMonth();
+    const count = weeksInMonthOf(anchor);
+    // Monday of the month's first ISO week (may sit in the previous month).
+    const firstMon = parsePeriodStart('weekly', getWeekKey(new Date(y, m, 1)));
+    for (let i = 0; i < count; i++) {
+      // i=0 → the 1st (guaranteed in-month, week 1); i≥1 → that week's Monday
+      // (which lands inside the month).
+      let a: Date;
+      if (i === 0) {
+        a = new Date(y, m, 1);
+      } else {
+        a = new Date(firstMon);
+        a.setDate(a.getDate() + i * 7);
+      }
+      const key = getPeriodKey('weekly', a);
+      children.push({
+        label: `שבוע ${i + 1}`,
+        anchor: a,
+        level: 'weekly',
+        future: isFuturePeriod('weekly', key),
+        isCurrent: key === getPeriodKey('weekly', today),
+      });
+    }
+  }
 
   // ── Swipe (header area). RTL: finger moving LEFT (dx<0) advances to the
   //    next period (new content reads in from the left); moving RIGHT goes
@@ -193,6 +247,29 @@ export function VisionNav({
                   : 'w-1.5 bg-ink-500/40'
               }`}
             />
+          ))}
+        </div>
+      )}
+
+      {/* Drill-down strip (zoom IN) — months at yearly, weeks at monthly.
+          Horizontally scrollable; tapping a child dives into it. The "today"
+          child gets a subtle forest outline; future children are disabled. */}
+      {children.length > 0 && (
+        <div className="vision-chips flex gap-1.5 mt-2 overflow-x-auto">
+          {children.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              disabled={c.future}
+              onClick={() => onDrill(c.level, c.anchor)}
+              className={`shrink-0 text-[12px] leading-none px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-25 ${
+                c.isCurrent
+                  ? 'border-forest-500/60 text-forest-500 bg-forest-700/10'
+                  : 'border-surface-border text-ink-300 hover:text-ink-100 hover:border-ink-300'
+              }`}
+            >
+              {c.label}
+            </button>
           ))}
         </div>
       )}
