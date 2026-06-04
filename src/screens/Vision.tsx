@@ -59,27 +59,31 @@ export function Vision() {
   const todayIso = useMemo(() => toIsoDate(today), [today]);
   const documentDate = entry?.document_date ?? todayIso;
 
-  const goToday = () => {
-    setAnchor(today);
-    setLevel('weekly');
-  };
-
-  // Activate a level at a given anchor — centre tap, side step, or week pick.
+  // Activate a level at a given anchor — centre tap or side step.
   const pick = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
   };
 
+  // "Jump to now" for the CURRENT level — lives in the editor's DateBar row.
+  // Hidden when already on the current period.
+  const isCurrentPeriod = periodKey === getPeriodKey(level, today);
+  const jumpToNow = isCurrentPeriod
+    ? null
+    : {
+        label:
+          level === 'yearly'
+            ? 'השנה'
+            : level === 'monthly'
+              ? 'החודש'
+              : 'השבוע',
+        onJump: () => setAnchor(today),
+      };
+
   return (
     // -mt-3 tightens the gap with the global brand header.
     <section className="-mt-3 pb-3">
-      <VisionLayers
-        level={level}
-        anchor={anchor}
-        today={today}
-        onPick={pick}
-        onToday={goToday}
-      />
+      <VisionLayers level={level} anchor={anchor} onPick={pick} />
 
       {/* Body — flat-top writing surface flush under the nav's divider. */}
       {locked ? (
@@ -101,6 +105,7 @@ export function Vision() {
           saveStatus={status}
           documentDate={documentDate}
           onDateChange={(iso) => void setDocumentDate(iso)}
+          jumpToNow={jumpToNow}
           onChange={scheduleSave}
         />
       )}

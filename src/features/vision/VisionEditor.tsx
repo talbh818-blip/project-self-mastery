@@ -55,6 +55,8 @@ type Props = {
   /** ISO 'YYYY-MM-DD' — date stamped at the top of the entry. */
   documentDate: string;
   onDateChange: (iso: string) => void;
+  /** "Jump to current period" control shown in the DateBar; null = hidden. */
+  jumpToNow: { label: string; onJump: () => void } | null;
   onChange: (json: unknown) => void;
 };
 
@@ -68,6 +70,7 @@ export function VisionEditor({
   zoomDir,
   documentDate,
   onDateChange,
+  jumpToNow,
   onChange,
 }: Props) {
   const editor = useEditor(
@@ -149,6 +152,7 @@ export function VisionEditor({
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
           saveStatus={saveStatus}
+          jumpToNow={jumpToNow}
         />
         <div className="py-8">
           <CompassLoader size="md" />
@@ -186,6 +190,7 @@ export function VisionEditor({
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
           saveStatus={saveStatus}
+          jumpToNow={jumpToNow}
         />
         <EditorContent editor={editor} />
       </div>

@@ -1,24 +1,24 @@
 // ============================================================================
 // VisionLayers — stacked layered navigator for the vision pyramid.
 // ----------------------------------------------------------------------------
-// Three thin rows, always visible, one per zoom level:
+// Three thin rows, always visible, one per zoom level — all sharing the same
+// [ prev ‹ | centre | › next ] shape:
 //
-//   שנתי:   [{year-1} ›]   חזון שנתי {year}   [‹ {year+1}]
+//   שנתי:   [{year-1} ›]   חזון שנתי {year}      [‹ {year+1}]
 //   חודשי:  [{prevMonth} ›] חזון חודשי · {month} [‹ {nextMonth}]
-//   שבועי:  [שבוע 1][שבוע 2]…[שבוע N]            [⌖ השבוע]
+//   שבועי:  [שבוע {p} ›]   חזון שבועי · שבוע {n}  [‹ שבוע {q}]
 //
-// • Tapping a row's CENTRE makes that level active (its vision shows in the
+// • Tapping a row's centre makes that level active (its vision opens in the
 //   editor) — the primary action.
-// • Side pills + chevrons step the period (keep tapping to go further back);
-//   they also activate that level. Future periods are disabled.
-// • The weekly row lists every week of the current month; "השבוע" (with a
-//   calendar-check icon) jumps to the current week.
-// • The ACTIVE level's centre is the accent green so you can see which vision
-//   you're editing. Period changes animate with a soft ease-in-out fade.
+// • Side pills + green chevrons step the period (keep tapping to go back);
+//   future periods are disabled.
+// • The ACTIVE level's centre is the accent green. Centre labels fade in
+//   (ease-in-out) on navigation.
 //
-// All navigation flows through one (level, anchor) position via onPick.
+// The "jump to current period" control ("השבוע" / "החודש" / "השנה") lives in
+// the editor's DateBar row, not here.
 // ============================================================================
-import { ChevronRight, ChevronLeft, CalendarCheck } from 'lucide-react';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import {
   addAnchor,
   getMonthKey,
@@ -26,22 +26,18 @@ import {
   getWeekKey,
   isFuturePeriod,
   monthName,
-  parsePeriodStart,
-  weeksInMonthOf,
+  weekOfMonthOf,
   type VisionScope,
 } from './period';
 
 type Props = {
   level: VisionScope;
   anchor: Date;
-  today: Date;
-  /** Activate a level at a given anchor (centre tap, side step, week pick). */
+  /** Activate a level at a given anchor (centre tap or side step). */
   onPick: (level: VisionScope, anchor: Date) => void;
-  /** Jump to the current week. */
-  onToday: () => void;
 };
 
-export function VisionLayers({ level, anchor, today, onPick, onToday }: Props) {
+export function VisionLayers({ level, anchor, onPick }: Props) {
   const year = anchor.getFullYear();
 
   const prevYear = addAnchor('yearly', anchor, -1);
@@ -55,9 +51,9 @@ export function VisionLayers({ level, anchor, today, onPick, onToday }: Props) {
     getPeriodKey('monthly', nextMonth),
   );
 
-  const weeks = weekAnchorsOfMonth(anchor);
-  const selectedWeekKey = getWeekKey(anchor);
-  const todayWeekKey = getWeekKey(today);
+  const prevWeek = addAnchor('weekly', anchor, -1);
+  const nextWeek = addAnchor('weekly', anchor, 1);
+  const nextWeekFuture = isFuturePeriod('weekly', getPeriodKey('weekly', nextWeek));
 
   return (
     <div className="space-y-1.5" dir="rtl">
@@ -105,42 +101,27 @@ export function VisionLayers({ level, anchor, today, onPick, onToday }: Props) {
         />
       </LayerRow>
 
-      {/* ─── Weekly ─── all weeks share the row equally (flex-1) so they
-          always fit without overflow/clipping; "השבוע" stays a fixed chip. */}
-      <div className="flex items-stretch gap-1">
-        {weeks.map((w, i) => {
-          const isSel = level === 'weekly' && w.key === selectedWeekKey;
-          return (
-            <button
-              key={w.key}
-              type="button"
-              disabled={w.future}
-              onClick={() => onPick('weekly', w.anchor)}
-              className={`flex-1 min-w-0 h-9 rounded-xl text-[12px] font-medium transition-colors disabled:opacity-25 ${
-                isSel
-                  ? 'bg-forest-700/20 text-forest-500 ring-1 ring-forest-700'
-                  : 'bg-surface-raised text-ink-300 hover:text-ink-100'
-              }`}
-            >
-              <span className="block truncate px-1">שבוע {i + 1}</span>
-            </button>
-          );
-        })}
-        {/* This-week jump — fixed width, never squeezed. */}
-        <button
-          type="button"
-          onClick={onToday}
-          aria-label="חזרה לשבוע הנוכחי"
-          className={`shrink-0 h-9 px-2.5 rounded-xl text-[12px] font-medium inline-flex items-center gap-1 transition-colors ${
-            todayWeekKey === selectedWeekKey && level === 'weekly'
-              ? 'text-forest-500'
-              : 'text-ink-300 hover:text-ink-100'
-          }`}
+      {/* ─── Weekly ─── */}
+      <LayerRow active={level === 'weekly'}>
+        <SidePill
+          dir="prev"
+          label={`שבוע ${weekOfMonthOf(prevWeek)}`}
+          onClick={() => onPick('weekly', prevWeek)}
+        />
+        <Centre
+          active={level === 'weekly'}
+          animKey={`w-${getWeekKey(anchor)}`}
+          onClick={() => onPick('weekly', anchor)}
         >
-          <CalendarCheck size={15} className="shrink-0" />
-          השבוע
-        </button>
-      </div>
+          חזון שבועי · שבוע {weekOfMonthOf(anchor)}
+        </Centre>
+        <SidePill
+          dir="next"
+          label={`שבוע ${weekOfMonthOf(nextWeek)}`}
+          disabled={nextWeekFuture}
+          onClick={() => onPick('weekly', nextWeek)}
+        />
+      </LayerRow>
     </div>
   );
 }
@@ -227,32 +208,4 @@ function SidePill({
       )}
     </button>
   );
-}
-
-// ─── Week anchors of the anchor's month ─────────────────────────────────────
-// Mirrors the drill-down math: i=0 → the 1st (in-month, week 1); i≥1 → that
-// week's Monday (which lands inside the month). Each anchor is guaranteed to
-// resolve to the right ISO week within the month.
-function weekAnchorsOfMonth(anchor: Date): {
-  key: string;
-  anchor: Date;
-  future: boolean;
-}[] {
-  const y = anchor.getFullYear();
-  const m = anchor.getMonth();
-  const count = weeksInMonthOf(anchor);
-  const firstMon = parsePeriodStart('weekly', getWeekKey(new Date(y, m, 1)));
-  const out: { key: string; anchor: Date; future: boolean }[] = [];
-  for (let i = 0; i < count; i++) {
-    let a: Date;
-    if (i === 0) {
-      a = new Date(y, m, 1);
-    } else {
-      a = new Date(firstMon);
-      a.setDate(a.getDate() + i * 7);
-    }
-    const key = getWeekKey(a);
-    out.push({ key, anchor: a, future: isFuturePeriod('weekly', key) });
-  }
-  return out;
 }
