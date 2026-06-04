@@ -587,6 +587,7 @@ function HabitsList({
             today={today}
             effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
             currentStreak={stats?.byHabit.get(slot.habit!.id)?.currentStreak ?? 0}
+            totalPoints={stats?.byHabit.get(slot.habit!.id)?.totalPoints ?? 0}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
             dragHandleRef={dragHandleRef}
@@ -831,6 +832,7 @@ function HabitRow({
   today,
   effectiveFor,
   currentStreak,
+  totalPoints,
   onShowDetail,
   onMarkCell,
   dragHandleRef,
@@ -841,6 +843,7 @@ function HabitRow({
   today: Date;
   effectiveFor: (dateStr: string) => LogStatus | undefined;
   currentStreak: number;
+  totalPoints: number;
   onShowDetail: () => void;
   onMarkCell: (
     habit: Habit,
@@ -974,10 +977,9 @@ function HabitRow({
         </div>
       </div>
 
-      {/* Bottom: habit name + type pill + weekly progress on a single line.
-          The name truncates with ellipsis instead of wrapping. Type pill and
-          progress stay shrink-0 so they're never cut. A chevron at the far
-          end (left in RTL) toggles the description expander. */}
+      {/* Bottom: habit name + weekly progress on a single line. The metadata
+          (type / difficulty / points / streak) now lives inside the drawer.
+          A chevron at the far end (left in RTL) toggles that drawer. */}
       <div className="mt-2 flex items-center gap-1.5">
         <button
           type="button"
@@ -988,75 +990,111 @@ function HabitRow({
           <span className="text-sm font-medium text-ink-100 truncate min-w-0">
             {habit.name}
           </span>
-          {/* Type pill */}
-          <span
-            className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
-              habit.type === 'positive'
-                ? 'border-forest-500/60 text-forest-400'
-                : 'border-red-500/60 text-red-400'
-            }`}
-          >
-            {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
-          </span>
           {/* Weekly frequency progress */}
           {isWeekly && (
             <span className="text-[10px] text-ink-100 shrink-0">
               · {weeklyCompletions}/{habit.frequency_target} השבוע
             </span>
           )}
-          {/* Current streak — only when ≥ 3 (1-2 days is not a streak) */}
-          {currentStreak >= 3 && (
-            <span className="shrink-0 text-[10px] text-amber-400 inline-flex items-center gap-0.5">
-              · <Emoji emoji="🔥" size={11} /> {currentStreak}
-            </span>
-          )}
         </button>
-        {/* Description expander toggle — only when there's a description. */}
-        {hasDescription && (
-          <button
-            type="button"
-            onClick={toggleDesc}
-            className="shrink-0 -m-1 p-1 text-ink-300 hover:text-ink-100 transition-colors"
-            aria-label={descOpen ? 'הסתר תיאור' : 'הצג תיאור'}
-            aria-expanded={descOpen}
-          >
-            <ChevronsDown
-              size={16}
-              className={descOpen ? 'rotate-180' : ''}
-              style={{ transition: 'transform 360ms cubic-bezier(0.65, 0, 0.35, 1)' }}
-            />
-          </button>
-        )}
+        {/* Drawer toggle — always available; the drawer holds the habit's
+            metadata line and, when set, its description. */}
+        <button
+          type="button"
+          onClick={toggleDesc}
+          className="shrink-0 -m-1 p-1 text-ink-300 hover:text-ink-100 transition-colors"
+          aria-label={descOpen ? 'הסתר פרטים' : 'הצג פרטים'}
+          aria-expanded={descOpen}
+        >
+          <ChevronsDown
+            size={16}
+            className={descOpen ? 'rotate-180' : ''}
+            style={{ transition: 'transform 360ms cubic-bezier(0.65, 0, 0.35, 1)' }}
+          />
+        </button>
       </div>
 
-      {/* Expandable description — opens/closes like a drawer with a smooth,
-          symmetric ease-in-out. Uses the grid-rows 0fr↔1fr technique so the
-          height animates naturally (no pixel measuring), plus an opacity fade
-          for extra polish. State persists via localStorage. */}
-      {hasDescription && (
+      {/* Drawer — opens/closes like a drawer with a smooth, symmetric
+          ease-in-out. Uses the grid-rows 0fr↔1fr technique so the height
+          animates naturally (no pixel measuring), plus an opacity fade for
+          extra polish. Holds a one-line metadata summary and, when set, the
+          description. State persists via localStorage. */}
+      <div
+        className="grid"
+        style={{
+          gridTemplateRows: descOpen ? '1fr' : '0fr',
+          transition: 'grid-template-rows 360ms cubic-bezier(0.65, 0, 0.35, 1)',
+        }}
+      >
         <div
-          className="grid"
+          className="overflow-hidden min-h-0"
           style={{
-            gridTemplateRows: descOpen ? '1fr' : '0fr',
-            transition: 'grid-template-rows 360ms cubic-bezier(0.65, 0, 0.35, 1)',
+            opacity: descOpen ? 1 : 0,
+            transition: 'opacity 300ms cubic-bezier(0.65, 0, 0.35, 1)',
           }}
         >
-          <div
-            className="overflow-hidden min-h-0"
-            style={{
-              opacity: descOpen ? 1 : 0,
-              transition: 'opacity 300ms cubic-bezier(0.65, 0, 0.35, 1)',
-            }}
-          >
-            <div className="mt-2 pt-2 border-t border-surface-border">
-              <HabitDescription
-                description={habit.description!}
-                format={habit.description_format}
-              />
+          <div className="mt-2 pt-2 border-t border-surface-border">
+            {/* Metadata summary — one line: type · difficulty · points · streak */}
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-[11px]">
+              {/* Type */}
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                  habit.type === 'positive'
+                    ? 'border-forest-500/60 text-forest-400'
+                    : 'border-red-500/60 text-red-400'
+                }`}
+              >
+                {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
+              </span>
+              {/* Difficulty */}
+              <span className="inline-flex items-center gap-1 text-ink-300">
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    habit.difficulty === 'easy'
+                      ? 'bg-green-400'
+                      : habit.difficulty === 'medium'
+                      ? 'bg-yellow-400'
+                      : 'bg-red-500'
+                  }`}
+                />
+                {habit.difficulty === 'easy'
+                  ? 'קל'
+                  : habit.difficulty === 'medium'
+                  ? 'בינוני'
+                  : 'קשה'}
+              </span>
+              {/* Points from this habit (all-time) */}
+              <span className="text-ink-500">·</span>
+              <span
+                className={
+                  totalPoints > 0
+                    ? 'text-forest-500'
+                    : totalPoints < 0
+                    ? 'text-red-400'
+                    : 'text-ink-300'
+                }
+              >
+                {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
+              </span>
+              {/* Current streak */}
+              <span className="text-ink-500">·</span>
+              <span className="text-amber-400 inline-flex items-center gap-0.5">
+                <Emoji emoji="🔥" size={11} /> {currentStreak}
+              </span>
             </div>
+
+            {/* Description, in the chosen format, below the metadata line. */}
+            {hasDescription && (
+              <div className="mt-2">
+                <HabitDescription
+                  description={habit.description!}
+                  format={habit.description_format}
+                />
+              </div>
+            )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
