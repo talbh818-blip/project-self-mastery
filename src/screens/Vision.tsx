@@ -11,11 +11,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
-import { VisionNav } from '../features/vision/VisionNav';
+import { VisionLayers } from '../features/vision/VisionLayers';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { CompassLoader } from '../components/CompassLoader';
 import {
-  addAnchor,
   getPeriodKey,
   isFuturePeriod,
   type VisionScope,
@@ -60,21 +59,13 @@ export function Vision() {
   const todayIso = useMemo(() => toIsoDate(today), [today]);
   const documentDate = entry?.document_date ?? todayIso;
 
-  // Step within the current level. Never step into the future.
-  const step = (delta: number) => {
-    setAnchor((a) => {
-      const next = addAnchor(level, a, delta);
-      if (delta > 0 && isFuturePeriod(level, getPeriodKey(level, next))) {
-        return a;
-      }
-      return next;
-    });
+  const goToday = () => {
+    setAnchor(today);
+    setLevel('weekly');
   };
-  const goToday = () => setAnchor(today);
 
-  // Zoom IN: dive into a concrete child period (a month from yearly, a week
-  // from monthly). Sets the anchor first, then the deeper level.
-  const drill = (targetLevel: VisionScope, targetAnchor: Date) => {
+  // Activate a level at a given anchor — centre tap, side step, or week pick.
+  const pick = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
   };
@@ -82,14 +73,12 @@ export function Vision() {
   return (
     // -mt-3 tightens the gap with the global brand header.
     <section className="-mt-3 pb-3">
-      <VisionNav
+      <VisionLayers
         level={level}
         anchor={anchor}
         today={today}
-        onSetLevel={setLevel}
-        onStep={step}
+        onPick={pick}
         onToday={goToday}
-        onDrill={drill}
       />
 
       {/* Body — flat-top writing surface flush under the nav's divider. */}

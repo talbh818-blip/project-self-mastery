@@ -596,6 +596,20 @@ html {
 }
 .vision-chips::-webkit-scrollbar { display: none; }
 
+/* Layer-navigator centre label — soft ease-in-out fade when the period
+   changes (the span is keyed by the period, so it re-mounts on navigation).
+   "Video-like" gentle motion, no harsh snap. */
+@keyframes vision-label-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.vision-label-anim {
+  animation: vision-label-in 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .vision-label-anim { animation: none; }
+}
+
 /* Vision Assist question block — looks like a prompt sticker laid over the
    notebook. Bold text on the right, two action buttons (↻ swap, ✕ delete)
    that fade in on hover (always visible on touch devices via the no-hover
