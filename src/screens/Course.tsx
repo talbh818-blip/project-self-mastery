@@ -137,6 +137,9 @@ function BookCard({
   onClick: () => void;
 }) {
   const available = book.videoCount > 0;
+  // The active book always shows in full color so it pops; inactive books
+  // with no videos yet are dimmed (grayscale) as the "coming soon" signal.
+  const dimmed = !active && !available;
   const [imgFailed, setImgFailed] = useState(false);
   // Reset the failure flag if the URL changes (e.g. admin updates the cover).
   useEffect(() => {
@@ -154,7 +157,7 @@ function BookCard({
       <div
         className={`relative flex h-[150px] rounded-md overflow-hidden shadow-lg shadow-black/30 transition-all ${
           active ? '-translate-y-1 ring-2 ring-forest-500' : ''
-        } ${available ? '' : 'opacity-60 grayscale'}`}
+        } ${dimmed ? 'opacity-60 grayscale' : ''}`}
       >
         {/* Spine — first DOM child = right side in RTL */}
         <div
@@ -168,7 +171,10 @@ function BookCard({
               src={book.cover_url}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
-              loading="lazy"
+              // Covers are local + tiny (~15KB each), so eager-load them all
+              // up front — they appear in one shot instead of trickling in.
+              loading="eager"
+              decoding="async"
               onError={() => setImgFailed(true)}
             />
           ) : (
