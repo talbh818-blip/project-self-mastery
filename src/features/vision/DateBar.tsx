@@ -66,47 +66,10 @@ export function DateBar({
           pb-2 mb-3 border-b border-surface-border
         "
       >
-        {/* Date — RIGHT-most in RTL (first DOM child) */}
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="
-            inline-flex items-center gap-1.5 shrink-0
-            text-[12px] text-ink-300 hover:text-ink-100
-            transition-colors min-w-0
-          "
-          aria-label="שנה את תאריך המסמך"
-          title="לחץ לשינוי תאריך"
-        >
-          <Calendar size={13} strokeWidth={1.8} className="shrink-0" />
-          <span className="truncate">{formatHebrew(value)}</span>
-        </button>
-
-        {/* Assist toggle — sits right next to the date (RTL: visually
-            immediately to the LEFT of the date). Always full-opacity emoji
-            + label so it reads as a real button. ON state gets the forest
-            ring; OFF state uses a neutral surface chip. */}
-        <button
-          type="button"
-          onClick={onToggleAssist}
-          aria-label="מצב כתיבה מודרכת"
-          aria-pressed={assistOn}
-          title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
-          className={`
-            shrink-0 inline-flex items-center gap-1.5
-            h-7 px-2 rounded-lg transition-all text-[11px] font-medium
-            ${assistOn
-              ? 'bg-forest-700/25 ring-1 ring-forest-700 text-ink-100'
-              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
-          `}
-        >
-          <Emoji emoji="💡" size={14} ariaLabel="" />
-          <span>כתיבה מודרכת</span>
-        </button>
-
-        {/* Icon picker — visually just LEFT of the Assist button (next DOM
-            child in RTL). Shows the current level's chosen icon, or a generic
-            "add emoji" glyph when none is set yet. Tapping opens the picker. */}
+        {/* Icon picker — RIGHT-most in RTL (first DOM child), sitting to the
+            right of the date. Shows the current level's chosen icon, or a
+            generic "add emoji" glyph when none is set yet. Tapping opens the
+            picker. */}
         <button
           type="button"
           onClick={onIconClick}
@@ -125,6 +88,43 @@ export function DateBar({
           ) : (
             <SmilePlus size={15} strokeWidth={1.9} />
           )}
+        </button>
+
+        {/* Date — just LEFT of the icon button in RTL. */}
+        <button
+          type="button"
+          onClick={() => setPickerOpen(true)}
+          className="
+            inline-flex items-center gap-1.5 shrink-0
+            text-[12px] text-ink-300 hover:text-ink-100
+            transition-colors min-w-0
+          "
+          aria-label="שנה את תאריך המסמך"
+          title="לחץ לשינוי תאריך"
+        >
+          <Calendar size={13} strokeWidth={1.8} className="shrink-0" />
+          <span className="truncate">{formatHebrew(value)}</span>
+        </button>
+
+        {/* Assist toggle — sits to the LEFT of the date. Always full-opacity
+            emoji + label so it reads as a real button. ON state gets the
+            forest ring; OFF state uses a neutral surface chip. */}
+        <button
+          type="button"
+          onClick={onToggleAssist}
+          aria-label="מצב כתיבה מודרכת"
+          aria-pressed={assistOn}
+          title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
+          className={`
+            shrink-0 inline-flex items-center gap-1.5
+            h-7 px-2 rounded-lg transition-all text-[11px] font-medium
+            ${assistOn
+              ? 'bg-forest-700/25 ring-1 ring-forest-700 text-ink-100'
+              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
+          `}
+        >
+          <Emoji emoji="💡" size={14} ariaLabel="" />
+          <span>כתיבה מודרכת</span>
         </button>
 
         {/* Spacer pushes the controls below to the visual LEFT. */}
