@@ -1,22 +1,28 @@
 // ============================================================================
-// TicketSheet — bottom modal for sending feedback or a support request.
+// TicketSheet — combined bottom modal for sending feedback or a support
+// request. Used to be two entry points; merged so the User screen can use
+// a single icon button and let the user pick inside the sheet.
 // Writes a row to public.support_tickets; admins see it in the ניהול panel.
 // ============================================================================
 import { useEffect, useState } from 'react';
-import { X, Send, Check } from 'lucide-react';
+import { X, Send, Check, MessageSquare, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { submitTicket } from './mutations';
 
+type Kind = 'feedback' | 'support';
+
 type Props = {
   open: boolean;
-  kind: 'feedback' | 'support';
+  /** Optional preselected kind when opening; defaults to 'feedback'. */
+  initialKind?: Kind;
   onClose: () => void;
 };
 
 const MAX_MESSAGE = 2000;
 
-export function TicketSheet({ open, kind, onClose }: Props) {
+export function TicketSheet({ open, initialKind = 'feedback', onClose }: Props) {
   const { user } = useAuth();
+  const [kind, setKind] = useState<Kind>(initialKind);
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [working, setWorking] = useState(false);
@@ -25,6 +31,7 @@ export function TicketSheet({ open, kind, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return;
+    setKind(initialKind);
     setSubject('');
     setMessage('');
     setWorking(false);
@@ -35,12 +42,11 @@ export function TicketSheet({ open, kind, onClose }: Props) {
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open, kind]);
+  }, [open, initialKind]);
 
   if (!open) return null;
 
   const isFeedback = kind === 'feedback';
-  const title = isFeedback ? 'שלח פידבק' : 'בקש תמיכה';
   const placeholder = isFeedback
     ? 'מה אהבת? מה היה אפשר לשפר? כל מחשבה עוזרת.'
     : 'תאר בקצרה במה אתה צריך עזרה.';
@@ -88,7 +94,7 @@ export function TicketSheet({ open, kind, onClose }: Props) {
           >
             <X size={20} />
           </button>
-          <h2 className="text-lg font-semibold text-ink-100">{title}</h2>
+          <h2 className="text-lg font-semibold text-ink-100">פידבק ועזרה</h2>
           <div className="w-7" />
         </header>
 
@@ -102,6 +108,26 @@ export function TicketSheet({ open, kind, onClose }: Props) {
           </div>
         ) : (
           <div className="px-5 py-4 space-y-3">
+            {/* Kind selector */}
+            <div
+              role="radiogroup"
+              aria-label="סוג ההודעה"
+              className="flex bg-surface-raised rounded-xl p-1 gap-1"
+            >
+              <KindOption
+                label="פידבק"
+                icon={<MessageSquare size={16} />}
+                active={kind === 'feedback'}
+                onClick={() => setKind('feedback')}
+              />
+              <KindOption
+                label="בקש תמיכה"
+                icon={<LifeBuoy size={16} />}
+                active={kind === 'support'}
+                onClick={() => setKind('support')}
+              />
+            </div>
+
             <div>
               <label className="block text-xs text-ink-300 mb-1.5">
                 נושא (אופציונלי)
@@ -153,5 +179,34 @@ export function TicketSheet({ open, kind, onClose }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+function KindOption({
+  label,
+  icon,
+  active,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm transition-colors ${
+        active
+          ? 'bg-forest-700 text-cream-50'
+          : 'text-ink-300 hover:text-ink-100'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

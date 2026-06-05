@@ -1,5 +1,6 @@
-// Row shape of public.profiles. Keep in sync with migrations 0011–0014.
+// Row shape of public.profiles. Keep in sync with migrations 0011–0023.
 export type Theme = 'dark' | 'light';
+export type Visibility = 'private' | 'public' | 'specific';
 
 /**
  * One entry per planted tree, stored on profiles.tree_placements (jsonb).
@@ -16,6 +17,10 @@ export type Profile = {
   last_name: string | null;
   phone: string | null;
   theme: Theme;
+  /** Per-user privacy for vision entries — migration 0023. Default 'private'. */
+  vision_visibility: Visibility;
+  /** Per-user privacy for habit tracking — migration 0023. Default 'private'. */
+  habits_visibility: Visibility;
   trees_planted: number;
   /** Ordered: index k is the k-th tree the user planted. May be SHORTER
    *  than trees_planted for legacy users; the client falls back to the
@@ -32,4 +37,24 @@ export type Profile = {
   last_seen_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Lightweight row returned by list_active_profiles() RPC — only the columns
+// that are safe to share across users for the directory list.
+export type PublicProfileRow = {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  trees_planted: number;
+  score_adjustment: number;
+  vision_visibility: Visibility;
+  habits_visibility: Visibility;
+  last_seen_at: string | null;
+  is_me: boolean;
+};
+
+// Single-user shape returned by get_public_profile(uuid).
+export type PublicProfileDetail = Omit<PublicProfileRow, 'is_me'> & {
+  can_view_vision: boolean;
+  can_view_habits: boolean;
 };

@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import type { Theme } from '../admin/types';
+import type { Theme, Visibility } from '../admin/types';
 
 // Updates the editable identity fields. Null clears the field; undefined
 // leaves it untouched.
@@ -22,6 +22,19 @@ export async function updateTheme(userId: string, theme: Theme): Promise<void> {
   const { error } = await supabase
     .from('profiles')
     .update({ theme })
+    .eq('id', userId);
+  if (error) throw error;
+}
+
+// Updates visibility preferences for vision and/or habits independently.
+// Passing undefined for a field leaves it untouched.
+export async function updateVisibility(
+  userId: string,
+  fields: { vision_visibility?: Visibility; habits_visibility?: Visibility },
+): Promise<void> {
+  const { error } = await supabase
+    .from('profiles')
+    .update(fields)
     .eq('id', userId);
   if (error) throw error;
 }

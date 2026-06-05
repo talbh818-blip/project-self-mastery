@@ -8,6 +8,7 @@ import { Habits } from './screens/Habits';
 import { Vision } from './screens/Vision';
 import { Course } from './screens/Course';
 import { User } from './screens/User';
+import { UserDetail } from './screens/UserDetail';
 import { PrivacyPolicy } from './screens/PrivacyPolicy';
 import { TermsOfUse } from './screens/TermsOfUse';
 import { Admin } from './screens/Admin';
@@ -24,6 +25,7 @@ export default function App() {
               <Route path="vision" element={<Vision />} />
               <Route path="course" element={<Course />} />
               <Route path="user" element={<User />} />
+              <Route path="user/:id" element={<UserDetail />} />
               <Route path="privacy" element={<PrivacyPolicy />} />
               <Route path="terms" element={<TermsOfUse />} />
               <Route element={<AdminRoute />}>
