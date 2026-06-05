@@ -12,15 +12,22 @@
 // render time and shows the image. Freshly-uploaded images skip the round
 // trip — the upload already returned a signed URL that we cached, so the
 // NodeView reads it synchronously from the cache and renders with no flash.
+//
+// SELECTION CHROME (when the user taps the image):
+//   • Top-right "X" → deletes the node.
+//   • Bottom-left handle → drag to resize. Aspect ratio is locked by the
+//     wrapper's aspect-ratio CSS, so dragging width auto-updates height. The
+//     committed `displayWidth` (pixels) is persisted in the doc; null means
+//     "fill the editor column".
 // ============================================================================
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Node, mergeAttributes } from '@tiptap/core';
 import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from '@tiptap/react';
-import { ImageOff, Loader2 } from 'lucide-react';
+import { ImageOff, Loader2, X } from 'lucide-react';
 import { getCachedSignedUrl, signVisionImage } from './storage';
 
 export type SetVisionImageOptions = {
@@ -37,6 +44,10 @@ declare module '@tiptap/core' {
     };
   }
 }
+
+/** Minimum width the user can shrink an image to (px). Below this the handle
+ *  is hard to grab and the image is unreadable. */
+const MIN_DISPLAY_WIDTH = 120;
 
 export const VisionImage = Node.create({
   name: 'visionImage',
@@ -59,6 +70,10 @@ export const VisionImage = Node.create({
         parseHTML: (el) => el.getAttribute('alt'),
         renderHTML: (attrs) => (attrs.alt ? { alt: attrs.alt } : {}),
       },
+      // Natural pixel dimensions of the uploaded (post-resize) image — used
+      // to lock the aspect-ratio of the display box so width-only drags
+      // auto-compute height. Persisted alongside `path` so reloads don't
+      // need to re-measure.
       width: {
         default: null as number | null,
         parseHTML: (el) => {
@@ -76,6 +91,19 @@ export const VisionImage = Node.create({
         },
         renderHTML: (attrs) =>
           attrs.height ? { height: String(attrs.height) } : {},
+      },
+      // User-controlled display width in CSS pixels. null → fill the editor
+      // column (the default for fresh uploads).
+      displayWidth: {
+        default: null as number | null,
+        parseHTML: (el) => {
+          const w = el.getAttribute('data-display-width');
+          return w ? Number(w) : null;
+        },
+        renderHTML: (attrs) =>
+          attrs.displayWidth
+            ? { 'data-display-width': String(attrs.displayWidth) }
+            : {},
       },
     };
   },
@@ -113,14 +141,23 @@ export const VisionImage = Node.create({
 
 // ─── NodeView ───────────────────────────────────────────────────────────────
 
-function VisionImageView({ node, selected }: NodeViewProps) {
+function VisionImageView({
+  node,
+  selected,
+  editor,
+  getPos,
+  updateAttributes,
+  deleteNode,
+}: NodeViewProps) {
   const path = (node.attrs.path as string | null) ?? null;
   const alt = (node.attrs.alt as string | null) ?? '';
-  const width = (node.attrs.width as number | null) ?? null;
-  const height = (node.attrs.height as number | null) ?? null;
+  const naturalWidth = (node.attrs.width as number | null) ?? null;
+  const naturalHeight = (node.attrs.height as number | null) ?? null;
+  const persistedDisplayWidth =
+    (node.attrs.displayWidth as number | null) ?? null;
 
-  // Show a cached URL synchronously on first render — no skeleton flash when
-  // re-opening an entry whose images were just signed in a batch.
+  // Signed URL — cached on first paint to skip the skeleton when re-opening
+  // an entry whose images were just signed in a batch.
   const initialCached = path ? getCachedSignedUrl(path) : null;
   const [url, setUrl] = useState<string | null>(initialCached);
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>(
@@ -155,21 +192,145 @@ function VisionImageView({ node, selected }: NodeViewProps) {
     };
   }, [path]);
 
-  // Preserve aspect-ratio of the resized image so the layout doesn't jump
-  // between the skeleton and the loaded <img>. Falls back to a soft 4:3 box.
-  const ratio = width && height ? `${width} / ${height}` : '4 / 3';
+  // ── Resize drag ───────────────────────────────────────────────────────────
+  // During an active drag we drive the box width from `dragWidth` (local
+  // state, no doc churn). On pointer up we commit the final value to the
+  // node's `displayWidth` attribute → it's saved with the rest of the doc.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const dragStateRef = useRef<{
+    startX: number;
+    startWidth: number;
+    /** Pointer capture target — released on pointer up. */
+    pointerId: number;
+    element: HTMLElement;
+  } | null>(null);
+
+  const startResize = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      // Only primary-button drags. Right-click etc. shouldn't start a resize.
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      const container = containerRef.current;
+      if (!container) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const currentWidth =
+        persistedDisplayWidth ?? container.getBoundingClientRect().width;
+      const target = e.currentTarget;
+      target.setPointerCapture(e.pointerId);
+      dragStateRef.current = {
+        startX: e.clientX,
+        startWidth: currentWidth,
+        pointerId: e.pointerId,
+        element: target,
+      };
+      setDragWidth(currentWidth);
+    },
+    [persistedDisplayWidth],
+  );
+
+  const onResizeMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const s = dragStateRef.current;
+      if (!s) return;
+      e.preventDefault();
+      // The handle lives at the BOTTOM-LEFT of the image (visual). Dragging
+      // it LEFT (clientX decreasing) should GROW the image. So delta is the
+      // negative of the raw cursor delta — flipped for RTL ergonomics.
+      const delta = s.startX - e.clientX;
+      const editorWidth =
+        containerRef.current?.parentElement?.getBoundingClientRect().width ??
+        Number.POSITIVE_INFINITY;
+      const max = Math.min(naturalWidth ?? editorWidth, editorWidth);
+      const next = Math.max(
+        MIN_DISPLAY_WIDTH,
+        Math.min(max, s.startWidth + delta),
+      );
+      setDragWidth(next);
+    },
+    [naturalWidth],
+  );
+
+  const endResize = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const s = dragStateRef.current;
+      if (!s) return;
+      try {
+        s.element.releasePointerCapture(s.pointerId);
+      } catch {
+        // Some browsers throw if the capture was already lost (e.g. element
+        // unmounted mid-drag); the drag has ended either way.
+      }
+      dragStateRef.current = null;
+      const finalWidth = dragWidth;
+      setDragWidth(null);
+      if (finalWidth != null) {
+        // Round to an integer — sub-pixel widths bloat the doc JSON for no
+        // visual gain.
+        updateAttributes({ displayWidth: Math.round(finalWidth) });
+      }
+      e.preventDefault();
+    },
+    [dragWidth, updateAttributes],
+  );
+
+  // ── Delete ───────────────────────────────────────────────────────────────
+  const handleDelete = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // `deleteNode` (provided by ReactNodeViewRenderer) removes THIS node
+      // and is safer than dispatching a range delete by hand — it knows the
+      // node's current position even after intervening edits.
+      deleteNode();
+    },
+    [deleteNode],
+  );
+
+  // ── Selection on tap ─────────────────────────────────────────────────────
+  // Atoms get auto-selected on click only when the editor is editable AND
+  // the pointer hits ProseMirror's own listener. Tapping the wrapper used
+  // to fall through to the parent — selecting nothing. Force the selection
+  // ourselves so the delete + resize chrome can appear on the first tap.
+  const handleSelectClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // Ignore clicks that came from the controls themselves.
+      const target = e.target as HTMLElement;
+      if (target.closest('[data-vision-image-control]')) return;
+      const pos = typeof getPos === 'function' ? getPos() : null;
+      if (pos == null) return;
+      editor.chain().focus().setNodeSelection(pos).run();
+    },
+    [editor, getPos],
+  );
+
+  // Preserve aspect ratio so width-only drags update height. Falls back to a
+  // soft 4:3 box while the image is still loading and we don't know its real
+  // dimensions.
+  const ratio =
+    naturalWidth && naturalHeight ? `${naturalWidth} / ${naturalHeight}` : '4 / 3';
+
+  // Live width: drag wins → persisted attr → fill the column.
+  const effectiveWidth = dragWidth ?? persistedDisplayWidth ?? null;
+  const wrapperStyle: React.CSSProperties = effectiveWidth
+    ? { width: `${effectiveWidth}px`, maxWidth: '100%' }
+    : { width: '100%' };
 
   return (
     <NodeViewWrapper
       as="div"
       className={`vision-image-block my-3 ${
-        selected ? 'ring-2 ring-forest-500/70 rounded-2xl' : ''
+        selected ? 'is-selected' : ''
       }`}
       data-drag-handle
     >
       <div
-        className="relative w-full overflow-hidden rounded-2xl bg-surface-raised"
-        style={{ aspectRatio: ratio }}
+        ref={containerRef}
+        onClick={handleSelectClick}
+        className={`relative overflow-hidden rounded-2xl bg-surface-raised transition-shadow ${
+          selected ? 'ring-2 ring-forest-500/70' : ''
+        }`}
+        style={{ ...wrapperStyle, aspectRatio: ratio }}
       >
         {status === 'loading' && (
           <div className="absolute inset-0 flex items-center justify-center text-ink-300/60">
@@ -186,10 +347,63 @@ function VisionImageView({ node, selected }: NodeViewProps) {
           <img
             src={url}
             alt={alt}
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
             draggable={false}
             onError={() => setStatus('error')}
           />
+        )}
+
+        {/* Selection chrome — only when the node is selected AND the editor
+            is editable. Read-only contexts (future preview screens) shouldn't
+            show edit controls. */}
+        {selected && editor.isEditable && (
+          <>
+            {/* Delete (X) — top-right physical corner. */}
+            <button
+              type="button"
+              data-vision-image-control
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleDelete}
+              aria-label="מחק תמונה"
+              className="
+                absolute top-2 right-2 z-10 w-8 h-8 rounded-full
+                bg-black/60 text-cream-50 backdrop-blur
+                flex items-center justify-center
+                hover:bg-black/80 transition
+              "
+            >
+              <X size={16} strokeWidth={2.5} />
+            </button>
+
+            {/* Resize handle — bottom-left physical corner. Big touch
+                target (32px) with a smaller visible thumb. */}
+            <div
+              data-vision-image-control
+              onPointerDown={startResize}
+              onPointerMove={onResizeMove}
+              onPointerUp={endResize}
+              onPointerCancel={endResize}
+              role="slider"
+              aria-label="גודל תמונה"
+              aria-valuemin={MIN_DISPLAY_WIDTH}
+              aria-valuemax={naturalWidth ?? undefined}
+              aria-valuenow={effectiveWidth ?? undefined}
+              className="
+                absolute bottom-0 left-0 z-10 w-10 h-10
+                flex items-end justify-start p-1.5
+                cursor-nwse-resize touch-none
+              "
+            >
+              <span
+                aria-hidden
+                className="
+                  block w-5 h-5 rounded-sm
+                  bg-forest-500 border-2 border-cream-50
+                  shadow-md
+                "
+              />
+            </div>
+          </>
         )}
       </div>
     </NodeViewWrapper>
