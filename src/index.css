@@ -610,6 +610,26 @@ html {
   .vision-label-anim { animation: none; }
 }
 
+/* Selected-image caret — a Docs-style blinking insertion marker shown right
+   after a selected image so the writer always knows where their text will
+   continue. Inherits the editor's text colour via currentColor; sits on the
+   line after the (block) image, which in RTL begins at the right edge. */
+.vision-editor .vision-image-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  margin-top: 0.35rem;
+  background-color: currentColor;
+  vertical-align: text-bottom;
+  animation: vision-caret-blink 1.05s steps(1, end) infinite;
+}
+@keyframes vision-caret-blink {
+  50% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vision-editor .vision-image-caret { animation: none; }
+}
+
 /* Vision Assist question block — looks like a prompt sticker laid over the
    notebook. Bold text on the right, two action buttons (↻ swap, ✕ delete)
    that fade in on hover (always visible on touch devices via the no-hover

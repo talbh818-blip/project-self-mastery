@@ -27,7 +27,8 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from '@tiptap/react';
-import { ImageOff, Loader2, X } from 'lucide-react';
+import { NodeSelection, Plugin, TextSelection } from '@tiptap/pm/state';
+import { ImageOff, Loader2, MoveDiagonal2, X } from 'lucide-react';
 import { getCachedSignedUrl, signVisionImage } from './storage';
 
 export type SetVisionImageOptions = {
@@ -128,6 +129,52 @@ export const VisionImage = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(VisionImageView);
+  },
+
+  // When the image node itself is selected and the user starts typing,
+  // ProseMirror would by default REPLACE the atom with the typed text —
+  // silently deleting the picture. Instead, redirect the input to just AFTER
+  // the image (creating a paragraph if there's no textblock there yet) so the
+  // caret flows on past the image the way Google Docs does.
+  addProseMirrorPlugins() {
+    const type = this.type;
+    return [
+      new Plugin({
+        props: {
+          handleTextInput(view, _from, _to, text) {
+            const { state } = view;
+            const sel = state.selection;
+            if (!(sel instanceof NodeSelection) || sel.node.type !== type) {
+              return false;
+            }
+            const insertPos = sel.to; // position right after the image
+            let tr = state.tr;
+            const nodeAfter = tr.doc.resolve(insertPos).nodeAfter;
+            if (nodeAfter && nodeAfter.isTextblock) {
+              const inPos = insertPos + 1; // step inside the textblock
+              tr = tr
+                .insertText(text, inPos)
+                .setSelection(
+                  TextSelection.create(tr.doc, inPos + text.length),
+                );
+            } else {
+              const paragraph = state.schema.nodes.paragraph;
+              if (!paragraph) return false;
+              tr = tr
+                .insert(
+                  insertPos,
+                  paragraph.create(null, state.schema.text(text)),
+                )
+                .setSelection(
+                  TextSelection.create(tr.doc, insertPos + 1 + text.length),
+                );
+            }
+            view.dispatch(tr.scrollIntoView());
+            return true;
+          },
+        },
+      }),
+    ];
   },
 
   addCommands() {
@@ -387,8 +434,9 @@ function VisionImageView({
               <X size={16} strokeWidth={2.5} />
             </button>
 
-            {/* Resize handle — bottom-left physical corner. Big touch
-                target (32px) with a smaller visible thumb. */}
+            {/* Resize handle — bottom-left physical corner. A circular
+                control (mirrors the delete button) carrying a diagonal
+                resize glyph so its purpose is unmistakable. */}
             <div
               data-vision-image-control
               onPointerDown={startResize}
@@ -401,23 +449,24 @@ function VisionImageView({
               aria-valuemax={naturalWidth ?? undefined}
               aria-valuenow={effectiveWidth ?? undefined}
               className="
-                absolute bottom-0 left-0 z-10 w-10 h-10
-                flex items-end justify-start p-1.5
-                cursor-nwse-resize touch-none
+                absolute bottom-2 left-2 z-10 w-8 h-8 rounded-full
+                bg-black/60 text-cream-50 backdrop-blur
+                flex items-center justify-center
+                hover:bg-black/80 transition
+                cursor-nesw-resize touch-none
               "
             >
-              <span
-                aria-hidden
-                className="
-                  block w-5 h-5 rounded-sm
-                  bg-forest-500 border-2 border-cream-50
-                  shadow-md
-                "
-              />
+              <MoveDiagonal2 size={16} strokeWidth={2.5} />
             </div>
           </>
         )}
       </div>
+      {/* Docs-style insertion marker: a blinking caret right after the image
+          while it's selected, so the writer always knows where typing will
+          continue (typing is redirected to here by the plugin above). */}
+      {selected && editor.isEditable && (
+        <span className="vision-image-caret" aria-hidden />
+      )}
     </NodeViewWrapper>
   );
 }
