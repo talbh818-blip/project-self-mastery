@@ -10,8 +10,9 @@
 // is consolidated here so the toolbar stays focused on text formatting.
 // ============================================================================
 import { useState } from 'react';
-import { Calendar, CalendarCheck, CheckCircle2 } from 'lucide-react';
+import { Calendar, CalendarCheck, CheckCircle2, SmilePlus } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
+import { HabitIcon } from '../habits/HabitIcon';
 import { DatePickerSheet } from './DatePickerSheet';
 import type { SaveStatus } from './useVisionEntry';
 
@@ -22,6 +23,11 @@ type Props = {
   /** Assist toggle state + handler. */
   assistOn: boolean;
   onToggleAssist: () => void;
+  /** Current level's icon (Lucide name or emoji char), or null. Shown on the
+   *  picker button so it doubles as a "what's chosen" indicator. */
+  icon: string | null;
+  /** Open the icon picker for the current level. */
+  onIconClick: () => void;
   /** Save indicator state — driven by useVisionEntry. */
   saveStatus: SaveStatus;
   /** "Jump to current period" (השבוע / החודש / השנה); null = hidden. */
@@ -44,6 +50,8 @@ export function DateBar({
   onChange,
   assistOn,
   onToggleAssist,
+  icon,
+  onIconClick,
   saveStatus,
   jumpToNow,
 }: Props) {
@@ -94,6 +102,29 @@ export function DateBar({
         >
           <Emoji emoji="💡" size={14} ariaLabel="" />
           <span>כתיבה מודרכת</span>
+        </button>
+
+        {/* Icon picker — visually just LEFT of the Assist button (next DOM
+            child in RTL). Shows the current level's chosen icon, or a generic
+            "add emoji" glyph when none is set yet. Tapping opens the picker. */}
+        <button
+          type="button"
+          onClick={onIconClick}
+          aria-label="בחר אייקון לחזון"
+          title="בחר אייקון לחזון"
+          className={`
+            shrink-0 inline-flex items-center justify-center
+            h-7 w-7 rounded-lg transition-all
+            ${icon
+              ? 'bg-forest-700/25 ring-1 ring-forest-700 text-ink-100'
+              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
+          `}
+        >
+          {icon ? (
+            <HabitIcon name={icon} size={16} />
+          ) : (
+            <SmilePlus size={15} strokeWidth={1.9} />
+          )}
         </button>
 
         {/* Spacer pushes the controls below to the visual LEFT. */}

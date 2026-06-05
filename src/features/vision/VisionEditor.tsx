@@ -60,6 +60,11 @@ type Props = {
   onDateChange: (iso: string) => void;
   /** "Jump to current period" control shown in the DateBar; null = hidden. */
   jumpToNow: { label: string; onJump: () => void } | null;
+  /** Current level's icon (Lucide name or emoji char), shown on the DateBar
+   *  picker button. null = none chosen yet. */
+  icon: string | null;
+  /** Open the icon picker for the current level. */
+  onIconClick: () => void;
   onChange: (json: unknown) => void;
 };
 
@@ -74,6 +79,8 @@ export function VisionEditor({
   documentDate,
   onDateChange,
   jumpToNow,
+  icon,
+  onIconClick,
   onChange,
 }: Props) {
   const { user } = useAuth();
@@ -234,6 +241,8 @@ export function VisionEditor({
           onChange={onDateChange}
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
+          icon={icon}
+          onIconClick={onIconClick}
           saveStatus={saveStatus}
           jumpToNow={jumpToNow}
         />
@@ -272,6 +281,8 @@ export function VisionEditor({
           onChange={onDateChange}
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
+          icon={icon}
+          onIconClick={onIconClick}
           saveStatus={saveStatus}
           jumpToNow={jumpToNow}
         />

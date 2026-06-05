@@ -223,7 +223,6 @@ export function Vision() {
         level={level}
         anchor={anchor}
         onPick={pick}
-        onIconClick={setIconPickerLevel}
         icons={icons}
         written={written}
       />
@@ -249,11 +248,13 @@ export function Vision() {
           documentDate={documentDate}
           onDateChange={(iso) => void setDocumentDate(iso)}
           jumpToNow={jumpToNow}
+          icon={icons[level] ?? null}
+          onIconClick={() => setIconPickerLevel(level)}
           onChange={handleEditorChange}
         />
       )}
 
-      {/* Icon picker — opened by tapping any layer row's icon tile. */}
+      {/* Icon picker — opened from the DateBar's icon button (current level). */}
       <VisionIconPicker
         open={iconPickerLevel !== null}
         value={iconPickerLevel ? icons[iconPickerLevel] ?? null : null}

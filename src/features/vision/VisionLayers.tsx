@@ -37,9 +37,9 @@ type Props = {
   anchor: Date;
   /** Activate a level at a given anchor (centre tap or side step). */
   onPick: (level: VisionScope, anchor: Date) => void;
-  /** Open the icon picker for a given level (tap on that row's icon tile). */
-  onIconClick: (level: VisionScope) => void;
-  /** Per-level icon (Lucide name or emoji char) shown in each row's tile. */
+  /** Per-level icon (Lucide name or emoji char). Shown inline next to the
+   *  title ONLY when set — picking now lives in the editor's DateBar, so a
+   *  level with no icon has no empty tile. */
   icons?: Partial<Record<VisionScope, string | null>>;
   /** Per-level "has written content" → shows the check-mark badge. */
   written?: Partial<Record<VisionScope, boolean>>;
@@ -60,7 +60,6 @@ export function VisionLayers({
   level,
   anchor,
   onPick,
-  onIconClick,
   icons,
   written,
 }: Props) {
@@ -96,7 +95,6 @@ export function VisionLayers({
           icon={icons?.yearly ?? null}
           done={written?.yearly ?? false}
           onActivate={() => onPick('yearly', anchor)}
-          onIconClick={() => onIconClick('yearly')}
         >
           <span className="truncate min-w-0">חזון שנתי {year}</span>
         </Centre>
@@ -121,7 +119,6 @@ export function VisionLayers({
           icon={icons?.monthly ?? null}
           done={written?.monthly ?? false}
           onActivate={() => onPick('monthly', anchor)}
-          onIconClick={() => onIconClick('monthly')}
         >
           <span className="truncate min-w-0">חזון חודשי · {monthName(anchor)}</span>
         </Centre>
@@ -143,7 +140,6 @@ export function VisionLayers({
           icon={icons?.weekly ?? null}
           done={written?.weekly ?? false}
           onActivate={() => onPick('weekly', anchor)}
-          onIconClick={() => onIconClick('weekly')}
         >
           {/* Label truncates first when cramped; the dates stay. */}
           <span className="truncate min-w-0">חזון שבועי</span>
@@ -191,7 +187,6 @@ function Centre({
   icon,
   done = false,
   onActivate,
-  onIconClick,
   children,
 }: {
   active: boolean;
@@ -200,26 +195,27 @@ function Centre({
   /** Entry has written content → show the check-mark badge. */
   done?: boolean;
   onActivate: () => void;
-  onIconClick: () => void;
   children: React.ReactNode;
 }) {
-  // Container is a DIV (not a button) so it can hold TWO buttons — the icon
-  // tile (opens the picker) and the title (activates the level) — without
-  // nesting <button> inside <button>.
+  // Single tap-target: the whole centre activates the level. The icon (when
+  // set) rides inline to the title's RIGHT — no reserved tile, so a level
+  // without an icon just shows its title. Picking the icon happens in the
+  // editor's DateBar now.
   return (
-    <div
+    <button
+      type="button"
+      onClick={onActivate}
       className={`flex-1 min-w-0 rounded-xl text-sm font-semibold transition-colors ${
         active
-          ? // Active = green ring + faint green bg, but the TEXT stays light
-            // (ink-100) and icons keep their own colours — only the frame
-            // signals selection.
+          ? // Active = green ring + faint green bg; the TEXT stays light
+            // (ink-100) — only the frame signals selection.
             'bg-forest-700/20 text-ink-100 ring-1 ring-forest-700'
           : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
       }`}
     >
       <span
         key={animKey}
-        className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
+        className="vision-label-anim flex items-center gap-1.5 min-w-0 px-2 h-full"
       >
         {/* "Written" dot — far RIGHT. A tiny status dot is the cleanest,
             most space-efficient "has content" signal; it never crowds the
@@ -230,37 +226,20 @@ function Centre({
           </span>
         )}
 
-        {/* Centred group. The icon tile sits to the title's RIGHT (shrink-0,
-            never swallowed). A spacer the SAME width as the icon tile sits to
-            the title's LEFT — so the icon + left-spacer cancel out and the
-            TITLE TEXT alone is centred in the row (the icon just hangs off its
-            right). The title TRUNCATES with an ellipsis when there's no room. */}
+        {/* Centred group: title + (optional) icon to its right. With no
+            reserved tile, the title sits naturally centred and the icon —
+            when present — hangs just off its right edge. The title truncates
+            with an ellipsis when there's no room. */}
         <span className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
-          <button
-            type="button"
-            onClick={onIconClick}
-            aria-label="בחר אייקון לחזון"
-            title="בחר אייקון לחזון"
-            className="shrink-0 w-7 h-7 rounded-lg bg-surface-raised flex items-center justify-center text-ink-100 hover:brightness-125 transition"
-          >
-            {icon ? <HabitIcon name={icon} size={16} /> : null}
-          </button>
-          <button
-            type="button"
-            onClick={onActivate}
-            className="min-w-0 inline-flex items-center gap-1.5 h-full overflow-hidden"
-          >
-            {children}
-          </button>
-          {/* Mirror of the icon tile — keeps the title text centred. */}
-          <span aria-hidden className="shrink-0 w-7" />
+          {children}
+          {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
         </span>
 
         {/* Left balance spacer — same width as the right dot so the centred
             group stays truly centred. */}
         {done && <span aria-hidden className="shrink-0 w-1.5" />}
       </span>
-    </div>
+    </button>
   );
 }
 
