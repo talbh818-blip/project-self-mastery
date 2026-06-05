@@ -53,7 +53,11 @@ export const VisionImage = Node.create({
   name: 'visionImage',
   group: 'block',
   atom: true,
-  draggable: true,
+  // NOT draggable: with a NodeView that has its own pointer controls (resize
+  // handle, delete button), ProseMirror's node-drag copied the node instead
+  // of moving it — dropping it elsewhere left a duplicate behind. Resize +
+  // delete cover the real needs; reordering isn't worth the duplication bug.
+  draggable: false,
   selectable: true,
 
   addAttributes() {
@@ -319,14 +323,16 @@ function VisionImageView({
   return (
     <NodeViewWrapper
       as="div"
-      className={`vision-image-block my-3 ${
-        selected ? 'is-selected' : ''
-      }`}
-      data-drag-handle
+      className={`vision-image-block my-3 ${selected ? 'is-selected' : ''}`}
     >
       <div
         ref={containerRef}
         onClick={handleSelectClick}
+        // Block any native HTML5 drag (image or node-selection) — that's what
+        // was leaving a duplicate behind. Resize/delete are pointer-based and
+        // unaffected.
+        onDragStart={(e) => e.preventDefault()}
+        draggable={false}
         className={`relative overflow-hidden rounded-2xl bg-surface-raised transition-shadow ${
           selected ? 'ring-2 ring-forest-500/70' : ''
         }`}
