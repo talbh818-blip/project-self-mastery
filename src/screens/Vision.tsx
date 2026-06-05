@@ -63,17 +63,63 @@ export function Vision() {
   const [icons, setIcons] = useState<ScopeIcons>({});
   // Which rows already have written content → drives the "written" check-mark.
   const [written, setWritten] = useState<ScopeFlags>({});
+
+  // In-memory cache of row-meta keyed by `${scope}:${periodKey}`. Navigation
+  // used to re-hit the DB on every step, so the icons + "written" dots
+  // visibly trailed the (synchronous) period labels. We now seed instantly
+  // from the cache and only round-trip for periods we haven't seen yet — so
+  // stepping back and forth feels smooth.
+  const metaCacheRef = useRef<
+    Map<string, { icon: string | null; written: boolean }>
+  >(new Map());
+
   useEffect(() => {
     if (!userId) return;
+    const pairs: [VisionScope, string][] = [
+      ['yearly', yearKey],
+      ['monthly', monthKey],
+      ['weekly', weekKey],
+    ];
+
+    // 1. Seed from cache so revisited periods render with no lag and no flash
+    //    of the previous period's icons.
+    const seedIcons: ScopeIcons = {};
+    const seedWritten: ScopeFlags = {};
+    let allCached = true;
+    for (const [scope, key] of pairs) {
+      const hit = metaCacheRef.current.get(`${scope}:${key}`);
+      if (hit) {
+        seedIcons[scope] = hit.icon;
+        seedWritten[scope] = hit.written;
+      } else {
+        allCached = false;
+      }
+    }
+    setIcons(seedIcons);
+    setWritten(seedWritten);
+    if (allCached) return; // fully served from cache — skip the round-trip
+
+    // 2. Refresh from the DB, then cache every requested key (including the
+    //    ones with no row, cached as empty, so they don't re-fetch later).
     let cancelled = false;
     fetchVisionRowMeta(userId, [yearKey, monthKey, weekKey])
       .then((rows) => {
         if (cancelled) return;
         const nextIcons: ScopeIcons = {};
         const nextWritten: ScopeFlags = {};
+        for (const [scope] of pairs) {
+          nextIcons[scope] = null;
+          nextWritten[scope] = false;
+        }
         for (const r of rows) {
           nextIcons[r.scope] = r.icon;
           nextWritten[r.scope] = !isVisionContentEmpty(r.content);
+        }
+        for (const [scope, key] of pairs) {
+          metaCacheRef.current.set(`${scope}:${key}`, {
+            icon: nextIcons[scope] ?? null,
+            written: nextWritten[scope] ?? false,
+          });
         }
         setIcons(nextIcons);
         setWritten(nextWritten);
@@ -96,14 +142,18 @@ export function Vision() {
     (icon: string | null) => {
       const lvl = iconPickerLevel;
       if (!lvl) return;
+      const key = getPeriodKey(lvl, anchor);
       setIcons((prev) => ({ ...prev, [lvl]: icon }));
-      if (!userId) return;
-      void updateVisionEntryIcon(
-        userId,
-        lvl,
-        getPeriodKey(lvl, anchor),
+      // Keep the cache in sync so leaving and returning shows the new icon.
+      const prevMeta = metaCacheRef.current.get(`${lvl}:${key}`);
+      metaCacheRef.current.set(`${lvl}:${key}`, {
         icon,
-      ).catch((err) => console.error('[vision] icon save failed', err));
+        written: prevMeta?.written ?? false,
+      });
+      if (!userId) return;
+      void updateVisionEntryIcon(userId, lvl, key, icon).catch((err) =>
+        console.error('[vision] icon save failed', err),
+      );
     },
     [iconPickerLevel, userId, anchor],
   );
@@ -130,9 +180,15 @@ export function Vision() {
       setWritten((prev) =>
         prev[level] === !empty ? prev : { ...prev, [level]: !empty },
       );
+      // Mirror the live "written" state into the cache for this period.
+      const prevMeta = metaCacheRef.current.get(`${level}:${periodKey}`);
+      metaCacheRef.current.set(`${level}:${periodKey}`, {
+        icon: prevMeta?.icon ?? null,
+        written: !empty,
+      });
       scheduleSave(json);
     },
-    [level, scheduleSave],
+    [level, periodKey, scheduleSave],
   );
 
   // Default the DateBar to today when there's no entry yet.

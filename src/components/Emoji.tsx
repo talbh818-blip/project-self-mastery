@@ -53,8 +53,22 @@ export function Emoji({
   // swaps the <img> for a <span> with the OS glyph.
   const fluent3d = fluent3dUrlFor(emoji);
   const fallback = `${FALLBACK_CDN_BASE}/${encodeURIComponent(emoji)}?style=${FALLBACK_STYLE}`;
-  const [src, setSrc] = useState<string>(fluent3d ?? fallback);
+  const primary = fluent3d ?? fallback;
+  const [src, setSrc] = useState<string>(primary);
   const [triedFallback, setTriedFallback] = useState<boolean>(fluent3d == null);
+
+  // Reset the source chain when the `emoji` prop changes. <Emoji> instances
+  // are reused across icon swaps (same position in the tree), and useState
+  // only seeds on mount — so without this, replacing one emoji with another
+  // kept rendering the OLD image until the component happened to unmount.
+  // This is React's "adjust state during render" pattern: it re-renders
+  // immediately with the right src, no flash and no post-paint effect lag.
+  const [shownFor, setShownFor] = useState<string>(emoji);
+  if (shownFor !== emoji) {
+    setShownFor(emoji);
+    setSrc(primary);
+    setTriedFallback(fluent3d == null);
+  }
 
   const handleError = (e: SyntheticEvent<HTMLImageElement>) => {
     if (!triedFallback) {
