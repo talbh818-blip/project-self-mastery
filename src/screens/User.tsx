@@ -14,14 +14,13 @@ import {
   Shield,
   FileText,
   ChevronLeft,
-  Settings,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCurrentProfile } from '../features/admin/ProfileContext';
 import { updateTheme, uploadAvatar } from '../features/user/mutations';
 import { EditDetailsSheet } from '../features/user/EditDetailsSheet';
 import { TicketSheet } from '../features/user/TicketSheet';
-import { PrivacySettingsSheet } from '../features/user/PrivacySettingsSheet';
+import { PrivacyInline } from '../features/user/PrivacyInline';
 import { UsersDirectory } from '../features/user/UsersDirectory';
 import type { Theme } from '../features/admin/types';
 
@@ -32,7 +31,6 @@ export function User() {
   const [uploading, setUploading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
-  const [privacyOpen, setPrivacyOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarClick = () => fileInputRef.current?.click();
@@ -150,23 +148,8 @@ export function User() {
         </div>
       </div>
 
-      {/* Privacy settings — single CTA opens sheet */}
-      <button
-        type="button"
-        onClick={() => setPrivacyOpen(true)}
-        className="w-full bg-surface-card rounded-2xl px-5 py-3.5 flex items-center justify-between hover:bg-surface-raised/40 transition-colors"
-      >
-        <span className="flex items-center gap-3">
-          <Settings size={18} className="text-ink-300" />
-          <span className="flex flex-col items-start">
-            <span className="text-sm text-ink-100 font-medium">הגדרות פרטיות</span>
-            <span className="text-[11px] text-ink-300">
-              חזון: {visibilityLabel(profile.vision_visibility)} · הרגלים: {visibilityLabel(profile.habits_visibility)}
-            </span>
-          </span>
-        </span>
-        <ChevronLeft size={16} className="text-ink-500" />
-      </button>
+      {/* Privacy controls — inline segmented selectors, no modal */}
+      <PrivacyInline />
 
       {/* Active users directory */}
       <UsersDirectory />
@@ -197,18 +180,8 @@ export function User() {
 
       <EditDetailsSheet open={editOpen} onClose={() => setEditOpen(false)} />
       <TicketSheet open={ticketOpen} onClose={() => setTicketOpen(false)} />
-      <PrivacySettingsSheet
-        open={privacyOpen}
-        onClose={() => setPrivacyOpen(false)}
-      />
     </section>
   );
-}
-
-function visibilityLabel(v: string): string {
-  if (v === 'public') return 'משותף עם כולם';
-  if (v === 'specific') return 'משתמשים ספציפיים';
-  return 'פרטי';
 }
 
 function ThemeToggle({
