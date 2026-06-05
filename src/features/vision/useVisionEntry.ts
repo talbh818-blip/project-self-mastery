@@ -197,7 +197,18 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
 
     if (cached !== undefined && !draftIsNewer) {
       setEntry(cached);
-      displayedRef.current = contentJson(cached?.content);
+      // Bump the version when the cached content differs from what's on
+      // screen, so the editor RE-MOUNTS with THIS period's content. Without
+      // this, switching to an already-visited (cached) period updated `entry`
+      // but left resetKey (=level:periodKey:contentVersion) unchanged — so the
+      // editor kept showing, and could then save, the PREVIOUS period's text
+      // under the new period's key. That was the "monthly shows up in weekly /
+      // weeks duplicate or vanish" corruption.
+      const json = contentJson(cached?.content);
+      if (json !== displayedRef.current) {
+        displayedRef.current = json;
+        setContentVersion((v) => v + 1);
+      }
       setLoading(false);
       setStatus('idle');
     } else {
