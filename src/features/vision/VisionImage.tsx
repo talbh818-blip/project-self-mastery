@@ -347,6 +347,12 @@ function VisionImageView({
           <img
             src={url}
             alt={alt}
+            // decoding=async: never block the main thread on image decode —
+            // important on phones where a 1280px JPEG can take ~30ms to
+            // decode. loading=lazy: skip work for images below the fold;
+            // above-fold images still load immediately per the spec.
+            decoding="async"
+            loading="lazy"
             className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
             draggable={false}
             onError={() => setStatus('error')}

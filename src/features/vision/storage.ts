@@ -4,17 +4,24 @@
 // Storage layout: `vision-images/{userId}/{uuid}.jpg`. The bucket is PRIVATE
 // (see migration 0022) so reads always go through a short-lived signed URL.
 //
-// Images are downscaled to a max edge of 1600 px and re-encoded as JPEG/0.85
-// before upload — large enough for sharp mobile viewing, small enough that a
-// vision page with multiple images stays cheap to fetch.
+// Images are downscaled to a max edge of 1280 px and re-encoded as JPEG/0.78
+// before upload — small enough that a vision page full of photos still feels
+// instant on a phone, sharp enough that the page doesn't look like a fax.
+//
+// PERFORMANCE NOTE: signed URLs are cached in BOTH memory and localStorage.
+// Without the localStorage tier, every page refresh would re-sign every
+// image (full network round trip) AND the URL would change — invalidating
+// the browser's image cache too. With it, the same URL comes back on every
+// refresh until the 7-day TTL expires, so the browser's HTTP cache for the
+// JPEG itself stays warm. That's where the Google-Docs-feel comes from.
 // ============================================================================
 import { supabase } from '../../lib/supabase';
 
 const BUCKET = 'vision-images';
-const MAX_EDGE = 1600;
-const JPEG_QUALITY = 0.85;
-/** 7 days. The editor regenerates URLs on every mount, so the only constraint
- *  is that a URL must outlive one editing session. */
+const MAX_EDGE = 1280;
+const JPEG_QUALITY = 0.78;
+/** 7 days. New uploads cache locally for almost this long, so a doc that
+ *  was open yesterday still paints its images on first frame today. */
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 export type UploadedVisionImage = {
@@ -89,37 +96,82 @@ export async function uploadVisionImage(
   return { path, url, width, height };
 }
 
-// ─── Signed-URL cache ───────────────────────────────────────────────────────
-// Image NodeViews ask for a signed URL the moment they mount. Without a cache
-// we'd hit Supabase once per <img> per render — even when the same image
-// renders inside multiple entries (or after a re-render). The cache is keyed
-// by storage path, with a TTL trimmed to 90 % of the URL's real lifetime so a
-// cached URL never sneaks past its expiry.
+// ─── Signed-URL cache (memory + localStorage two-tier) ──────────────────────
+// Memory is fast for in-session reads (and is the only thing tab-isolated
+// contexts get). localStorage survives refreshes — that's what makes a
+// refreshed page paint its images on the first frame instead of waiting for
+// a sign-then-load round trip.
 
 type CachedUrl = { url: string; expiresAt: number };
 const signedUrlCache = new Map<string, CachedUrl>();
 
-function rememberSignedUrl(path: string, url: string): void {
-  signedUrlCache.set(path, {
-    url,
-    expiresAt: Date.now() + SIGNED_URL_TTL_SECONDS * 1000 * 0.9,
-  });
-}
+const LS_PREFIX = 'vision-img-url:';
+const lsKey = (path: string) => LS_PREFIX + path;
 
-export function getCachedSignedUrl(path: string): string | null {
-  const hit = signedUrlCache.get(path);
-  if (!hit) return null;
-  if (Date.now() > hit.expiresAt) {
-    signedUrlCache.delete(path);
+function readLsUrl(path: string): CachedUrl | null {
+  try {
+    const raw = localStorage.getItem(lsKey(path));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CachedUrl>;
+    if (typeof parsed?.expiresAt !== 'number' || typeof parsed.url !== 'string') {
+      return null;
+    }
+    if (Date.now() > parsed.expiresAt) {
+      localStorage.removeItem(lsKey(path));
+      return null;
+    }
+    return parsed as CachedUrl;
+  } catch {
     return null;
   }
-  return hit.url;
+}
+
+function writeLsUrl(path: string, entry: CachedUrl): void {
+  try {
+    localStorage.setItem(lsKey(path), JSON.stringify(entry));
+  } catch {
+    // Quota exhausted / private-mode write block — caching is best-effort,
+    // missing the LS layer just degrades to "sign on first paint after
+    // refresh", which is no worse than before this layer existed.
+  }
+}
+
+function rememberSignedUrl(path: string, url: string): void {
+  const entry: CachedUrl = {
+    url,
+    // Trim to 90 % of the real TTL so a cached URL never sneaks past expiry.
+    expiresAt: Date.now() + SIGNED_URL_TTL_SECONDS * 1000 * 0.9,
+  };
+  signedUrlCache.set(path, entry);
+  writeLsUrl(path, entry);
 }
 
 /**
- * Generate a signed URL for a stored vision image. The TTL is long (7 days)
- * because the editor re-signs every URL on mount — a stale URL in a saved doc
- * is never actually loaded; it's replaced before the <img> ever renders.
+ * SYNCHRONOUS cache lookup — checks memory first, then localStorage. Used by
+ * NodeViews to render with the right `src` on the very first frame, with no
+ * skeleton flash. Returns null when the path has no cached URL or the entry
+ * has expired.
+ */
+export function getCachedSignedUrl(path: string): string | null {
+  const memHit = signedUrlCache.get(path);
+  if (memHit) {
+    if (Date.now() <= memHit.expiresAt) return memHit.url;
+    signedUrlCache.delete(path);
+  }
+  const lsHit = readLsUrl(path);
+  if (lsHit) {
+    // Warm the memory tier so subsequent lookups in the same session skip
+    // even the localStorage parse cost.
+    signedUrlCache.set(path, lsHit);
+    return lsHit.url;
+  }
+  return null;
+}
+
+/**
+ * Generate (or reuse) a signed URL for a stored vision image. Returns
+ * immediately when either cache tier has a hit. The TTL matches the LS cache
+ * lifetime so a freshly-signed URL is good through the whole 7-day window.
  */
 export async function signVisionImage(path: string): Promise<string> {
   const cached = getCachedSignedUrl(path);
