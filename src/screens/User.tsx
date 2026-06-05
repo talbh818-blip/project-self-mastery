@@ -143,17 +143,11 @@ export function User() {
               label="ערוך פרטים אישיים"
             />
             <ActionIcon
-              onClick={handleThemeToggle}
-              icon={
-                theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />
-              }
-              label={theme === 'dark' ? 'עבור למצב בהיר' : 'עבור למצב כהה'}
-            />
-            <ActionIcon
               onClick={() => setTicketOpen(true)}
               icon={<HelpCircle size={16} />}
               label="פידבק ועזרה"
             />
+            <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
           </div>
         </div>
       </div>
@@ -217,6 +211,44 @@ function visibilityLabel(v: string): string {
   if (v === 'public') return 'משותף עם כולם';
   if (v === 'specific') return 'משתמשים ספציפיים';
   return 'פרטי';
+}
+
+function ThemeToggle({
+  theme,
+  onToggle,
+}: {
+  theme: Theme;
+  onToggle: () => void;
+}) {
+  const isLight = theme === 'light';
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={isLight}
+      onClick={onToggle}
+      aria-label={isLight ? 'עבור למצב כהה' : 'עבור למצב בהיר'}
+      title={isLight ? 'מצב בהיר' : 'מצב כהה'}
+      dir="ltr"
+      className={`relative w-14 h-7 rounded-full px-1 flex items-center transition-colors shrink-0 ${
+        isLight ? 'bg-forest-700/30' : 'bg-surface-raised'
+      }`}
+    >
+      {/* Track icons, dimmed behind the knob */}
+      <span className="absolute inset-0 flex items-center justify-between px-1.5 pointer-events-none">
+        <Moon size={12} className="text-ink-500" />
+        <Sun size={12} className="text-ink-500" />
+      </span>
+      {/* Sliding knob carrying the active icon */}
+      <span
+        className={`relative z-10 w-5 h-5 rounded-full bg-forest-700 text-cream-50 flex items-center justify-center transition-transform duration-200 ${
+          isLight ? 'translate-x-7' : 'translate-x-0'
+        }`}
+      >
+        {isLight ? <Sun size={12} /> : <Moon size={12} />}
+      </span>
+    </button>
+  );
 }
 
 function ActionIcon({
