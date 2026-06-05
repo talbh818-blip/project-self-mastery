@@ -18,13 +18,17 @@ import {
 } from './queries';
 import type { Profile } from './types';
 import { CompassLoader } from '../../components/CompassLoader';
+import { CourseAdminPanel } from './CourseAdminPanel';
 
 type Row = {
   profile: Profile;
   activity: UserActivity | null;
 };
 
+type AdminTab = 'users' | 'course';
+
 export function AdminScreen() {
+  const [tab, setTab] = useState<AdminTab>('users');
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -131,53 +135,95 @@ export function AdminScreen() {
     <section className="text-ink-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-semibold">ניהול</h1>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
-          aria-label="רענן"
-        >
-          <RefreshCw size={16} />
-          רענן
-        </button>
+        {tab === 'users' && (
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
+            aria-label="רענן"
+          >
+            <RefreshCw size={16} />
+            רענן
+          </button>
+        )}
       </div>
 
-      {error && (
-        <div className="mb-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
-          {error}
-        </div>
-      )}
+      {/* Tab switcher: users ↔ course catalog */}
+      <div className="flex gap-2 mb-4">
+        <TabBtn active={tab === 'users'} onClick={() => setTab('users')}>
+          משתמשים
+        </TabBtn>
+        <TabBtn active={tab === 'course'} onClick={() => setTab('course')}>
+          קורס
+        </TabBtn>
+      </div>
 
-      {rows === null && !error && (
-        <div className="py-8">
-          <CompassLoader size="md" />
-        </div>
-      )}
+      {tab === 'course' ? (
+        <CourseAdminPanel />
+      ) : (
+        <>
+          {error && (
+            <div className="mb-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+              {error}
+            </div>
+          )}
 
-      {rows && rows.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
-          אין משתמשים עדיין.
-        </div>
-      )}
+          {rows === null && !error && (
+            <div className="py-8">
+              <CompassLoader size="md" />
+            </div>
+          )}
 
-      {rows && rows.length > 0 && (
-        <ul className="space-y-3">
-          {rows.map(({ profile, activity }) => (
-            <UserCard
-              key={profile.id}
-              profile={profile}
-              activity={activity}
-              busy={busy}
-              onToggleBlocked={() => void handleToggleBlocked(profile)}
-              onEditTrees={() => void handleEditTrees(profile)}
-              onEditScoreAdj={() => void handleEditScoreAdj(profile)}
-              onDeleteData={() => void handleDeleteData(profile)}
-            />
-          ))}
-        </ul>
+          {rows && rows.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
+              אין משתמשים עדיין.
+            </div>
+          )}
+
+          {rows && rows.length > 0 && (
+            <ul className="space-y-3">
+              {rows.map(({ profile, activity }) => (
+                <UserCard
+                  key={profile.id}
+                  profile={profile}
+                  activity={activity}
+                  busy={busy}
+                  onToggleBlocked={() => void handleToggleBlocked(profile)}
+                  onEditTrees={() => void handleEditTrees(profile)}
+                  onEditScoreAdj={() => void handleEditScoreAdj(profile)}
+                  onDeleteData={() => void handleDeleteData(profile)}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </section>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+        active
+          ? 'bg-forest-700 text-cream-50 border-forest-700'
+          : 'bg-surface-card text-ink-300 border-surface-border hover:text-ink-100'
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

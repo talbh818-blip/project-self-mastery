@@ -73,6 +73,36 @@ export async function fetchBooks(): Promise<CourseBookWithCount[]> {
 }
 
 // ---------------------------------------------------------------------------
+// fetchAllBooksAdmin — like fetchBooks but INCLUDES unpublished books, for the
+// admin panel. RLS still requires admin to even see the rows differently; the
+// read policy is world-read, so the is_published filter is the only difference
+// from fetchBooks. Admin needs to manage hidden books too.
+// ---------------------------------------------------------------------------
+export async function fetchAllBooksAdmin(): Promise<CourseBookWithCount[]> {
+  const [booksRes, videosRes] = await Promise.all([
+    supabase
+      .from('course_books')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+    supabase.from('course_videos').select('book_id'),
+  ]);
+
+  if (booksRes.error) throw booksRes.error;
+  if (videosRes.error) throw videosRes.error;
+
+  const counts = new Map<string, number>();
+  for (const row of (videosRes.data ?? []) as { book_id: string }[]) {
+    counts.set(row.book_id, (counts.get(row.book_id) ?? 0) + 1);
+  }
+
+  return (booksRes.data as CourseBook[]).map((b) => ({
+    ...b,
+    videoCount: counts.get(b.id) ?? 0,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // fetchVideos — videos for one book, in display order.
 // ---------------------------------------------------------------------------
 export async function fetchVideos(bookId: string): Promise<CourseVideo[]> {
