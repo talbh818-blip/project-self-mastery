@@ -10,8 +10,6 @@ import {
   Camera,
   LogOut,
   Pencil,
-  Moon,
-  Sun,
   HelpCircle,
   Shield,
   FileText,
@@ -230,22 +228,48 @@ function ThemeToggle({
       aria-label={isLight ? 'עבור למצב כהה' : 'עבור למצב בהיר'}
       title={isLight ? 'מצב בהיר' : 'מצב כהה'}
       dir="ltr"
-      className={`relative w-14 h-7 rounded-full px-1 flex items-center transition-colors shrink-0 ${
-        isLight ? 'bg-forest-700/30' : 'bg-surface-raised'
+      className={`relative h-9 w-16 rounded-full overflow-hidden shrink-0 border transition-colors duration-300 ${
+        isLight
+          ? 'bg-gradient-to-b from-sky-300 to-sky-100 border-sky-200'
+          : 'bg-gradient-to-b from-indigo-950 to-violet-900 border-indigo-800/70'
       }`}
     >
-      {/* Track icons, dimmed behind the knob */}
-      <span className="absolute inset-0 flex items-center justify-between px-1.5 pointer-events-none">
-        <Moon size={12} className="text-ink-500" />
-        <Sun size={12} className="text-ink-500" />
-      </span>
-      {/* Sliding knob carrying the active icon */}
+      {/* Night stars */}
       <span
-        className={`relative z-10 w-5 h-5 rounded-full bg-forest-700 text-cream-50 flex items-center justify-center transition-transform duration-200 ${
-          isLight ? 'translate-x-7' : 'translate-x-0'
+        className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${
+          isLight ? 'opacity-0' : 'opacity-100'
         }`}
       >
-        {isLight ? <Sun size={12} /> : <Moon size={12} />}
+        <span className="absolute top-1.5 right-2.5 w-1 h-1 rounded-full bg-white/80" />
+        <span className="absolute top-3.5 right-5 w-0.5 h-0.5 rounded-full bg-white/60" />
+        <span className="absolute bottom-2 right-3.5 w-0.5 h-0.5 rounded-full bg-white/70" />
+        <span className="absolute top-2 right-7 w-0.5 h-0.5 rounded-full bg-white/50" />
+      </span>
+
+      {/* Day cloud */}
+      <span
+        className={`pointer-events-none absolute bottom-1 left-1.5 transition-opacity duration-300 ${
+          isLight ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <span className="block w-6 h-2.5 rounded-full bg-white/85 blur-[1px]" />
+        <span className="absolute -top-1 left-1.5 w-3 h-3 rounded-full bg-white/85 blur-[1px]" />
+      </span>
+
+      {/* Sliding knob — sun or moon */}
+      <span
+        className={`absolute top-1 left-1 w-7 h-7 rounded-full transition-transform duration-300 shadow-md ${
+          isLight
+            ? 'translate-x-7 bg-gradient-to-b from-yellow-200 to-amber-400 shadow-amber-500/40'
+            : 'translate-x-0 bg-gradient-to-b from-slate-100 to-slate-300 shadow-black/40'
+        }`}
+      >
+        {/* Soft glow / crater hint */}
+        {isLight ? (
+          <span className="absolute inset-0 rounded-full ring-2 ring-yellow-100/50" />
+        ) : (
+          <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-slate-400/40" />
+        )}
       </span>
     </button>
   );
