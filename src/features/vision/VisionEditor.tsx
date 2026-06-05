@@ -82,22 +82,31 @@ export function VisionEditor({
   // "uploading" hint so a paste/drop isn't completely silent.
   const [uploadingCount, setUploadingCount] = useState(0);
 
-  // Upload + insert at the current selection. Captured by closure inside the
-  // editor's paste/drop handlers and by the toolbar's "+" callback below.
-  // `editorRef` resolves the editor lazily so the closure doesn't trap a stale
-  // editor instance when useEditor remounts on resetKey changes.
+  // Live ref to the current editor — kept in sync via setter callback below
+  // (NOT useEffect, which lags one render and leaves the ref null on the very
+  // first interaction). The paste/drop handlers and the "+" callback all read
+  // this so they see whatever editor exists right now, even across remounts.
   const editorRef = useRef<Editor | null>(null);
+
   const uploadAndInsert = useCallback(
     async (file: File) => {
       const ed = editorRef.current;
-      if (!ed || !userId) return;
+      if (!ed || !userId) {
+        window.alert('העורך עוד לא מוכן — נסה שוב בעוד שנייה.');
+        return;
+      }
       setUploadingCount((c) => c + 1);
       try {
         const { path, width, height } = await uploadVisionImage(userId, file);
-        // Log the run result so a silent reject (e.g. schema didn't accept the
-        // block at the caret) is visible in the console. Without this a failed
-        // command looked exactly like a missing-image bug.
-        const ok = ed
+        // After await the editor may have been swapped (period switch) or
+        // destroyed (unmount). Re-resolve, and bail with a clear message
+        // instead of crashing on a null .chain().
+        const live = editorRef.current;
+        if (!live) {
+          window.alert('העלאה הצליחה אבל העורך נסגר לפני שהתמונה הוכנסה.');
+          return;
+        }
+        const ok = live
           .chain()
           .focus()
           .setVisionImage({ path, width, height, alt: file.name })
@@ -134,6 +143,15 @@ export function VisionEditor({
       ],
       content: normaliseContent(initialContent) as Content,
       editable: !readOnly,
+      // onCreate / onDestroy bind the ref synchronously with the editor's own
+      // lifecycle. A useEffect-based sync ran one tick late on first mount —
+      // long enough for a paste/click to fire and crash on a null ref.
+      onCreate({ editor }) {
+        editorRef.current = editor;
+      },
+      onDestroy() {
+        editorRef.current = null;
+      },
       editorProps: {
         attributes: {
           // RTL is enforced via CSS too, but setting it on the element
@@ -169,11 +187,6 @@ export function VisionEditor({
     // changes — Tiptap's `useEditor` does not react to `content` changes.
     [resetKey],
   );
-
-  // Keep editorRef in sync so handlers/closures see the latest editor.
-  useEffect(() => {
-    editorRef.current = editor ?? null;
-  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
