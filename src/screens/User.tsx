@@ -228,47 +228,23 @@ function ThemeToggle({
       aria-label={isLight ? 'עבור למצב כהה' : 'עבור למצב בהיר'}
       title={isLight ? 'מצב בהיר' : 'מצב כהה'}
       dir="ltr"
-      className={`relative h-9 w-16 rounded-full overflow-hidden shrink-0 border transition-colors duration-300 ${
-        isLight
-          ? 'bg-gradient-to-b from-sky-300 to-sky-100 border-sky-200'
-          : 'bg-gradient-to-b from-indigo-950 to-violet-900 border-indigo-800/70'
-      }`}
+      className="relative h-7 w-12 rounded-full shrink-0 border border-surface-border bg-surface-raised transition-colors"
     >
-      {/* Night stars */}
+      {/* Sliding yellow knob — full circle = sun, crescent = moon */}
       <span
-        className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${
-          isLight ? 'opacity-0' : 'opacity-100'
+        className={`absolute top-1 left-1 w-5 h-5 rounded-full overflow-hidden shadow-sm transition-transform duration-300 ${
+          isLight ? 'translate-x-5' : 'translate-x-0'
         }`}
       >
-        <span className="absolute top-1.5 right-2.5 w-1 h-1 rounded-full bg-white/80" />
-        <span className="absolute top-3.5 right-5 w-0.5 h-0.5 rounded-full bg-white/60" />
-        <span className="absolute bottom-2 right-3.5 w-0.5 h-0.5 rounded-full bg-white/70" />
-        <span className="absolute top-2 right-7 w-0.5 h-0.5 rounded-full bg-white/50" />
-      </span>
-
-      {/* Day cloud */}
-      <span
-        className={`pointer-events-none absolute bottom-1 left-1.5 transition-opacity duration-300 ${
-          isLight ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <span className="block w-6 h-2.5 rounded-full bg-white/85 blur-[1px]" />
-        <span className="absolute -top-1 left-1.5 w-3 h-3 rounded-full bg-white/85 blur-[1px]" />
-      </span>
-
-      {/* Sliding knob — sun or moon */}
-      <span
-        className={`absolute top-1 left-1 w-7 h-7 rounded-full transition-transform duration-300 shadow-md ${
-          isLight
-            ? 'translate-x-7 bg-gradient-to-b from-yellow-200 to-amber-400 shadow-amber-500/40'
-            : 'translate-x-0 bg-gradient-to-b from-slate-100 to-slate-300 shadow-black/40'
-        }`}
-      >
-        {/* Soft glow / crater hint */}
-        {isLight ? (
-          <span className="absolute inset-0 rounded-full ring-2 ring-yellow-100/50" />
-        ) : (
-          <span className="absolute top-1.5 left-1.5 w-1.5 h-1.5 rounded-full bg-slate-400/40" />
+        {/* Yellow disc (emoji-like) */}
+        <span
+          className={`absolute inset-0 rounded-full ${
+            isLight ? 'bg-amber-400' : 'bg-amber-300'
+          }`}
+        />
+        {/* Carve a crescent in dark mode by overlaying a track-colored disc */}
+        {!isLight && (
+          <span className="absolute top-0 left-[7px] w-5 h-5 rounded-full bg-surface-raised" />
         )}
       </span>
     </button>
