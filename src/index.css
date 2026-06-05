@@ -488,10 +488,11 @@ html[data-theme="light"] {
   padding-bottom: 1.5rem;
   outline: none;
   color: var(--color-ink-100);
-  /* Branded insertion cursor — the everyday typing caret picks up the forest
-     accent instead of the plain system hairline. (Caret thickness itself is
-     controlled by the browser and can't be restyled.) */
-  caret-color: var(--color-forest-500);
+  /* Keep the everyday typing caret white (theme text colour), not tinted.
+     Its height is set by the browser to the line box, so it already reads a
+     touch taller than the glyphs — CSS can't restyle the native caret beyond
+     its colour. */
+  caret-color: var(--color-ink-100);
   /* 1.55 reads naturally — comfortable but not the airy 1.75 that made
      a new line after Enter feel like a paragraph break (Google-Notes feel). */
   line-height: 1.55;
@@ -616,17 +617,15 @@ html {
 
 /* Selected-image caret — a Docs-style insertion marker shown right after a
    selected image so the writer always knows where their text will continue.
-   A rounded forest-accent bar with a soft glow and a gentle pulse, so it
-   reads as a polished cursor rather than a hairline. Sits on the line after
-   the (block) image, which in RTL begins at the right edge. */
+   A clean WHITE bar (theme text colour), a touch taller than the glyphs, so
+   it matches the native typing caret. Sits on the line after the (block)
+   image, which in RTL begins at the right edge. */
 .vision-editor .vision-image-caret {
   display: inline-block;
-  width: 3px;
-  height: 1.25em;
-  margin-top: 0.35rem;
-  border-radius: 9999px;
-  background-color: var(--color-forest-500);
-  box-shadow: 0 0 6px rgba(85, 181, 112, 0.5);
+  width: 2px;
+  height: 1.35em;
+  margin-top: 0.3rem;
+  background-color: var(--color-ink-100);
   vertical-align: text-bottom;
   animation: vision-caret-blink 1.1s ease-in-out infinite;
 }
