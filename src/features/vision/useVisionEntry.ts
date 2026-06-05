@@ -50,7 +50,27 @@ type Draft = {
 const lsKey = (userId: string, scope: VisionScope, periodKey: string) =>
   `${LS_PREFIX}${userId}:${scope}:${periodKey}`;
 
-const contentJson = (content: unknown) => JSON.stringify(content ?? null);
+// Order-insensitive JSON, used ONLY for comparison (never for storage).
+// Postgres `jsonb` does not preserve object key order, so the row we read
+// back after a save holds the same document with its keys reordered relative
+// to the in-memory Tiptap JSON we sent. A plain JSON.stringify would treat
+// that as "different content" and bump `contentVersion` on every save —
+// re-mounting the editor (cursor jump) and, since a re-mount can emit a
+// normalisation update, kicking off an endless save→echo→re-mount→save loop
+// (the "שומר…" that never settles). Sorting keys first makes the
+// round-tripped row compare equal to what we already display.
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  if (value && typeof value === 'object') {
+    const src = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(src).sort()) out[k] = sortKeysDeep(src[k]);
+    return out;
+  }
+  return value;
+}
+const contentJson = (content: unknown) =>
+  JSON.stringify(sortKeysDeep(content ?? null));
 
 function readDraft(key: string): Draft | null {
   try {
