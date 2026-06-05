@@ -226,13 +226,15 @@ function Centre({
           </span>
         )}
 
-        {/* Centred group: (optional) icon then title. In RTL the icon is the
-            first child, so it sits to the title's RIGHT — leading the line,
-            like a bullet. No reserved tile, so an icon-less level is just its
-            title. The title truncates with an ellipsis when there's no room. */}
+        {/* Centred group: the TITLE alone is what's centred. The icon (first
+            child → physical RIGHT in RTL) leads the line, and an invisible
+            spacer the SAME width sits on the physical LEFT so the two cancel
+            out — the title stays dead-centre instead of shifting left to make
+            room for the icon. Both are shrink-0; the title truncates first. */}
         <span className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
           {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
           {children}
+          {icon && <span aria-hidden className="shrink-0 w-4" />}
         </span>
 
         {/* Left balance spacer — same width as the right dot so the centred
