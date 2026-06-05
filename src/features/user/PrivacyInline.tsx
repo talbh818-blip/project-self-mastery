@@ -51,15 +51,14 @@ export function PrivacyInline() {
   };
 
   return (
-    <div className="bg-surface-card rounded-2xl p-3 flex items-stretch gap-2">
-      <Segmented
-        label="פרטיות חזון"
+    <div className="flex flex-col gap-1.5">
+      <CompactRow
+        label="חזון"
         value={vision}
         onChange={(v) => save('vision_visibility', v, setVision, vision)}
       />
-      <div className="w-px bg-surface-border shrink-0" />
-      <Segmented
-        label="פרטיות הרגלים"
+      <CompactRow
+        label="הרגלים"
         value={habits}
         onChange={(v) => save('habits_visibility', v, setHabits, habits)}
       />
@@ -67,7 +66,9 @@ export function PrivacyInline() {
   );
 }
 
-function Segmented({
+// One ultra-compact icon-only segmented control. The group label sits above;
+// each option keeps its human label as a tooltip + aria-label for clarity.
+function CompactRow({
   label,
   value,
   onChange,
@@ -77,13 +78,13 @@ function Segmented({
   onChange: (v: Visibility) => void;
 }) {
   return (
-    <div className="flex-1 min-w-0">
-      <div className="text-[11px] font-medium text-ink-100 mb-1.5 text-center truncate">
+    <div>
+      <div className="text-[10px] font-medium text-ink-300 mb-1 text-center truncate">
         {label}
       </div>
       <div
         role="radiogroup"
-        aria-label={label}
+        aria-label={`פרטיות ${label}`}
         className="flex bg-surface-raised rounded-lg p-0.5 gap-0.5"
       >
         {OPTIONS.map((opt) => {
@@ -95,16 +96,16 @@ function Segmented({
               type="button"
               role="radio"
               aria-checked={active}
+              aria-label={opt.label}
               title={opt.label}
               onClick={() => onChange(opt.value)}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-md text-[9px] leading-none transition-colors ${
+              className={`flex-1 flex items-center justify-center py-1.5 rounded-md transition-colors ${
                 active
                   ? 'bg-forest-700 text-cream-50'
                   : 'text-ink-300 hover:text-ink-100'
               }`}
             >
-              <Icon size={13} />
-              {opt.label}
+              <Icon size={14} />
             </button>
           );
         })}
