@@ -43,14 +43,6 @@ export function UserDetail() {
     };
   }, [id]);
 
-  if (data === undefined && !error) {
-    return (
-      <section className="pt-2">
-        <p className="text-ink-300 text-sm">טוען…</p>
-      </section>
-    );
-  }
-
   if (error) {
     return (
       <section className="pt-2 space-y-3">
@@ -64,6 +56,14 @@ export function UserDetail() {
         <p className="text-xs text-red-400 bg-red-950/30 rounded-lg px-3 py-2">
           {error}
         </p>
+      </section>
+    );
+  }
+
+  if (data === undefined) {
+    return (
+      <section className="pt-2">
+        <p className="text-ink-300 text-sm">טוען…</p>
       </section>
     );
   }
