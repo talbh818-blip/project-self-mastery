@@ -29,7 +29,6 @@ import {
   monthName,
   monthShort,
   parsePeriodStart,
-  weekOfMonthOf,
   type VisionScope,
 } from './period';
 
@@ -146,18 +145,14 @@ export function VisionLayers({
           onActivate={() => onPick('weekly', anchor)}
           onIconClick={() => onIconClick('weekly')}
         >
-          {/* Label truncates first when cramped; the dates + pill stay. */}
+          {/* Label truncates first when cramped; the dates stay. */}
           <span className="truncate min-w-0">חזון שבועי</span>
-          {/* date range — muted, LTR so the numbers don't reorder in RTL */}
+          {/* date range — LTR so the numbers don't reorder in RTL */}
           <span
             dir="ltr"
-            className="shrink-0 text-[11px] font-normal text-ink-300/80 tabular-nums"
+            className="shrink-0 text-[11px] font-normal text-ink-100 tabular-nums"
           >
             {weekRangeLabel(anchor)}
-          </span>
-          {/* then "שבוע N" in a rounded pill */}
-          <span className="shrink-0 rounded-full bg-forest-700/30 text-forest-400 px-2 py-0.5 text-[11px] font-semibold leading-none">
-            שבוע {weekOfMonthOf(anchor)}
           </span>
         </Centre>
         <SidePill
@@ -263,13 +258,13 @@ function Centre({
 
         {/* Left balance spacer — same width as the right dot so the centred
             group stays truly centred. */}
-        {done && <span aria-hidden className="shrink-0 w-2" />}
+        {done && <span aria-hidden className="shrink-0 w-1.5" />}
       </span>
     </div>
   );
 }
 
-/** "Written" indicator — a small forest status dot. Minimal, doesn't crowd
+/** "Written" indicator — a tiny white status dot. Minimal, doesn't crowd
  *  the row, and reads cleanly as "this vision has content". A soft ring gives
  *  it a touch of depth without making it loud. */
 function WrittenBadge() {
@@ -277,7 +272,7 @@ function WrittenBadge() {
     <span
       aria-label="נכתב"
       title="נכתב"
-      className="shrink-0 w-2 h-2 rounded-full bg-forest-500 ring-2 ring-forest-500/20"
+      className="shrink-0 w-1.5 h-1.5 rounded-full bg-white ring-2 ring-white/15"
     />
   );
 }
