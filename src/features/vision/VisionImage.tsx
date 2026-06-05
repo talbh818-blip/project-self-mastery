@@ -461,12 +461,6 @@ function VisionImageView({
           </>
         )}
       </div>
-      {/* Docs-style insertion marker: a blinking caret right after the image
-          while it's selected, so the writer always knows where typing will
-          continue (typing is redirected to here by the plugin above). */}
-      {selected && editor.isEditable && (
-        <span className="vision-image-caret" aria-hidden />
-      )}
     </NodeViewWrapper>
   );
 }
