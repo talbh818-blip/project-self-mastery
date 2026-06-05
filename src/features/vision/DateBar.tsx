@@ -79,7 +79,7 @@ export function DateBar({
             shrink-0 inline-flex items-center justify-center
             h-7 w-7 rounded-lg transition-all
             ${icon
-              ? 'bg-forest-700/25 ring-1 ring-forest-700 text-ink-100'
+              ? 'bg-forest-700/25 text-ink-100'
               : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
           `}
         >
