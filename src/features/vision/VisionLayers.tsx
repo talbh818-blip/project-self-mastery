@@ -18,7 +18,7 @@
 // The "jump to current period" control ("השבוע" / "החודש" / "השנה") lives in
 // the editor's DateBar row, not here.
 // ============================================================================
-import { ChevronRight, ChevronLeft, NotebookPen } from 'lucide-react';
+import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { HabitIcon } from '../habits/HabitIcon';
 import {
   addAnchor,
@@ -226,10 +226,11 @@ function Centre({
         key={animKey}
         className="vision-label-anim flex items-center gap-1.5 min-w-0 px-1.5 h-full"
       >
-        {/* "Written" badge — far RIGHT. Lowest priority: hidden on narrow rows
-            (it's not critical), so the title gets the space instead. */}
+        {/* "Written" dot — far RIGHT. A tiny status dot is the cleanest,
+            most space-efficient "has content" signal; it never crowds the
+            row, so it stays visible at every width. */}
         {done && (
-          <span className="hidden min-[430px]:flex shrink-0 items-center">
+          <span className="flex shrink-0 items-center">
             <WrittenBadge />
           </span>
         )}
@@ -260,26 +261,23 @@ function Centre({
           <span aria-hidden className="shrink-0 w-7" />
         </span>
 
-        {/* Left balance spacer — same width as the right badge so the centred
-            group stays truly centred. Hidden together with the badge on
-            narrow rows. */}
-        {done && (
-          <span aria-hidden className="hidden min-[430px]:block shrink-0 w-[15px]" />
-        )}
+        {/* Left balance spacer — same width as the right dot so the centred
+            group stays truly centred. */}
+        {done && <span aria-hidden className="shrink-0 w-2" />}
       </span>
     </div>
   );
 }
 
-/** "Written" indicator — a notebook-with-pen glyph (no check mark), marking
- *  that this vision has been written. */
+/** "Written" indicator — a small forest status dot. Minimal, doesn't crowd
+ *  the row, and reads cleanly as "this vision has content". A soft ring gives
+ *  it a touch of depth without making it loud. */
 function WrittenBadge() {
   return (
-    <NotebookPen
-      size={15}
-      strokeWidth={1.75}
+    <span
       aria-label="נכתב"
-      className="shrink-0 text-white/40"
+      title="נכתב"
+      className="shrink-0 w-2 h-2 rounded-full bg-forest-500 ring-2 ring-forest-500/20"
     />
   );
 }
