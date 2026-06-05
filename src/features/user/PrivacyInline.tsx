@@ -51,12 +51,13 @@ export function PrivacyInline() {
   };
 
   return (
-    <div className="bg-surface-card rounded-2xl p-5 space-y-4">
+    <div className="bg-surface-card rounded-2xl p-3 flex items-stretch gap-2">
       <Segmented
         label="פרטיות חזון"
         value={vision}
         onChange={(v) => save('vision_visibility', v, setVision, vision)}
       />
+      <div className="w-px bg-surface-border shrink-0" />
       <Segmented
         label="פרטיות הרגלים"
         value={habits}
@@ -76,12 +77,14 @@ function Segmented({
   onChange: (v: Visibility) => void;
 }) {
   return (
-    <div>
-      <div className="text-sm font-medium text-ink-100 mb-2">{label}</div>
+    <div className="flex-1 min-w-0">
+      <div className="text-[11px] font-medium text-ink-100 mb-1.5 text-center truncate">
+        {label}
+      </div>
       <div
         role="radiogroup"
         aria-label={label}
-        className="flex bg-surface-raised rounded-xl p-1 gap-1"
+        className="flex bg-surface-raised rounded-lg p-0.5 gap-0.5"
       >
         {OPTIONS.map((opt) => {
           const Icon = opt.icon;
@@ -92,14 +95,15 @@ function Segmented({
               type="button"
               role="radio"
               aria-checked={active}
+              title={opt.label}
               onClick={() => onChange(opt.value)}
-              className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[11px] transition-colors ${
+              className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-md text-[9px] leading-none transition-colors ${
                 active
                   ? 'bg-forest-700 text-cream-50'
                   : 'text-ink-300 hover:text-ink-100'
               }`}
             >
-              <Icon size={16} />
+              <Icon size={13} />
               {opt.label}
             </button>
           );
