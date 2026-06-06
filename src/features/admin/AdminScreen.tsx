@@ -3,8 +3,7 @@ import {
   ShieldOff,
   ShieldCheck,
   Trash2,
-  TreePine,
-  Sparkles,
+  Pencil,
   RefreshCw,
   Mail,
   Clock,
@@ -14,12 +13,14 @@ import {
   fetchActivityRollup,
   fetchAllProfiles,
   updateProfile,
+  type ProfileAdminPatch,
   type UserActivity,
 } from './queries';
 import type { Profile } from './types';
 import { CompassLoader } from '../../components/CompassLoader';
 import { CourseAdminPanel } from './CourseAdminPanel';
 import { FeedbackAdminPanel } from './FeedbackAdminPanel';
+import { UserEditSheet } from './UserEditSheet';
 
 type Row = {
   profile: Profile;
@@ -33,6 +34,7 @@ export function AdminScreen() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState<Profile | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -69,44 +71,18 @@ export function AdminScreen() {
     }
   };
 
-  const handleEditTrees = async (p: Profile) => {
-    const cur = String(p.trees_planted);
-    const next = window.prompt(`עצים שתולים עבור ${p.display_name ?? p.email}:`, cur);
-    if (next === null) return;
-    const n = Number(next);
-    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-      window.alert('הזן מספר שלם אי-שלילי');
-      return;
-    }
+  // Full edit goes through UserEditSheet — name / email / phone / theme /
+  // gender / trees / score adjustment / blocked. Privacy fields (vision +
+  // habits visibility) are intentionally NOT exposed.
+  const handleSaveEdit = async (patch: ProfileAdminPatch) => {
+    if (!editing) return;
     setBusy(true);
     try {
-      await updateProfile(p.id, { trees_planted: n });
+      await updateProfile(editing.id, patch);
       await load();
     } catch (e) {
       setError(describeError(e, 'שגיאה בעדכון'));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleEditScoreAdj = async (p: Profile) => {
-    const cur = String(p.score_adjustment);
-    const next = window.prompt(
-      `התאמת ניקוד (מתווסף לניקוד המחושב) עבור ${p.display_name ?? p.email}:`,
-      cur,
-    );
-    if (next === null) return;
-    const n = Number(next);
-    if (!Number.isFinite(n) || !Number.isInteger(n)) {
-      window.alert('הזן מספר שלם (חיובי או שלילי)');
-      return;
-    }
-    setBusy(true);
-    try {
-      await updateProfile(p.id, { score_adjustment: n });
-      await load();
-    } catch (e) {
-      setError(describeError(e, 'שגיאה בעדכון'));
+      throw e; // let the sheet keep the form open on failure
     } finally {
       setBusy(false);
     }
@@ -192,9 +168,8 @@ export function AdminScreen() {
                   profile={profile}
                   activity={activity}
                   busy={busy}
+                  onEdit={() => setEditing(profile)}
                   onToggleBlocked={() => void handleToggleBlocked(profile)}
-                  onEditTrees={() => void handleEditTrees(profile)}
-                  onEditScoreAdj={() => void handleEditScoreAdj(profile)}
                   onDeleteData={() => void handleDeleteData(profile)}
                 />
               ))}
@@ -202,6 +177,14 @@ export function AdminScreen() {
           )}
         </>
       )}
+
+      <UserEditSheet
+        open={editing !== null}
+        profile={editing}
+        submitting={busy}
+        onClose={() => setEditing(null)}
+        onSubmit={handleSaveEdit}
+      />
     </section>
   );
 }
@@ -234,17 +217,15 @@ function UserCard({
   profile,
   activity,
   busy,
+  onEdit,
   onToggleBlocked,
-  onEditTrees,
-  onEditScoreAdj,
   onDeleteData,
 }: {
   profile: Profile;
   activity: UserActivity | null;
   busy: boolean;
+  onEdit: () => void;
   onToggleBlocked: () => void;
-  onEditTrees: () => void;
-  onEditScoreAdj: () => void;
   onDeleteData: () => void;
 }) {
   const name = profile.display_name ?? profile.email ?? profile.id.slice(0, 8);
@@ -309,19 +290,18 @@ function UserCard({
         <span>נצפה לאחרונה: {lastSeen}</span>
       </div>
 
-      {/* Actions */}
+      {/* Actions
+          ערוך — full edit sheet for every editable field (name, email,
+          phone, gender, theme, trees, score adjustment, blocked).
+          חסום / בטל חסימה — one-click toggle kept as a shortcut next to
+          the row so the most common moderation action stays fast.
+          מחק נתונים — separate because it's destructive. */}
       <div className="mt-3 flex flex-wrap gap-2">
         <ActionBtn
-          onClick={onEditTrees}
+          onClick={onEdit}
           disabled={busy}
-          icon={<TreePine size={14} />}
-          label="ערוך עצים"
-        />
-        <ActionBtn
-          onClick={onEditScoreAdj}
-          disabled={busy}
-          icon={<Sparkles size={14} />}
-          label="ערוך ניקוד"
+          icon={<Pencil size={14} />}
+          label="ערוך"
         />
         <ActionBtn
           onClick={onToggleBlocked}

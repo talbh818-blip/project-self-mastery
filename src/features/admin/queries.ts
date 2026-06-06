@@ -60,9 +60,31 @@ export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> 
   return map;
 }
 
+// Fields the admin is allowed to write through the edit sheet. Privacy
+// fields (vision_visibility, habits_visibility) are intentionally omitted —
+// per the spec, the admin must NOT touch a user's privacy settings.
+// avatar_url, tree_placements, cycle_score_floor are also off-limits here:
+// they're set by other flows (avatar upload sheet, planting action) where
+// stomping on them would create user-visible inconsistencies.
+export type ProfileAdminPatch = Partial<
+  Pick<
+    Profile,
+    | 'display_name'
+    | 'email'
+    | 'first_name'
+    | 'last_name'
+    | 'phone'
+    | 'gender'
+    | 'theme'
+    | 'trees_planted'
+    | 'score_adjustment'
+    | 'blocked'
+  >
+>;
+
 export async function updateProfile(
   userId: string,
-  patch: Partial<Pick<Profile, 'blocked' | 'trees_planted' | 'score_adjustment' | 'display_name'>>,
+  patch: ProfileAdminPatch,
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
   if (error) throw error;
