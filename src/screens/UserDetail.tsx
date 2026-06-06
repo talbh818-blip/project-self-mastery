@@ -7,20 +7,12 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  UserCircle,
-  ArrowRight,
-  TreePine,
-  Target,
-  Star,
-  BookOpen,
-  Lock,
-  CalendarDays,
-} from 'lucide-react';
+import { UserCircle, ArrowRight, Lock, CalendarDays } from 'lucide-react';
 import { fetchUserDashboard, type UserDashboard } from '../features/user/queries';
 import { GenderIcon } from '../features/user/GenderIcon';
 import { MiniHeatmap } from '../features/user/MiniHeatmap';
 import { HabitIcon } from '../features/habits/HabitIcon';
+import { Emoji } from '../components/Emoji';
 
 export function UserDetail() {
   const { id } = useParams<{ id: string }>();
@@ -110,10 +102,10 @@ export function UserDetail() {
 
       {/* KPI numbers */}
       <div className="grid grid-cols-2 gap-3">
-        <Kpi icon={<TreePine size={18} />} value={data.trees_planted} label="עצים" />
-        <Kpi icon={<Star size={18} />} value={data.score} label="ניקוד" />
-        <Kpi icon={<Target size={18} />} value={data.habit_count} label="הרגלים" />
-        <Kpi icon={<BookOpen size={18} />} value={data.vision_count} label="כתיבות חזון" />
+        <Kpi emoji="🌳" value={data.trees_planted} label="עצים" />
+        <Kpi emoji="⭐" value={data.score} label="ניקוד" />
+        <Kpi emoji="🎯" value={data.habit_count} label="הרגלים" />
+        <Kpi emoji="📖" value={data.vision_count} label="כתיבות חזון" />
       </div>
 
       {/* Habits + heatmap, or a privacy notice */}
@@ -168,17 +160,17 @@ export function UserDetail() {
 }
 
 function Kpi({
-  icon,
+  emoji,
   value,
   label,
 }: {
-  icon: React.ReactNode;
+  emoji: string;
   value: number;
   label: string;
 }) {
   return (
     <div className="bg-surface-card rounded-2xl px-4 py-3 flex items-center gap-3">
-      <span className="text-forest-500 shrink-0">{icon}</span>
+      <Emoji emoji={emoji} size={26} className="shrink-0" />
       <div className="min-w-0">
         <div className="text-lg font-bold text-ink-100 tabular-nums leading-none">
           {value}

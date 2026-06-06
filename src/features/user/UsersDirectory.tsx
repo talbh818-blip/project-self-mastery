@@ -6,18 +6,10 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  UserCircle,
-  TreePine,
-  Target,
-  Star,
-  BookOpen,
-  ChevronLeft,
-  CalendarDays,
-  Handshake,
-} from 'lucide-react';
+import { UserCircle, ChevronLeft, CalendarDays, Handshake } from 'lucide-react';
 import { fetchActiveProfiles } from './queries';
 import { GenderIcon } from './GenderIcon';
+import { Emoji } from '../../components/Emoji';
 import type { PublicProfileRow } from '../admin/types';
 
 export function UsersDirectory() {
@@ -76,7 +68,7 @@ export function UsersDirectory() {
                 <Avatar url={row.avatar_url} />
 
                 <div className="flex-1 min-w-0">
-                  {/* Name + gender + identity tag */}
+                  {/* Name + gender + identity tag + join date — one line */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm text-ink-100 font-semibold truncate">
                       {row.display_name || 'משתמש'}
@@ -95,20 +87,18 @@ export function UsersDirectory() {
                         </span>
                       )
                     )}
-                  </div>
-
-                  {/* Join date */}
-                  <div className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-500">
-                    <CalendarDays size={10} />
-                    <span dir="ltr">הצטרף {formatJoinDate(row.created_at)}</span>
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-ink-500">
+                      <CalendarDays size={10} />
+                      <span dir="ltr">{formatJoinDate(row.created_at)}</span>
+                    </span>
                   </div>
 
                   {/* Stats */}
-                  <div className="mt-1 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-ink-300">
-                    <Stat icon={<TreePine size={12} />} value={row.trees_planted} suffix="עצים" />
-                    <Stat icon={<Target size={12} />} value={row.habit_count} suffix="הרגלים" />
-                    <Stat icon={<Star size={12} />} value={row.score} suffix="נק׳" />
-                    <Stat icon={<BookOpen size={12} />} value={row.vision_count} suffix="כתיבות חזון" />
+                  <div className="mt-1.5 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-ink-300">
+                    <Stat emoji="🌳" value={row.trees_planted} suffix="עצים" />
+                    <Stat emoji="🎯" value={row.habit_count} suffix="הרגלים" />
+                    <Stat emoji="⭐" value={row.score} suffix="נק׳" />
+                    <Stat emoji="📖" value={row.vision_count} suffix="כתיבות חזון" />
                   </div>
                 </div>
 
@@ -123,17 +113,17 @@ export function UsersDirectory() {
 }
 
 function Stat({
-  icon,
+  emoji,
   value,
   suffix,
 }: {
-  icon: React.ReactNode;
+  emoji: string;
   value: number;
   suffix: string;
 }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="text-forest-500">{icon}</span>
+      <Emoji emoji={emoji} size={15} />
       <span className="text-ink-100 font-medium tabular-nums">{value}</span>
       <span>{suffix}</span>
     </span>
