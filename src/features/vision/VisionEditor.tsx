@@ -67,8 +67,6 @@ type Props = {
   icon: string | null;
   /** Open the icon picker for the current level. */
   onIconClick: () => void;
-  /** Open the version-history (restore) sheet. */
-  onOpenHistory: () => void;
   onChange: (json: unknown) => void;
 };
 
@@ -86,7 +84,6 @@ export function VisionEditor({
   jumpToNow,
   icon,
   onIconClick,
-  onOpenHistory,
   onChange,
 }: Props) {
   const { user } = useAuth();
@@ -226,7 +223,6 @@ export function VisionEditor({
           onToggleAssist={toggleAssist}
           icon={icon}
           onIconClick={onIconClick}
-          onOpenHistory={onOpenHistory}
           saveStatus={saveStatus}
         />
         <div className="py-8">
@@ -268,7 +264,6 @@ export function VisionEditor({
           onToggleAssist={toggleAssist}
           icon={icon}
           onIconClick={onIconClick}
-          onOpenHistory={onOpenHistory}
           saveStatus={saveStatus}
         />
         {/* Guided-writing: insert another question. Sits right under the

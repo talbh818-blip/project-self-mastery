@@ -342,7 +342,6 @@ export function Vision() {
       jumpToNow={jumpToNow}
       icon={icons[level] ?? null}
       onIconClick={() => setIconPickerLevel(level)}
-      onOpenHistory={() => setHistoryOpen(true)}
       onChange={handleEditorChange}
     />
   );
@@ -355,6 +354,7 @@ export function Vision() {
         onToggleLayers={() => setLayersOpen((v) => !v)}
         view={view}
         onViewChange={changeView}
+        onOpenHistory={() => setHistoryOpen(true)}
       />
 
       {view === 'feed' ? (

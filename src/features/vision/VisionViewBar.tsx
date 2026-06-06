@@ -15,7 +15,13 @@
 // This component is purely presentational — all state lives in the Vision
 // screen so the drawer animation and the editor stay in sync.
 // ============================================================================
-import { ChevronDown, Rows3, LayoutGrid, GalleryVertical } from 'lucide-react';
+import {
+  ChevronDown,
+  Rows3,
+  LayoutGrid,
+  GalleryVertical,
+  History,
+} from 'lucide-react';
 
 export type VisionView = 'layers' | 'board' | 'feed';
 
@@ -26,6 +32,8 @@ type Props = {
   /** Active view: layered stack, the year map, or the free-scroll feed. */
   view: VisionView;
   onViewChange: (view: VisionView) => void;
+  /** Open the version-history (restore) sheet for the open vision. */
+  onOpenHistory: () => void;
 };
 
 export function VisionViewBar({
@@ -33,6 +41,7 @@ export function VisionViewBar({
   onToggleLayers,
   view,
   onViewChange,
+  onOpenHistory,
 }: Props) {
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
@@ -62,28 +71,44 @@ export function VisionViewBar({
         </ViewToggle>
       </div>
 
-      {/* physical LEFT (last DOM child): collapse chevron — folds whichever
-          navigator is active (the 3-layer stack OR the year map) like a
-          drawer. The feed view has no navigator, so it's hidden there. */}
+      {/* physical LEFT (last DOM child): version-history button + the collapse
+          chevron. DOM order [history][chevron] → in RTL the chevron lands
+          left-most and history sits just to its right. Hidden in the feed
+          view (no single open vision / no navigator to fold). */}
       {view !== 'feed' && (
-        <button
-          type="button"
-          onClick={onToggleLayers}
-          aria-label={layersOpen ? 'כווץ תצוגה' : 'פתח תצוגה'}
-          aria-expanded={layersOpen}
-          className="
-            shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
-            bg-surface-raised ring-1 ring-surface-border
-            text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
-          "
-        >
-          <ChevronDown
-            size={16}
-            className={`transition-transform duration-300 ease-in-out ${
-              layersOpen ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
+        <div className="inline-flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onOpenHistory}
+            aria-label="גרסאות קודמות"
+            title="גרסאות קודמות"
+            className="
+              shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
+              bg-surface-raised ring-1 ring-surface-border
+              text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
+            "
+          >
+            <History size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={onToggleLayers}
+            aria-label={layersOpen ? 'כווץ תצוגה' : 'פתח תצוגה'}
+            aria-expanded={layersOpen}
+            className="
+              shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
+              bg-surface-raised ring-1 ring-surface-border
+              text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
+            "
+          >
+            <ChevronDown
+              size={16}
+              className={`transition-transform duration-300 ease-in-out ${
+                layersOpen ? 'rotate-180' : ''
+              }`}
+            />
+          </button>
+        </div>
       )}
     </div>
   );
