@@ -23,7 +23,11 @@ import { fetchAllTickets, updateTicketStatus } from './queries';
 import type { TicketKind, TicketStatus, TicketWithSubmitter } from './types';
 
 type KindFilter = 'all' | TicketKind;
-type StatusFilter = 'all' | TicketStatus;
+// Status is binary on this table — either open or closed. We deliberately
+// don't offer an "all" pill: every ticket belongs to exactly one of the two,
+// so the count next to each chip already tells the admin how much they're
+// not currently seeing.
+type StatusFilter = TicketStatus;
 
 export function FeedbackAdminPanel() {
   const [tickets, setTickets] = useState<TicketWithSubmitter[] | null>(null);
@@ -50,15 +54,22 @@ export function FeedbackAdminPanel() {
     if (!tickets) return null;
     return tickets.filter((t) => {
       if (kindFilter !== 'all' && t.kind !== kindFilter) return false;
-      if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+      if (t.status !== statusFilter) return false;
       return true;
     });
   }, [tickets, kindFilter, statusFilter]);
 
-  const openCount = useMemo(
-    () => (tickets ?? []).filter((t) => t.status === 'open').length,
-    [tickets],
-  );
+  // Counts respect the kind filter so the (N) next to "פתוח"/"סגור" matches
+  // the size of the list the admin is actually about to see when they click.
+  const { openCount, closedCount } = useMemo(() => {
+    const inKind = (tickets ?? []).filter(
+      (t) => kindFilter === 'all' || t.kind === kindFilter,
+    );
+    return {
+      openCount: inKind.filter((t) => t.status === 'open').length,
+      closedCount: inKind.filter((t) => t.status === 'closed').length,
+    };
+  }, [tickets, kindFilter]);
 
   const handleToggleStatus = async (t: TicketWithSubmitter) => {
     setBusy(true);
@@ -97,16 +108,13 @@ export function FeedbackAdminPanel() {
             active={statusFilter === 'open'}
             onClick={() => setStatusFilter('open')}
           >
-            פתוח{openCount > 0 ? ` (${openCount})` : ''}
+            פתוח ({openCount})
           </ChipBtn>
           <ChipBtn
             active={statusFilter === 'closed'}
             onClick={() => setStatusFilter('closed')}
           >
-            סגור
-          </ChipBtn>
-          <ChipBtn active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
-            הכל
+            סגור ({closedCount})
           </ChipBtn>
         </div>
         <button
