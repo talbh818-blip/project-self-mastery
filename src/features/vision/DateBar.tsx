@@ -138,7 +138,8 @@ export function DateBar({
             text-[11px] font-semibold transition-colors
             ${
               jumpToNow.enabled
-                ? 'bg-forest-700 text-cream-50 hover:bg-forest-600'
+                ? // Soft green tint instead of a loud solid fill.
+                  'bg-forest-700/15 text-forest-300 hover:bg-forest-700/25'
                 : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
             }
           `}
