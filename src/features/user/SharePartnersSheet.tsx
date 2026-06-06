@@ -183,7 +183,7 @@ export function SharePartnersSheet({ open, onClose }: Props) {
         )}
 
         {/* List */}
-        <div className="flex-1 overflow-y-auto px-2 pb-3">
+        <div className="flex-1 overflow-y-auto themed-scroll px-2 pb-3">
           {rows === null && (
             <p className="text-sm text-ink-300 px-3 py-4">טוען…</p>
           )}

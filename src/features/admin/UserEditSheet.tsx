@@ -164,7 +164,7 @@ export function UserEditSheet({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto themed-scroll px-5 py-4 space-y-4">
           {/* Identity */}
           <Section title="זהות">
             <Field label="שם תצוגה">

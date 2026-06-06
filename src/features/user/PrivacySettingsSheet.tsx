@@ -79,7 +79,7 @@ export function PrivacySettingsSheet({ open, onClose }: Props) {
       aria-modal="true"
     >
       <div
-        className="w-full max-w-md bg-surface-card rounded-3xl shadow-xl flex flex-col animate-modal-rise-in max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md bg-surface-card rounded-3xl shadow-xl flex flex-col animate-modal-rise-in max-h-[90vh] overflow-y-auto themed-scroll"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-surface-border sticky top-0 bg-surface-card z-10">

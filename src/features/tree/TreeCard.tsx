@@ -1469,7 +1469,7 @@ function TreeFieldModal({
       aria-modal="true"
     >
       <div
-        className={`w-full max-w-md bg-surface-card rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto ${
+        className={`w-full max-w-md bg-surface-card rounded-3xl border border-surface-border shadow-2xl max-h-[92vh] overflow-y-auto themed-scroll ${
           isExiting ? 'animate-modal-fall-out' : 'animate-modal-rise-in'
         }`}
         onClick={(e) => e.stopPropagation()}
