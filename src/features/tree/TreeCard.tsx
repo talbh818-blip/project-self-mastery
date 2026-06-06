@@ -237,11 +237,49 @@ export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props)
   const cycleTarget = cycleTargetFor(treesPlanted);
   const stageThresholds = stageThresholdsFor(cycleTarget);
 
+  // Self-healing floor. The stored floor can become stale after an admin
+  // reset / data cleanup (e.g. score set back to 0, trees set to 0): it then
+  // sits ABOVE the current total, which would peg the meter at 0% forever.
+  // Two invariants restore "just continue from here":
+  //   • 0 planted trees ⇒ nothing has been consumed ⇒ floor must be 0.
+  //   • the floor can never exceed the current total (can't consume more
+  //     score than exists).
+  // We use the corrected value for display immediately, and persist it (below)
+  // so the meter keeps growing as new points come in.
+  const effectiveFloor =
+    treesPlanted === 0 ? 0 : Math.min(cycleScoreFloor, totalScore);
+
   /** Points accumulated in this planting cycle. */
-  const cycleScore = Math.max(0, totalScore - cycleScoreFloor);
+  const cycleScore = Math.max(0, totalScore - effectiveFloor);
   const isMature = cycleScore >= cycleTarget;
   const stage = stageFor(cycleScore, stageThresholds);
   const progressPct = isMature ? 100 : Math.round((cycleScore / cycleTarget) * 100);
+
+  // Persist the corrected floor once (when it's stale) so the meter keeps
+  // growing across reloads, not just in this render. Guarded so it fires at
+  // most once per stale value and never loops.
+  const healingRef = useRef(false);
+  useEffect(() => {
+    if (!ready || !profile || !userId) return;
+    if (effectiveFloor === cycleScoreFloor || healingRef.current) return;
+    healingRef.current = true;
+    (async () => {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ cycle_score_floor: effectiveFloor })
+          .eq('id', userId)
+          .select()
+          .maybeSingle();
+        if (error) {
+          console.error('[TreeCard] cycle_score_floor self-heal failed:', error);
+        }
+        await refresh();
+      } finally {
+        healingRef.current = false;
+      }
+    })();
+  }, [ready, profile, userId, effectiveFloor, cycleScoreFloor, refresh]);
 
   // Next stage threshold / pts remaining — reserved for future "X more pts" label
   // const nextThreshold = !isMature ? (stageThresholds.find((t) => t > cycleScore) ?? cycleTarget) : cycleTarget;
