@@ -65,13 +65,13 @@ export function PrivacyInline() {
               aria-checked={active}
               title={opt.label}
               onClick={() => save(opt.value)}
-              className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-md text-xs transition-colors ${
                 active
-                  ? 'bg-forest-700 text-on-accent'
+                  ? 'bg-forest-700 text-on-accent font-semibold'
                   : 'text-ink-300 hover:text-ink-100'
               }`}
             >
-              <Icon size={12} className="shrink-0" />
+              <Icon size={14} className="shrink-0" strokeWidth={active ? 2.6 : 2} />
               <span className="truncate">{opt.label}</span>
             </button>
           );
