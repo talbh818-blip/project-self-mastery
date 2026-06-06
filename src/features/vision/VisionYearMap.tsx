@@ -86,14 +86,26 @@ export function VisionYearMap({
     [year],
   );
 
+  // Hide whole FUTURE rows: in the current year we only show months up to the
+  // end of the row that holds the current month (rows are groups of 4). So a
+  // future row (e.g. Sep–Dec while it's June) simply isn't rendered until its
+  // first month arrives. Past years show all 12.
+  const visibleMonths = useMemo(() => {
+    const cy = today.getFullYear();
+    if (year < cy) return months;
+    if (year > cy) return [];
+    const rowEnd = Math.ceil((today.getMonth() + 1) / 4) * 4; // 4, 8 or 12
+    return months.slice(0, rowEnd);
+  }, [months, year, today]);
+
   const allKeys = useMemo(() => {
     const keys = new Set<string>([String(year)]);
-    for (const mo of months) {
+    for (const mo of visibleMonths) {
       keys.add(mo.key);
       for (const w of mo.weeks) keys.add(w.key);
     }
     return Array.from(keys);
-  }, [year, months]);
+  }, [year, visibleMonths]);
 
   // period key → has written content, and period key → chosen icon.
   const [contentKeys, setContentKeys] = useState<Set<string>>(new Set());
@@ -175,7 +187,7 @@ export function VisionYearMap({
         </div>
       ) : (
         <div className="grid grid-cols-4 gap-1.5">
-          {months.map((mo) => {
+          {visibleMonths.map((mo) => {
             const monthHasContent = contentKeys.has(mo.key);
             const monthIcon = iconByKey.get(mo.key) ?? null;
             const isCurrentMonth = mo.key === currentMonthKey;

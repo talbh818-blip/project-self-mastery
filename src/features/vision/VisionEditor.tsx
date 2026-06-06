@@ -288,17 +288,16 @@ export function VisionEditor({
           onIconClick={onIconClick}
           saveStatus={saveStatus}
         />
-        <EditorContent editor={editor} />
-        {/* Guided-writing: insert another question. Lives INSIDE the writing
-            card (a gentle ghost button under the content) rather than crowding
-            the formatting toolbar — it only appears while Assist is on. */}
+        {/* Guided-writing: insert another question. Sits right under the
+            title (top of the writing card), not in the formatting toolbar —
+            only while Assist is on. */}
         {assistOn && !readOnly && (
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={insertOneQuestion}
             className="
-              mt-3 w-full inline-flex items-center justify-center gap-1.5 h-9
+              mb-3 w-full inline-flex items-center justify-center gap-1.5 h-9
               rounded-xl border border-dashed border-surface-border
               text-[13px] font-medium text-ink-300
               hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
@@ -309,6 +308,7 @@ export function VisionEditor({
             הוסף שאלה מנחה
           </button>
         )}
+        <EditorContent editor={editor} />
       </div>
       {!readOnly && (
         <ToolbarShell>
