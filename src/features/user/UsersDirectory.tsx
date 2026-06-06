@@ -108,7 +108,7 @@ export function UsersDirectory() {
                     <Stat icon={<TreePine size={12} />} value={row.trees_planted} suffix="עצים" />
                     <Stat icon={<Target size={12} />} value={row.habit_count} suffix="הרגלים" />
                     <Stat icon={<Star size={12} />} value={row.score} suffix="נק׳" />
-                    <Stat icon={<BookOpen size={12} />} value={row.vision_count} suffix="חזונות" />
+                    <Stat icon={<BookOpen size={12} />} value={row.vision_count} suffix="כתיבות חזון" />
                   </div>
                 </div>
 
