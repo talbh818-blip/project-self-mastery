@@ -9,7 +9,6 @@ import {
   UserCircle,
   ArrowRight,
   TreePine,
-  BookOpen,
   Target,
   Lock,
   Globe,
@@ -121,25 +120,7 @@ export function UserDetail() {
         </div>
       </div>
 
-      {/* Vision section */}
-      <ResourceSection
-        icon={<BookOpen size={18} />}
-        title="חזון"
-        visibility={data.vision_visibility}
-        canView={data.can_view_vision}
-        emptyHint="המשתמש בחר להשאיר את החזון פרטי."
-        sharedHint="המשתמש שיתף איתך את החזון."
-        publicHint="החזון של המשתמש פתוח לכולם."
-      >
-        {/* Real content will land in V2 — when the vision-share read flow lands. */}
-        <p className="text-xs text-ink-300">
-          {data.can_view_vision
-            ? 'תוכן החזון יופיע כאן בקרוב.'
-            : 'אין גישה לתוכן.'}
-        </p>
-      </ResourceSection>
-
-      {/* Habits section */}
+      {/* Habits section (vision is always private — not shown for others) */}
       <ResourceSection
         icon={<Target size={18} />}
         title="הרגלים"

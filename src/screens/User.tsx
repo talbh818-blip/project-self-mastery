@@ -86,74 +86,64 @@ export function User() {
 
   return (
     <section className="pt-1 pb-6 space-y-4">
-      {/* Top card split in two: profile + actions (right) | privacy (left) */}
-      <div className="bg-surface-card rounded-2xl p-4 flex items-stretch gap-3">
-        {/* Profile + actions half — vertical stack so it stays narrow */}
-        <div className="flex-1 min-w-0 flex flex-col items-center gap-2">
-          <button
-            type="button"
-            onClick={handleAvatarClick}
-            className="relative group shrink-0"
-            aria-label="החלף תמונת פרופיל"
-            disabled={uploading}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt=""
-                className="w-14 h-14 rounded-full object-cover border-2 border-surface-border"
-              />
-            ) : (
-              <UserCircle
-                size={56}
-                strokeWidth={1.2}
-                className="text-ink-300"
-              />
-            )}
-            <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
-              <Camera size={10} className="text-cream-50" />
-            </span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleAvatarChange}
-            className="hidden"
-          />
+      {/* Profile card — avatar (right in RTL) + name + action row */}
+      <div className="bg-surface-card rounded-2xl p-4 flex items-center gap-4">
+        <button
+          type="button"
+          onClick={handleAvatarClick}
+          className="relative group shrink-0"
+          aria-label="החלף תמונת פרופיל"
+          disabled={uploading}
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="w-20 h-20 rounded-full object-cover border-2 border-surface-border"
+            />
+          ) : (
+            <UserCircle size={80} strokeWidth={1.2} className="text-ink-300" />
+          )}
+          <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
+            <Camera size={11} className="text-cream-50" />
+          </span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleAvatarChange}
+          className="hidden"
+        />
 
+        <div className="flex-1 min-w-0">
           <p
-            className="text-sm font-semibold text-ink-100 truncate max-w-full text-center"
+            className="text-base font-semibold text-ink-100 truncate"
             title={fullName}
           >
             {fullName}
           </p>
           {uploading && (
-            <p className="text-[10px] text-ink-300">מעלה תמונה…</p>
+            <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
           )}
-          <div className="flex items-center gap-1.5">
+          <div className="mt-2 flex items-center gap-2">
             <ActionIcon
               onClick={() => setEditOpen(true)}
-              icon={<Pencil size={15} />}
+              icon={<Pencil size={16} />}
               label="ערוך פרטים אישיים"
             />
             <ActionIcon
               onClick={() => setTicketOpen(true)}
-              icon={<HelpCircle size={15} />}
+              icon={<HelpCircle size={16} />}
               label="פידבק ועזרה"
             />
             <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
           </div>
         </div>
-
-        {/* Divider */}
-        <div className="w-px self-stretch bg-surface-border shrink-0" />
-
-        {/* Privacy half */}
-        <div className="flex-1 min-w-0 flex flex-col justify-center">
-          <PrivacyInline />
-        </div>
       </div>
+
+      {/* Thin habits-privacy row (vision is always private, so not shown) */}
+      <PrivacyInline />
 
       {/* Active users directory */}
       <UsersDirectory />
@@ -243,7 +233,7 @@ function ActionIcon({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="w-8 h-8 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-cream-50 flex items-center justify-center transition-colors"
+      className="w-9 h-9 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-cream-50 flex items-center justify-center transition-colors"
     >
       {icon}
     </button>

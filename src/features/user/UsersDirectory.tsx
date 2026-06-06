@@ -80,10 +80,6 @@ export function UsersDirectory() {
                       {row.trees_planted} עצים
                     </span>
                     <VisibilityBadge
-                      label="חזון"
-                      value={row.vision_visibility}
-                    />
-                    <VisibilityBadge
                       label="הרגלים"
                       value={row.habits_visibility}
                     />
