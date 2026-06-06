@@ -43,9 +43,27 @@ export type Profile = {
   updated_at: string;
 };
 
-// Lightweight row returned by list_active_profiles() RPC — only the columns
-// that are safe to share across users for the directory list.
+// Lightweight row returned by list_active_profiles() RPC — aggregate NUMBERS
+// only, safe to share across users for the directory list.
 export type PublicProfileRow = {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  gender: Gender | null;
+  created_at: string;
+  trees_planted: number;
+  score: number;
+  habit_count: number;
+  vision_count: number;
+  vision_visibility: Visibility;
+  habits_visibility: Visibility;
+  /** This user shared their habits with the current viewer specifically. */
+  shared_with_me: boolean;
+  is_me: boolean;
+};
+
+// Single-user shape returned by get_public_profile(uuid).
+export type PublicProfileDetail = {
   id: string;
   display_name: string | null;
   avatar_url: string | null;
@@ -53,13 +71,7 @@ export type PublicProfileRow = {
   score_adjustment: number;
   vision_visibility: Visibility;
   habits_visibility: Visibility;
-  gender: Gender | null;
   last_seen_at: string | null;
-  is_me: boolean;
-};
-
-// Single-user shape returned by get_public_profile(uuid).
-export type PublicProfileDetail = Omit<PublicProfileRow, 'is_me'> & {
   can_view_vision: boolean;
   can_view_habits: boolean;
 };

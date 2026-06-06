@@ -1,13 +1,24 @@
 // ============================================================================
 // UsersDirectory — list of active users with a quick stats overview.
-// Tapping a row navigates to /user/:id where the visibility-aware detail
-// page renders. Powered by the list_active_profiles() RPC.
+// Each row shows: avatar, name + coloured gender glyph, an "אני" / "שותף
+// למסע" tag, the join date, and four numbers (trees, habits, score, visions).
+// Tapping a row opens /user/:id for the full dashboard.
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCircle, TreePine, ChevronLeft, Lock, Globe, Users } from 'lucide-react';
+import {
+  UserCircle,
+  TreePine,
+  Target,
+  Star,
+  BookOpen,
+  ChevronLeft,
+  CalendarDays,
+  Handshake,
+} from 'lucide-react';
 import { fetchActiveProfiles } from './queries';
-import type { PublicProfileRow, Visibility } from '../admin/types';
+import { GenderIcon } from './GenderIcon';
+import type { PublicProfileRow } from '../admin/types';
 
 export function UsersDirectory() {
   const [rows, setRows] = useState<PublicProfileRow[] | null>(null);
@@ -60,31 +71,47 @@ export function UsersDirectory() {
             <li key={row.id}>
               <Link
                 to={`/user/${row.id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-surface-raised/40 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 hover:bg-surface-raised/40 transition-colors"
               >
                 <Avatar url={row.avatar_url} />
+
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-ink-100 font-medium truncate">
+                  {/* Name + gender + identity tag */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm text-ink-100 font-semibold truncate">
                       {row.display_name || 'משתמש'}
                     </span>
-                    {row.is_me && (
+                    <GenderIcon gender={row.gender} size={14} />
+                    {row.is_me ? (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/30 text-forest-400">
                         אני
                       </span>
+                    ) : (
+                      row.shared_with_me &&
+                      row.habits_visibility !== 'public' && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-400">
+                          <Handshake size={10} />
+                          שותף למסע
+                        </span>
+                      )
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-ink-300 mt-0.5">
-                    <span className="inline-flex items-center gap-1">
-                      <TreePine size={12} className="text-forest-500" />
-                      {row.trees_planted} עצים
-                    </span>
-                    <VisibilityBadge
-                      label="הרגלים"
-                      value={row.habits_visibility}
-                    />
+
+                  {/* Join date */}
+                  <div className="mt-0.5 flex items-center gap-1 text-[10px] text-ink-500">
+                    <CalendarDays size={10} />
+                    <span dir="ltr">הצטרף {formatJoinDate(row.created_at)}</span>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="mt-1 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-ink-300">
+                    <Stat icon={<TreePine size={12} />} value={row.trees_planted} suffix="עצים" />
+                    <Stat icon={<Target size={12} />} value={row.habit_count} suffix="הרגלים" />
+                    <Stat icon={<Star size={12} />} value={row.score} suffix="נק׳" />
+                    <Stat icon={<BookOpen size={12} />} value={row.vision_count} suffix="חזונות" />
                   </div>
                 </div>
+
                 <ChevronLeft size={16} className="text-ink-500 shrink-0" />
               </Link>
             </li>
@@ -95,36 +122,43 @@ export function UsersDirectory() {
   );
 }
 
+function Stat({
+  icon,
+  value,
+  suffix,
+}: {
+  icon: React.ReactNode;
+  value: number;
+  suffix: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className="text-forest-500">{icon}</span>
+      <span className="text-ink-100 font-medium tabular-nums">{value}</span>
+      <span>{suffix}</span>
+    </span>
+  );
+}
+
 function Avatar({ url }: { url: string | null }) {
   if (url) {
     return (
       <img
         src={url}
         alt=""
-        className="w-10 h-10 rounded-full object-cover border border-surface-border shrink-0"
+        className="w-11 h-11 rounded-full object-cover border border-surface-border shrink-0"
       />
     );
   }
   return (
-    <UserCircle
-      size={40}
-      strokeWidth={1.2}
-      className="text-ink-300 shrink-0"
-    />
+    <UserCircle size={44} strokeWidth={1.2} className="text-ink-300 shrink-0" />
   );
 }
 
-function VisibilityBadge({ label, value }: { label: string; value: Visibility }) {
-  const meta =
-    value === 'public'
-      ? { icon: <Globe size={10} />, cls: 'text-forest-500' }
-      : value === 'specific'
-      ? { icon: <Users size={10} />, cls: 'text-amber-400' }
-      : { icon: <Lock size={10} />, cls: 'text-ink-500' };
-  return (
-    <span className={`inline-flex items-center gap-0.5 ${meta.cls}`}>
-      {meta.icon}
-      <span>{label}</span>
-    </span>
-  );
+// e.g. 2026-01-01… → "1.1.26"
+function formatJoinDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${d.getDate()}.${d.getMonth() + 1}.${yy}`;
 }

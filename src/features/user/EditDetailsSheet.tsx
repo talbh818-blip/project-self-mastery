@@ -7,6 +7,7 @@ import { X, Check } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentProfile } from '../admin/ProfileContext';
 import { updateProfileFields } from './mutations';
+import { MaleGlyph, FemaleGlyph } from './GenderIcon';
 import type { Gender } from '../admin/types';
 
 type Props = {
@@ -169,9 +170,9 @@ export function EditDetailsSheet({ open, onClose }: Props) {
                     }`}
                   >
                     {opt.value === 'male' ? (
-                      <MaleIcon size={16} />
+                      <MaleGlyph size={16} />
                     ) : (
-                      <FemaleIcon size={16} />
+                      <FemaleGlyph size={16} />
                     )}
                     {opt.label}
                   </button>
@@ -221,47 +222,5 @@ function Field({
       {children}
       {hint && <p className="text-[10px] text-ink-500 mt-1">{hint}</p>}
     </div>
-  );
-}
-
-// Lucide-style gender glyphs (the icon set doesn't ship Mars/Venus in this
-// version). 24×24 viewBox, currentColor stroke — matches the other icons.
-function MaleIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="10" cy="14" r="6" />
-      <path d="M14.5 9.5 19 5" />
-      <path d="M15 5h4v4" />
-    </svg>
-  );
-}
-
-function FemaleIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="8" r="6" />
-      <path d="M12 14v8" />
-      <path d="M9 19h6" />
-    </svg>
   );
 }
