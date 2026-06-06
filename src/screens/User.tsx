@@ -109,49 +109,49 @@ export function User() {
 
   return (
     <section className="-mt-4 pb-6 space-y-4">
-      {/* Profile card — avatar (right in RTL) + name + action row */}
-      <div className="bg-surface-card rounded-2xl p-4 flex items-center gap-4">
-        <button
-          type="button"
-          onClick={handleAvatarClick}
-          className="relative group shrink-0"
-          aria-label="החלף תמונת פרופיל"
-          disabled={uploading}
-        >
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt=""
-              className="w-20 h-20 rounded-full object-cover border-2 border-surface-border"
-            />
-          ) : (
-            <UserCircle size={80} strokeWidth={1.2} className="text-ink-300" />
-          )}
-          <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
-            <Camera size={11} className="text-on-accent" />
-          </span>
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleAvatarChange}
-          className="hidden"
-        />
-
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-base font-semibold text-ink-100 truncate"
-            title={fullName}
+      {/* Profile card — header (avatar + name + edit/theme) and, inside the
+          same container, the labelled app-action buttons. */}
+      <div className="bg-surface-card rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={handleAvatarClick}
+            className="relative group shrink-0"
+            aria-label="החלף תמונת פרופיל"
+            disabled={uploading}
           >
-            {fullName}
-          </p>
-          {uploading && (
-            <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
-          )}
-          {/* Action row: personal settings (right) · app actions (left). */}
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt=""
+                className="w-20 h-20 rounded-full object-cover border-2 border-surface-border"
+              />
+            ) : (
+              <UserCircle size={80} strokeWidth={1.2} className="text-ink-300" />
+            )}
+            <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
+              <Camera size={11} className="text-on-accent" />
+            </span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarChange}
+            className="hidden"
+          />
+
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-base font-semibold text-ink-100 truncate"
+              title={fullName}
+            >
+              {fullName}
+            </p>
+            {uploading && (
+              <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
+            )}
+            <div className="mt-2 flex items-center gap-2">
               <ActionIcon
                 onClick={() => setEditOpen(true)}
                 icon={<Pencil size={16} />}
@@ -159,24 +159,23 @@ export function User() {
               />
               <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
             </div>
-            <div className="flex items-center gap-1.5">
-              <ActionIcon
-                onClick={handleInstall}
-                icon={<Download size={16} />}
-                label="התקן אפליקציה"
-              />
-              <ActionIcon
-                onClick={handleUpdate}
-                icon={
-                  <RefreshCw
-                    size={16}
-                    className={updating ? 'animate-spin' : ''}
-                  />
-                }
-                label="עדכן גרסה"
-              />
-            </div>
           </div>
+        </div>
+
+        {/* App actions — labelled buttons, inside the profile container */}
+        <div className="grid grid-cols-2 gap-3">
+          <AppActionButton
+            onClick={handleInstall}
+            icon={<Download size={18} />}
+            label="התקן אפליקציה"
+          />
+          <AppActionButton
+            onClick={handleUpdate}
+            icon={
+              <RefreshCw size={18} className={updating ? 'animate-spin' : ''} />
+            }
+            label="עדכן גרסה"
+          />
         </div>
       </div>
 
@@ -286,6 +285,29 @@ function ActionIcon({
       className="w-9 h-9 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-on-accent flex items-center justify-center transition-colors"
     >
       {icon}
+    </button>
+  );
+}
+
+// Labelled app-action button (install / update) — icon + text with a subtle
+// ring; lives inside the profile card.
+function AppActionButton({
+  onClick,
+  icon,
+  label,
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-surface-raised ring-1 ring-surface-border rounded-xl py-2.5 px-2 flex items-center justify-center gap-2 text-sm font-medium text-ink-100 hover:ring-forest-700/50 transition-colors"
+    >
+      <span className="text-forest-500 shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
