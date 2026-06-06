@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import type { Theme, Visibility } from '../admin/types';
+import type { Theme, Visibility, Gender } from '../admin/types';
 
 // Updates the editable identity fields. Null clears the field; undefined
 // leaves it untouched.
@@ -9,6 +9,7 @@ export async function updateProfileFields(
     first_name?: string | null;
     last_name?: string | null;
     phone?: string | null;
+    gender?: Gender | null;
   },
 ): Promise<void> {
   const { error } = await supabase
@@ -16,6 +17,31 @@ export async function updateProfileFields(
     .update(fields)
     .eq('id', userId);
   if (error) throw error;
+}
+
+// Adds or removes a habits-sharing grant for a specific viewer. Backed by
+// public.visibility_shares (resource_type='habits'); RLS lets the owner manage
+// only their own rows.
+export async function setHabitShare(
+  ownerId: string,
+  viewerId: string,
+  shared: boolean,
+): Promise<void> {
+  if (shared) {
+    const { error } = await supabase.from('visibility_shares').upsert(
+      { owner_id: ownerId, viewer_id: viewerId, resource_type: 'habits' },
+      { onConflict: 'owner_id,viewer_id,resource_type' },
+    );
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('visibility_shares')
+      .delete()
+      .eq('owner_id', ownerId)
+      .eq('viewer_id', viewerId)
+      .eq('resource_type', 'habits');
+    if (error) throw error;
+  }
 }
 
 export async function updateTheme(userId: string, theme: Theme): Promise<void> {

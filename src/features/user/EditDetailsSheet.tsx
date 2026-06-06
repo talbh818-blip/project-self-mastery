@@ -7,6 +7,7 @@ import { X, Check } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentProfile } from '../admin/ProfileContext';
 import { updateProfileFields } from './mutations';
+import type { Gender } from '../admin/types';
 
 type Props = {
   open: boolean;
@@ -20,6 +21,7 @@ export function EditDetailsSheet({ open, onClose }: Props) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState<Gender | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +32,7 @@ export function EditDetailsSheet({ open, onClose }: Props) {
     setFirstName(profile.first_name ?? '');
     setLastName(profile.last_name ?? '');
     setPhone(profile.phone ?? '');
+    setGender(profile.gender ?? null);
     setSaving(false);
     setSaved(false);
     setError(null);
@@ -45,7 +48,8 @@ export function EditDetailsSheet({ open, onClose }: Props) {
   const dirty =
     (profile.first_name ?? '') !== firstName ||
     (profile.last_name ?? '') !== lastName ||
-    (profile.phone ?? '') !== phone;
+    (profile.phone ?? '') !== phone ||
+    (profile.gender ?? null) !== gender;
 
   const handleSave = async () => {
     if (!user || !dirty || saving) return;
@@ -56,6 +60,7 @@ export function EditDetailsSheet({ open, onClose }: Props) {
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
         phone: phone.trim() || null,
+        gender,
       });
       await refresh();
       setSaved(true);
@@ -136,6 +141,38 @@ export function EditDetailsSheet({ open, onClose }: Props) {
               className="w-full bg-surface-raised text-ink-100 placeholder-ink-500 rounded-xl px-3 py-2 text-sm border border-surface-border focus:outline-none focus:border-forest-500"
               dir="ltr"
             />
+          </Field>
+
+          <Field label="מין" hint="משמש לסינון בבחירת שותפים למסע">
+            <div className="flex bg-surface-raised rounded-xl p-1 gap-1">
+              {(
+                [
+                  { value: 'male' as Gender, label: 'זכר' },
+                  { value: 'female' as Gender, label: 'נקבה' },
+                ]
+              ).map((opt) => {
+                const active = gender === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    // Tapping the active option again clears it (optional field).
+                    onClick={() =>
+                      setGender((g) => (g === opt.value ? null : opt.value))
+                    }
+                    className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
+                      active
+                        ? 'bg-forest-700 text-on-accent font-semibold'
+                        : 'text-ink-300 hover:text-ink-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
           </Field>
 
           {error && (

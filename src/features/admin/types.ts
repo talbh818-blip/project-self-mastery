@@ -1,6 +1,7 @@
-// Row shape of public.profiles. Keep in sync with migrations 0011–0023.
+// Row shape of public.profiles. Keep in sync with migrations 0011–0025.
 export type Theme = 'dark' | 'light';
 export type Visibility = 'private' | 'public' | 'specific';
+export type Gender = 'male' | 'female';
 
 /**
  * One entry per planted tree, stored on profiles.tree_placements (jsonb).
@@ -16,6 +17,9 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  /** Optional self-reported gender — migration 0025. Used by the partner
+   *  picker's gender filter. */
+  gender: Gender | null;
   theme: Theme;
   /** Per-user privacy for vision entries — migration 0023. Default 'private'. */
   vision_visibility: Visibility;
@@ -49,6 +53,7 @@ export type PublicProfileRow = {
   score_adjustment: number;
   vision_visibility: Visibility;
   habits_visibility: Visibility;
+  gender: Gender | null;
   last_seen_at: string | null;
   is_me: boolean;
 };

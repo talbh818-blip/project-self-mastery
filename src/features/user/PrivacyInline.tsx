@@ -1,21 +1,22 @@
 // ============================================================================
 // PrivacyInline — a single thin row controlling HABITS visibility.
 // Vision is always private (no control shown). Three options:
-// פרטי (default) / שיתוף ספציפי / פומבי. Saves immediately (optimistic,
-// reverts on error).
+// פרטי (default) / שותפים / פומבי. Saves immediately (optimistic, reverts on
+// error). Picking "שותפים" opens the partner picker (SharePartnersSheet).
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Lock, Users, Globe, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useCurrentProfile } from '../admin/ProfileContext';
 import { updateVisibility } from './mutations';
+import { SharePartnersSheet } from './SharePartnersSheet';
 import type { Visibility } from '../admin/types';
 
 // In RTL the first button renders rightmost, so this lays out right→left as
-// פרטי · שיתוף ספציפי · פומבי — the order the user reads.
+// פרטי · שותפים · פומבי — the order the user reads.
 const OPTIONS: { value: Visibility; label: string; icon: LucideIcon }[] = [
   { value: 'private', label: 'פרטי', icon: Lock },
-  { value: 'specific', label: 'שיתוף ספציפי', icon: Users },
+  { value: 'specific', label: 'שותפים', icon: Users },
   { value: 'public', label: 'פומבי', icon: Globe },
 ];
 
@@ -23,6 +24,7 @@ export function PrivacyInline() {
   const { user } = useAuth();
   const { profile, refresh } = useCurrentProfile();
   const [habits, setHabits] = useState<Visibility>('private');
+  const [partnersOpen, setPartnersOpen] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -42,6 +44,17 @@ export function PrivacyInline() {
       setHabits(prev); // revert on failure
       console.error('[privacy] update failed:', e);
     }
+  };
+
+  // "שותפים" both sets visibility to specific AND opens the partner picker.
+  // Re-tapping it while already on specific just reopens the picker.
+  const handlePick = (value: Visibility) => {
+    if (value === 'specific') {
+      void save('specific');
+      setPartnersOpen(true);
+      return;
+    }
+    void save(value);
   };
 
   return (
@@ -64,7 +77,7 @@ export function PrivacyInline() {
               role="radio"
               aria-checked={active}
               title={opt.label}
-              onClick={() => save(opt.value)}
+              onClick={() => handlePick(opt.value)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] transition-colors ${
                 active
                   ? 'bg-forest-700/25 text-cream-50 ring-1 ring-forest-700/50'
@@ -77,6 +90,11 @@ export function PrivacyInline() {
           );
         })}
       </div>
+
+      <SharePartnersSheet
+        open={partnersOpen}
+        onClose={() => setPartnersOpen(false)}
+      />
     </div>
   );
 }
