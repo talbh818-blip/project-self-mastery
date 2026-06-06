@@ -9,3 +9,7 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Build id injected by Vite (see vite.config.ts → define). Compared against
+// /version.json to detect that a newer build has been deployed.
+declare const __APP_VERSION__: number;

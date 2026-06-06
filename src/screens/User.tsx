@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useCurrentProfile } from '../features/admin/ProfileContext';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
+import { forceAppUpdate } from '../lib/appUpdate';
 import { updateTheme, uploadAvatar } from '../features/user/mutations';
 import { EditDetailsSheet } from '../features/user/EditDetailsSheet';
 import { TicketSheet } from '../features/user/TicketSheet';
@@ -27,29 +28,6 @@ import { InstallSheet } from '../features/user/InstallSheet';
 import { PrivacyInline } from '../features/user/PrivacyInline';
 import { UsersDirectory } from '../features/user/UsersDirectory';
 import type { Theme } from '../features/admin/types';
-
-// Forces the freshest build: ask the SW to update, wipe caches, reload.
-// Solves the "still seeing the old version" problem without DevTools.
-async function forceAppUpdate(): Promise<void> {
-  try {
-    if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (reg) {
-        await reg.update();
-        reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
-      }
-    }
-    if ('caches' in window) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map((k) => caches.delete(k)));
-    }
-  } catch (e) {
-    console.error('[update] failed:', e);
-  } finally {
-    // Cache-busted reload so index.html is fetched from the network.
-    window.location.reload();
-  }
-}
 
 export function User() {
   const { user, signOut } = useAuth();

@@ -3,10 +3,35 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// A unique id for THIS build. Baked into the bundle as __APP_VERSION__ and
+// also written to /version.json. The running app compares the two to detect
+// that a newer build has been deployed (see src/components/VersionGate.tsx).
+const BUILD_ID = Date.now();
+
+// Emits dist/version.json holding the build id, served at /version.json.
+// The client fetches it (no-store) to learn the latest deployed version.
+function emitVersionJson() {
+  return {
+    name: 'emit-version-json',
+    generateBundle() {
+      // @ts-expect-error — `this.emitFile` exists in the Rollup plugin context.
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version: BUILD_ID }),
+      });
+    },
+  };
+}
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(BUILD_ID),
+  },
   plugins: [
     react(),
     tailwindcss(),
+    emitVersionJson(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['logo.png'],
@@ -18,6 +43,9 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
+        // version.json must never be served from cache — the gate needs the
+        // freshest copy from the network to detect new deploys.
+        globIgnores: ['**/version.json'],
       },
       manifest: {
         name: 'פרויקט מחויבות לעצמי',

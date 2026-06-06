@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import { Layout } from './components/Layout';
+import { VersionGate } from './components/VersionGate';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './features/admin/AdminRoute';
 import { Login } from './screens/Login';
@@ -16,6 +17,7 @@ import { Admin } from './screens/Admin';
 export default function App() {
   return (
     <AuthProvider>
+      <VersionGate />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
