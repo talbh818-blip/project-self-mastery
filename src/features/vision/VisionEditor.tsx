@@ -16,6 +16,7 @@
 // questions so the user has something to react to.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Plus } from 'lucide-react';
 import {
   useEditor,
   EditorContent,
@@ -55,9 +56,12 @@ type Props = {
   saveStatus: SaveStatus;
   /** Direction of the scope-switch zoom: 'in' (finer) or 'out' (broader). */
   zoomDir: 'in' | 'out';
-  /** ISO 'YYYY-MM-DD' — date stamped at the top of the entry. */
-  documentDate: string;
-  onDateChange: (iso: string) => void;
+  /** The vision's display title (scope name + period range) for the DateBar. */
+  title: string;
+  /** Step the open period back / forward from the DateBar's chevrons. */
+  onStepPeriod: (delta: number) => void;
+  /** Whether the next period is reachable (not future). */
+  canStepNext: boolean;
   /** Current level's icon (Lucide name or emoji char), shown on the DateBar
    *  picker button. null = none chosen yet. */
   icon: string | null;
@@ -74,8 +78,9 @@ export function VisionEditor({
   readOnly,
   saveStatus,
   zoomDir,
-  documentDate,
-  onDateChange,
+  title,
+  onStepPeriod,
+  canStepNext,
   icon,
   onIconClick,
   onChange,
@@ -234,8 +239,9 @@ export function VisionEditor({
     return (
       <div className="vision-editor vision-page">
         <DateBar
-          value={documentDate}
-          onChange={onDateChange}
+          title={title}
+          onStepPeriod={onStepPeriod}
+          canStepNext={canStepNext}
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
           icon={icon}
@@ -273,8 +279,9 @@ export function VisionEditor({
     <>
       <div key={scope} className={cardClass}>
         <DateBar
-          value={documentDate}
-          onChange={onDateChange}
+          title={title}
+          onStepPeriod={onStepPeriod}
+          canStepNext={canStepNext}
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
           icon={icon}
@@ -282,13 +289,31 @@ export function VisionEditor({
           saveStatus={saveStatus}
         />
         <EditorContent editor={editor} />
+        {/* Guided-writing: insert another question. Lives INSIDE the writing
+            card (a gentle ghost button under the content) rather than crowding
+            the formatting toolbar — it only appears while Assist is on. */}
+        {assistOn && !readOnly && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={insertOneQuestion}
+            className="
+              mt-3 w-full inline-flex items-center justify-center gap-1.5 h-9
+              rounded-xl border border-dashed border-surface-border
+              text-[13px] font-medium text-ink-300
+              hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
+              transition-colors
+            "
+          >
+            <Plus size={15} strokeWidth={2.2} />
+            הוסף שאלה מנחה
+          </button>
+        )}
       </div>
       {!readOnly && (
         <ToolbarShell>
           <VisionToolbar
             editor={editor}
-            assistOn={assistOn}
-            onInsertQuestion={insertOneQuestion}
             onPickImage={uploadAndInsert}
             uploadingCount={uploadingCount}
             canUpload={!!userId}

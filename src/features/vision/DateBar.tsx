@@ -1,150 +1,150 @@
 // ============================================================================
-// DateBar — top strip of every vision page.
+// DateBar — header strip of the open vision.
 // ----------------------------------------------------------------------------
-// Holds three things in one row, in RTL DOM order (right-to-left visually):
-//   • Document date   — click to open the themed DatePickerSheet.
-//   • Assist toggle   — 💡 emoji; lit when guided-writing mode is on.
-//   • Save status     — "שומר…" / "נשמר" / "שגיאה", or hidden when idle.
+// Layout (RTL): [icon picker] · ‹ TITLE › · [assist] [save]
+//   • Icon picker  — pick the per-period icon (right-most).
+//   • Title        — the vision's name + range ("חזון שבועי · 7–13.6.26"),
+//     the centrepiece, flanked by small chevrons that step the period
+//     (prev / next week-month-year) for quick browsing.
+//   • Assist       — compact 💡 toggle for guided writing (no wide label).
+//   • Save status  — "שומר…" / "נשמר" / "שגיאה".
 //
-// Everything that used to live in the bottom toolbar (toggle + save badge)
-// is consolidated here so the toolbar stays focused on text formatting.
+// (The old document-date picker was dropped — the title shows the period
+// itself, which is what users actually want to see.)
 // ============================================================================
-import { useState } from 'react';
-import { Calendar, CheckCircle2, SmilePlus } from 'lucide-react';
+import { ChevronRight, ChevronLeft, CheckCircle2, SmilePlus } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
 import { HabitIcon } from '../habits/HabitIcon';
-import { DatePickerSheet } from './DatePickerSheet';
 import type { SaveStatus } from './useVisionEntry';
 
 type Props = {
-  /** Date stamped on the entry. ISO 'YYYY-MM-DD'. */
-  value: string;
-  onChange: (iso: string) => void;
+  /** The vision's display title — scope name + period range. */
+  title: string;
+  /** Step the open period back / forward (prev = -1, next = +1). */
+  onStepPeriod: (delta: number) => void;
+  /** Whether the NEXT period is reachable (not in the future). */
+  canStepNext: boolean;
   /** Assist toggle state + handler. */
   assistOn: boolean;
   onToggleAssist: () => void;
-  /** Current level's icon (Lucide name or emoji char), or null. Shown on the
-   *  picker button so it doubles as a "what's chosen" indicator. */
+  /** Current level's icon (Lucide name or emoji char), or null. */
   icon: string | null;
-  /** Open the icon picker for the current level. */
   onIconClick: () => void;
   /** Save indicator state — driven by useVisionEntry. */
   saveStatus: SaveStatus;
 };
 
-const HEB_MONTHS_FULL = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר',
-];
-
-function formatHebrew(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  return `${d} ב${HEB_MONTHS_FULL[m - 1]} ${y}`;
-}
-
 export function DateBar({
-  value,
-  onChange,
+  title,
+  onStepPeriod,
+  canStepNext,
   assistOn,
   onToggleAssist,
   icon,
   onIconClick,
   saveStatus,
 }: Props) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-
   return (
-    <>
-      <div
-        dir="rtl"
-        className="
-          flex items-center justify-between gap-2
-          pb-2 mb-3 border-b border-surface-border
-        "
+    <div
+      dir="rtl"
+      className="flex items-center gap-2 pb-2 mb-3 border-b border-surface-border"
+    >
+      {/* Icon picker — RIGHT-most in RTL. */}
+      <button
+        type="button"
+        onClick={onIconClick}
+        aria-label="בחר אייקון לחזון"
+        title="בחר אייקון לחזון"
+        className={`
+          shrink-0 inline-flex items-center justify-center
+          h-7 w-7 rounded-lg transition-all
+          ${icon
+            ? 'bg-forest-700/25 text-ink-100'
+            : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
+        `}
       >
-        {/* Icon picker — RIGHT-most in RTL (first DOM child), sitting to the
-            right of the date. Shows the current level's chosen icon, or a
-            generic "add emoji" glyph when none is set yet. Tapping opens the
-            picker. */}
-        <button
-          type="button"
-          onClick={onIconClick}
-          aria-label="בחר אייקון לחזון"
-          title="בחר אייקון לחזון"
-          className={`
-            shrink-0 inline-flex items-center justify-center
-            h-7 w-7 rounded-lg transition-all
-            ${icon
-              ? 'bg-forest-700/25 text-ink-100'
-              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
-          `}
-        >
-          {icon ? (
-            <HabitIcon name={icon} size={16} />
-          ) : (
-            <SmilePlus size={15} strokeWidth={1.9} />
-          )}
-        </button>
+        {icon ? (
+          <HabitIcon name={icon} size={16} />
+        ) : (
+          <SmilePlus size={15} strokeWidth={1.9} />
+        )}
+      </button>
 
-        {/* Date — just LEFT of the icon button in RTL. */}
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          className="
-            inline-flex items-center gap-1.5 shrink-0
-            text-[12px] text-ink-300 hover:text-ink-100
-            transition-colors min-w-0
-          "
-          aria-label="שנה את תאריך המסמך"
-          title="לחץ לשינוי תאריך"
-        >
-          <Calendar size={13} strokeWidth={1.8} className="shrink-0" />
-          <span className="truncate">{formatHebrew(value)}</span>
-        </button>
-
-        {/* Assist toggle — sits to the LEFT of the date. Always full-opacity
-            emoji + label so it reads as a real button. ON state gets the
-            forest ring; OFF state uses a neutral surface chip. */}
-        <button
-          type="button"
-          onClick={onToggleAssist}
-          aria-label="מצב כתיבה מודרכת"
-          aria-pressed={assistOn}
-          title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
-          className={`
-            shrink-0 inline-flex items-center gap-1.5
-            h-7 px-2 rounded-lg transition-all text-[11px] font-medium
-            ${assistOn
-              ? 'bg-forest-700/25 ring-1 ring-forest-700 text-ink-100'
-              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
-          `}
-        >
-          <Emoji emoji="💡" size={14} ariaLabel="" />
-          <span>כתיבה מודרכת</span>
-        </button>
-
-        {/* Spacer pushes the controls below to the visual LEFT. */}
-        <div className="grow" />
-
-        {/* Save status — LEFT-most in RTL */}
-        <SaveBadge status={saveStatus} />
+      {/* Title + period steppers — the centrepiece. */}
+      <div className="flex-1 min-w-0 flex items-center justify-center gap-1">
+        <StepArrow
+          dir="prev"
+          aria-label="התקופה הקודמת"
+          onClick={() => onStepPeriod(-1)}
+        />
+        <h2 className="min-w-0 truncate text-center text-[15px] font-bold text-ink-100">
+          {title}
+        </h2>
+        <StepArrow
+          dir="next"
+          aria-label="התקופה הבאה"
+          disabled={!canStepNext}
+          onClick={() => onStepPeriod(1)}
+        />
       </div>
 
-      <DatePickerSheet
-        open={pickerOpen}
-        value={value}
-        onConfirm={onChange}
-        onClose={() => setPickerOpen(false)}
-      />
-    </>
+      {/* Assist — compact icon toggle (no wide label). */}
+      <button
+        type="button"
+        onClick={onToggleAssist}
+        aria-label="מצב כתיבה מודרכת"
+        aria-pressed={assistOn}
+        title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
+        className={`
+          shrink-0 inline-flex items-center justify-center
+          h-7 w-7 rounded-lg transition-all
+          ${assistOn
+            ? 'bg-forest-700/25 ring-1 ring-forest-700'
+            : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 opacity-70'}
+        `}
+      >
+        <Emoji emoji="💡" size={15} ariaLabel="" />
+      </button>
+
+      {/* Save status — LEFT-most in RTL. */}
+      <SaveBadge status={saveStatus} />
+    </div>
+  );
+}
+
+function StepArrow({
+  dir,
+  disabled = false,
+  onClick,
+  ...rest
+}: {
+  dir: 'prev' | 'next';
+  disabled?: boolean;
+  onClick: () => void;
+  'aria-label': string;
+}) {
+  const Chevron = dir === 'prev' ? ChevronRight : ChevronLeft;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="
+        shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md
+        text-ink-300 hover:text-forest-400 hover:bg-surface-raised
+        disabled:opacity-25 disabled:pointer-events-none transition-colors
+      "
+      {...rest}
+    >
+      <Chevron size={16} />
+    </button>
   );
 }
 
 function SaveBadge({ status }: { status: SaveStatus }) {
   if (status === 'idle') {
-    // Reserve a tiny invisible slot so the toggle doesn't jump when the
-    // status appears for the first time after the first keystroke.
+    // Reserve a tiny invisible slot so nothing jumps when the status first
+    // appears after the first keystroke.
     return <span className="w-0 h-4 shrink-0" aria-hidden />;
   }
   const text =

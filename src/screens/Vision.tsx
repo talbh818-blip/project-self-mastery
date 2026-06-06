@@ -22,8 +22,11 @@ import { isVisionContentEmpty } from '../features/vision/content';
 import { useAuth } from '../hooks/useAuth';
 import { CompassLoader } from '../components/CompassLoader';
 import {
+  addAnchor,
   getPeriodKey,
+  getWeekKey,
   isFuturePeriod,
+  monthName,
   parsePeriodStart,
   type VisionScope,
 } from '../features/vision/period';
@@ -221,7 +224,7 @@ export function Vision() {
     prevLevelRef.current = level;
   }, [level]);
 
-  const { entry, loading, status, contentVersion, scheduleSave, setDocumentDate } =
+  const { entry, loading, status, contentVersion, scheduleSave } =
     useVisionEntry(level, periodKey);
 
   // Live-track whether the ACTIVE entry has content as the user types, so the
@@ -245,9 +248,13 @@ export function Vision() {
     [level, periodKey, scheduleSave],
   );
 
-  // Default the DateBar to today when there's no entry yet.
-  const todayIso = useMemo(() => toIsoDate(today), [today]);
-  const documentDate = entry?.document_date ?? todayIso;
+  // The DateBar title (scope name + period range) + its quick period stepper.
+  const visionTitle = formatVisionTitle(level, anchor);
+  const stepPeriod = (delta: number) => setAnchor(addAnchor(level, anchor, delta));
+  const canStepNext = !isFuturePeriod(
+    level,
+    getPeriodKey(level, addAnchor(level, anchor, 1)),
+  );
 
   // Activate a level at a given anchor — centre tap or side step.
   const pick = (targetLevel: VisionScope, targetAnchor: Date) => {
@@ -297,8 +304,9 @@ export function Vision() {
       initialContent={entry?.content ?? null}
       placeholder={PLACEHOLDERS[level]}
       saveStatus={status}
-      documentDate={documentDate}
-      onDateChange={(iso) => void setDocumentDate(iso)}
+      title={visionTitle}
+      onStepPeriod={stepPeriod}
+      canStepNext={canStepNext}
       icon={icons[level] ?? null}
       onIconClick={() => setIconPickerLevel(level)}
       onChange={handleEditorChange}
@@ -366,12 +374,23 @@ export function Vision() {
   );
 }
 
-/** Local-date ISO ('YYYY-MM-DD') — sidesteps timezone drift from toISOString(). */
-function toIsoDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** The vision's display title: scope name + a compact period range, e.g.
+ *  "חזון שבועי · 7–13.6.26", "חזון חודשי · יוני 2026", "חזון שנתי · 2026". */
+function formatVisionTitle(level: VisionScope, anchor: Date): string {
+  if (level === 'yearly') return `חזון שנתי · ${anchor.getFullYear()}`;
+  if (level === 'monthly') {
+    return `חזון חודשי · ${monthName(anchor)} ${anchor.getFullYear()}`;
+  }
+  // weekly — Sunday→Saturday range, compact numeric.
+  const start = parsePeriodStart('weekly', getWeekKey(anchor));
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const yy = String(end.getFullYear()).slice(-2);
+  const range =
+    start.getMonth() === end.getMonth()
+      ? `${start.getDate()}–${end.getDate()}.${end.getMonth() + 1}.${yy}`
+      : `${start.getDate()}.${start.getMonth() + 1}–${end.getDate()}.${end.getMonth() + 1}.${yy}`;
+  return `חזון שבועי · ${range}`;
 }
 
 function LockedNotice({ level }: { level: VisionScope }) {

@@ -34,7 +34,6 @@ import {
   ListOrdered,
   ListChecks,
   Highlighter,
-  Plus,
   ImagePlus,
   Loader2,
   type LucideIcon,
@@ -49,15 +48,11 @@ const HIGHLIGHT_COLORS = [
 
 export function VisionToolbar({
   editor,
-  assistOn,
-  onInsertQuestion,
   onPickImage,
   uploadingCount,
   canUpload,
 }: {
   editor: Editor;
-  assistOn: boolean;
-  onInsertQuestion: () => void;
   /** Called with the file the user picked / dropped via the "+" button. */
   onPickImage: (file: File) => void | Promise<void>;
   /** Number of uploads currently in flight (paste + drop + picker combined). */
@@ -311,27 +306,6 @@ export function VisionToolbar({
           </div>
         )}
       />
-
-      {/* Assist question inserter */}
-      {assistOn && (
-        <>
-          <Sep />
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onInsertQuestion}
-            aria-label="הוסף שאלה מנחה"
-            className="
-              shrink-0 inline-flex items-center gap-1 px-2.5 h-10 rounded-lg
-              text-[13px] font-medium text-on-accent bg-forest-700
-              hover:bg-forest-600 transition-colors
-            "
-          >
-            <Plus size={15} strokeWidth={2.4} />
-            שאלה
-          </button>
-        </>
-      )}
     </div>
   );
 }
