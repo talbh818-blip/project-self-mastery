@@ -229,15 +229,17 @@ export function VisionYearMap({
                   </span>
                 </button>
 
-                {/* Week squares — CENTRED and a uniform size everywhere. Each
-                    square is sized as 1/5 of the row regardless of how many
-                    weeks the month has, so a 4-week month just centres its
-                    four same-size squares (no side padding). */}
-                <div className="flex justify-center gap-[2px]">
+                {/* Week squares — each month stretches its squares to fill its
+                    own row, so squares are as LARGE as the week count allows:
+                    a 4-week month gets bigger squares, a 6-week month gets
+                    smaller ones. Square size therefore varies between months,
+                    but every row is full (no overflow, no empty padding). */}
+                <div className="flex gap-[2px]">
                   {mo.weeks.map((week) => (
                     <WeekSquare
                       key={week.key}
                       start={week.start}
+                      count={mo.weeks.length}
                       hasContent={contentKeys.has(week.key)}
                       isCurrent={week.key === currentWeekKey}
                       isSelected={
@@ -261,6 +263,7 @@ export function VisionYearMap({
 
 function WeekSquare({
   start,
+  count,
   hasContent,
   isCurrent,
   isSelected,
@@ -268,6 +271,7 @@ function WeekSquare({
   onClick,
 }: {
   start: Date;
+  count: number;
   hasContent: boolean;
   isCurrent: boolean;
   isSelected: boolean;
@@ -282,9 +286,10 @@ function WeekSquare({
       disabled={isFuture}
       title={label}
       aria-label={`שבוע של ${label}${hasContent ? ' — נכתב' : ''}`}
-      // Fixed 1/5-of-row width (shrink-0) → every square is the same size no
-      // matter how many weeks the month has; the row centres them.
-      style={{ width: 'calc((100% - 8px) / 5)' }}
+      // Width = an equal share of the month's own row. With N weeks and a 2px
+      // gap between them, each square fills (100% − (N−1)·2px)/N → the row is
+      // always exactly full, whether the month has 4, 5 or 6 weeks.
+      style={{ width: `calc((100% - ${(count - 1) * 2}px) / ${count})` }}
       className={`
         relative shrink-0 aspect-square rounded-[3px] transition-colors
         flex items-center justify-center
