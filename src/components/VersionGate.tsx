@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { forceAppUpdate, isNewVersionAvailable } from '../lib/appUpdate';
+import { Emoji } from './Emoji';
 
 // How often to re-check while the app stays open (10 min). The startup +
 // focus checks do most of the work; this catches very long-lived sessions.
@@ -64,18 +65,22 @@ export function VersionGate() {
           />
         </span>
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-ink-100">
-            יצאה גרסה חדשה
+          <h2 className="text-lg font-semibold text-ink-100 inline-flex items-center justify-center gap-1.5">
+            יצאה גרסה חדשה! <Emoji emoji="🎉" size={20} />
           </h2>
           <p className="text-sm text-ink-300">
             כדי להמשיך, יש לעדכן לגרסה האחרונה של האפליקציה.
           </p>
         </div>
+        {/* Shimmer sweep matches the "שתול את העץ שלך" button so this CTA
+            reads as the same "celebrate + click me" moment. The shimmer
+            class adds the relative/overflow/isolate the sweep ::before
+            needs — see index.css. */}
         <button
           type="button"
           onClick={handleUpdate}
           disabled={updating}
-          className="w-full bg-forest-700 text-on-accent font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
+          className="btn-shimmer w-full bg-forest-700 text-on-accent font-bold rounded-xl py-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-70"
         >
           <RefreshCw size={18} className={updating ? 'animate-spin' : ''} />
           {updating ? 'מעדכן…' : 'עדכן עכשיו'}
