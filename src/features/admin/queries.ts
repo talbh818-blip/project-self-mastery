@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { resizeAvatar } from '../user/mutations';
 import type { Profile, SupportTicket, TicketStatus, TicketWithSubmitter } from './types';
 
 // Per-user activity totals derived from habit_logs.
@@ -79,6 +80,7 @@ export type ProfileAdminPatch = Partial<
     | 'trees_planted'
     | 'score_adjustment'
     | 'blocked'
+    | 'avatar_url'
   >
 >;
 
@@ -88,6 +90,34 @@ export async function updateProfile(
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
   if (error) throw error;
+}
+
+// Uploads a new avatar for `targetUserId` and returns its public URL.
+// The file is parked under the ADMIN's own folder (RLS only lets a user
+// write to {auth.uid()}/...) so the upload doesn't require a separate
+// admin storage policy. The URL is then written to the target's profile.
+// Caller is responsible for actually persisting avatar_url — this returns
+// the URL so it can be folded into the same updateProfile() patch.
+export async function uploadAvatarForUser(
+  adminUserId: string,
+  targetUserId: string,
+  file: File,
+): Promise<string> {
+  const { blob, ext } = await resizeAvatar(file);
+  // Path: {adminUid}/admin-avatar-{targetUid}-{timestamp}.{ext}
+  // Keeping the target's uid in the filename makes the bucket auditable
+  // without having to look anything up.
+  const path = `${adminUserId}/admin-avatar-${targetUserId}-${Date.now()}.${ext}`;
+  const { error: uploadErr } = await supabase.storage
+    .from('avatars')
+    .upload(path, blob, {
+      contentType: blob.type || 'image/jpeg',
+      upsert: true,
+    });
+  if (uploadErr) throw uploadErr;
+  const { data: pub } = supabase.storage.from('avatars').getPublicUrl(path);
+  // Cache-buster — same trick as the user's own avatar upload.
+  return `${pub.publicUrl}?v=${Date.now()}`;
 }
 
 // ---------------------------------------------------------------------------

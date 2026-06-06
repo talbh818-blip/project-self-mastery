@@ -2,8 +2,12 @@
 // UserEditSheet — admin form to edit every (non-privacy) field on a profile.
 // ----------------------------------------------------------------------------
 // Bottom sheet shaped like BookEditSheet so the admin screens feel consistent.
-// Privacy controls (vision_visibility / habits_visibility) are deliberately
-// NOT exposed — those belong to the user alone.
+// Privacy controls (vision_visibility / habits_visibility) and the user's
+// theme preference are deliberately NOT exposed — those belong to the user.
+//
+// Avatar is uploaded under the ADMIN's storage folder via
+// uploadAvatarForUser() (the only path RLS allows from the admin's session),
+// and the resulting public URL is folded into the same save patch.
 //
 // Note on email: profiles.email is just a cached copy of auth.users.email.
 // Editing it here updates the profile row, but at the user's next login
@@ -11,10 +15,19 @@
 // Google OAuth. We surface a small hint instead of hiding the field, since
 // the admin asked for "everything I want to edit".
 // ============================================================================
-import { useEffect, useState } from 'react';
-import { AlertTriangle, Info, X } from 'lucide-react';
-import type { Gender, Profile, Theme } from './types';
-import type { ProfileAdminPatch } from './queries';
+import { useEffect, useRef, useState } from 'react';
+import {
+  AlertTriangle,
+  Camera,
+  Info,
+  Sparkles,
+  TreePine,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import type { Gender, Profile } from './types';
+import { uploadAvatarForUser, type ProfileAdminPatch } from './queries';
 
 type Props = {
   open: boolean;
@@ -31,10 +44,12 @@ type FormState = {
   last_name: string;
   phone: string;
   gender: Gender | null;
-  theme: Theme;
   trees_planted: string;
   score_adjustment: string;
   blocked: boolean;
+  // null = no change; '' = explicit clear (set avatar_url to null);
+  // string = new uploaded URL.
+  avatar_url_change: string | null;
 };
 
 function profileToForm(p: Profile): FormState {
@@ -45,10 +60,10 @@ function profileToForm(p: Profile): FormState {
     last_name: p.last_name ?? '',
     phone: p.phone ?? '',
     gender: p.gender,
-    theme: p.theme,
     trees_planted: String(p.trees_planted),
     score_adjustment: String(p.score_adjustment),
     blocked: p.blocked,
+    avatar_url_change: null,
   };
 }
 
@@ -59,16 +74,20 @@ export function UserEditSheet({
   onClose,
   onSubmit,
 }: Props) {
+  const { user: adminUser } = useAuth();
   const [form, setForm] = useState<FormState | null>(
     profile ? profileToForm(profile) : null,
   );
   const [error, setError] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Re-seed the form every time we open with a new profile.
   useEffect(() => {
     if (!open) return;
     setForm(profile ? profileToForm(profile) : null);
     setError(null);
+    setUploadingAvatar(false);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -82,7 +101,37 @@ export function UserEditSheet({
   const treesOk = Number.isFinite(trees) && Number.isInteger(trees) && trees >= 0;
   const adj = Number(form.score_adjustment);
   const adjOk = Number.isFinite(adj) && Number.isInteger(adj);
-  const canSubmit = treesOk && adjOk && !submitting;
+  const canSubmit = treesOk && adjOk && !submitting && !uploadingAvatar;
+
+  // What the avatar circle currently shows: the new uploaded URL (if any),
+  // or the explicit clear (no image), or the saved profile avatar.
+  const previewAvatar =
+    form.avatar_url_change !== null ? form.avatar_url_change : profile.avatar_url;
+  const displayName =
+    profile.display_name ?? profile.email ?? profile.id.slice(0, 8);
+  const initials = (displayName || '?').slice(0, 2).toUpperCase();
+
+  const handlePickAvatar = () => fileInputRef.current?.click();
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file || !adminUser) return;
+    setUploadingAvatar(true);
+    setError(null);
+    try {
+      const url = await uploadAvatarForUser(adminUser.id, profile.id, file);
+      setForm((f) => (f ? { ...f, avatar_url_change: url } : f));
+    } catch (err) {
+      setError(describeError(err, 'שגיאה בהעלאת תמונה'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleClearAvatar = () => {
+    setForm((f) => (f ? { ...f, avatar_url_change: '' } : f));
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -106,10 +155,16 @@ export function UserEditSheet({
     if (normalize(form.phone) !== profile.phone)
       patch.phone = normalize(form.phone);
     if (form.gender !== profile.gender) patch.gender = form.gender;
-    if (form.theme !== profile.theme) patch.theme = form.theme;
     if (trees !== profile.trees_planted) patch.trees_planted = trees;
     if (adj !== profile.score_adjustment) patch.score_adjustment = adj;
     if (form.blocked !== profile.blocked) patch.blocked = form.blocked;
+    // avatar_url_change:
+    //   null  → no change
+    //   ''    → explicit clear (set column to null)
+    //   other → uploaded URL
+    if (form.avatar_url_change !== null) {
+      patch.avatar_url = form.avatar_url_change === '' ? null : form.avatar_url_change;
+    }
 
     if (Object.keys(patch).length === 0) {
       onClose();
@@ -123,9 +178,6 @@ export function UserEditSheet({
       setError(describeError(e, 'שגיאה בשמירה'));
     }
   };
-
-  const display =
-    profile.display_name ?? profile.email ?? profile.id.slice(0, 8);
 
   return (
     <div
@@ -148,8 +200,8 @@ export function UserEditSheet({
           >
             <X size={20} />
           </button>
-          <h2 className="text-lg font-semibold text-ink-100 truncate max-w-[60%]">
-            עריכת {display}
+          <h2 className="text-base font-semibold text-ink-100 truncate max-w-[60%]">
+            עריכת {displayName}
           </h2>
           <div className="w-7" />
         </header>
@@ -157,46 +209,96 @@ export function UserEditSheet({
         {error && (
           <div
             role="alert"
-            className="mx-5 mt-3 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-sm px-3 py-2.5 flex items-start gap-2"
+            className="mx-5 mt-3 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-xs px-3 py-2 flex items-start gap-2"
           >
-            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
             <div className="flex-1 leading-snug">{error}</div>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto themed-scroll px-5 py-4 space-y-4">
-          {/* Identity */}
-          <Section title="זהות">
-            <Field label="שם תצוגה">
+        <div className="flex-1 overflow-y-auto themed-scroll px-5 py-3 space-y-3">
+          {/* Avatar — centered, clickable */}
+          <div className="flex flex-col items-center gap-2 pb-1">
+            <div className="relative">
+              {previewAvatar ? (
+                <img
+                  src={previewAvatar}
+                  alt=""
+                  className="w-20 h-20 rounded-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-forest-700 text-on-accent text-xl font-bold flex items-center justify-center">
+                  {initials}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={handlePickAvatar}
+                disabled={uploadingAvatar || submitting}
+                aria-label="החלף תמונה"
+                className="absolute bottom-0 -left-1 w-7 h-7 rounded-full bg-forest-700 text-on-accent flex items-center justify-center shadow border-2 border-surface-card disabled:opacity-50"
+              >
+                <Camera size={13} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarFile}
+                className="hidden"
+              />
+            </div>
+            {previewAvatar && (
+              <button
+                type="button"
+                onClick={handleClearAvatar}
+                className="text-[10.5px] text-ink-300 hover:text-red-400 inline-flex items-center gap-1"
+              >
+                <Trash2 size={11} /> הסר תמונה
+              </button>
+            )}
+            {uploadingAvatar && (
+              <div className="text-[10.5px] text-ink-300">מעלה תמונה…</div>
+            )}
+          </div>
+
+          {/* Display name */}
+          <Field label="שם תצוגה">
+            <input
+              type="text"
+              value={form.display_name}
+              onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+
+          {/* First / Last on one row */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field label="שם פרטי">
               <input
                 type="text"
-                value={form.display_name}
-                onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+                value={form.first_name}
+                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
                 className={inputClass}
               />
             </Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="שם פרטי">
-                <input
-                  type="text"
-                  value={form.first_name}
-                  onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="שם משפחה">
-                <input
-                  type="text"
-                  value={form.last_name}
-                  onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
+            <Field label="שם משפחה">
+              <input
+                type="text"
+                value={form.last_name}
+                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                className={inputClass}
+              />
+            </Field>
+          </div>
+
+          {/* Email + phone on one row */}
+          <div className="grid grid-cols-2 gap-2.5">
             <Field
               label="אימייל"
-              hint="האימייל מסתנכרן אוטומטית מ-Google בכל כניסה ויחזור לערך המקורי."
-              hintIcon={<Info size={11} />}
+              hint="מסתנכרן מ-Google בכל כניסה."
+              hintIcon={<Info size={10} />}
             >
               <input
                 type="email"
@@ -215,106 +317,91 @@ export function UserEditSheet({
                 dir="ltr"
               />
             </Field>
-            <Field label="מגדר">
-              <div className="flex gap-2">
-                {(
-                  [
-                    { value: null, label: 'לא צוין' },
-                    { value: 'male' as const, label: 'גבר' },
-                    { value: 'female' as const, label: 'אישה' },
-                  ]
-                ).map((opt) => (
-                  <button
-                    key={String(opt.value)}
-                    type="button"
-                    onClick={() => setForm({ ...form, gender: opt.value })}
-                    className={`flex-1 py-2 rounded-xl border text-sm transition-colors ${
-                      form.gender === opt.value
-                        ? 'bg-forest-700 text-on-accent border-forest-700'
-                        : 'bg-surface-raised text-ink-300 border-surface-border hover:text-ink-100'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </Field>
-          </Section>
+          </div>
 
-          {/* Preferences */}
-          <Section title="העדפות">
-            <Field label="ערכת נושא">
-              <div className="flex gap-2">
-                {(['dark', 'light'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setForm({ ...form, theme: t })}
-                    className={`flex-1 py-2 rounded-xl border text-sm transition-colors ${
-                      form.theme === t
-                        ? 'bg-forest-700 text-on-accent border-forest-700'
-                        : 'bg-surface-raised text-ink-300 border-surface-border hover:text-ink-100'
-                    }`}
-                  >
-                    {t === 'dark' ? 'כהה' : 'בהיר'}
-                  </button>
-                ))}
-              </div>
-            </Field>
-          </Section>
-
-          {/* Admin-only controls */}
-          <Section title="פעולות אדמין">
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="עצים שתולים">
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={form.trees_planted}
-                  onChange={(e) =>
-                    setForm({ ...form, trees_planted: e.target.value })
-                  }
-                  className={`${inputClass} ${treesOk ? '' : 'border-red-500/60'}`}
-                />
-              </Field>
-              <Field
-                label="התאמת ניקוד"
-                hint="מספר שלם (חיובי או שלילי) שמתווסף לניקוד המחושב."
-              >
-                <input
-                  type="number"
-                  step={1}
-                  value={form.score_adjustment}
-                  onChange={(e) =>
-                    setForm({ ...form, score_adjustment: e.target.value })
-                  }
-                  className={`${inputClass} ${adjOk ? '' : 'border-red-500/60'}`}
-                />
-              </Field>
-            </div>
-            <label className="flex items-center justify-between bg-surface-raised border border-surface-border rounded-xl px-3 py-2.5 cursor-pointer">
-              <div>
-                <div className="text-sm text-ink-100">חסום גישה לאפליקציה</div>
-                <div className="text-[11px] text-ink-300 mt-0.5">
-                  המשתמש יראה מסך "החשבון חסום" וינותק.
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={form.blocked}
-                onChange={(e) => setForm({ ...form, blocked: e.target.checked })}
-                className="w-5 h-5 accent-red-500"
+          {/* Gender with colored icons */}
+          <Field label="מגדר">
+            <div className="grid grid-cols-3 gap-2">
+              <GenderBtn
+                kind="male"
+                active={form.gender === 'male'}
+                onClick={() => setForm({ ...form, gender: 'male' })}
               />
-            </label>
-          </Section>
+              <GenderBtn
+                kind="female"
+                active={form.gender === 'female'}
+                onClick={() => setForm({ ...form, gender: 'female' })}
+              />
+              <GenderBtn
+                kind="none"
+                active={form.gender === null}
+                onClick={() => setForm({ ...form, gender: null })}
+              />
+            </div>
+          </Field>
 
-          {/* Privacy disclaimer */}
-          <div className="rounded-xl border border-surface-border bg-surface-raised/60 px-3 py-2.5 text-[12px] text-ink-300 leading-relaxed flex items-start gap-2">
-            <Info size={14} className="shrink-0 mt-0.5" />
+          {/* Trees + score, with icons inside the labels */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <Field
+              label={
+                <span className="inline-flex items-center gap-1">
+                  <TreePine size={12} className="text-forest-400" />
+                  עצים שתולים
+                </span>
+              }
+            >
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={form.trees_planted}
+                onChange={(e) =>
+                  setForm({ ...form, trees_planted: e.target.value })
+                }
+                className={`${inputClass} ${treesOk ? '' : 'border-red-500/60'}`}
+              />
+            </Field>
+            <Field
+              label={
+                <span className="inline-flex items-center gap-1">
+                  <Sparkles size={12} className="text-amber-400" />
+                  התאמת ניקוד
+                </span>
+              }
+            >
+              <input
+                type="number"
+                step={1}
+                value={form.score_adjustment}
+                onChange={(e) =>
+                  setForm({ ...form, score_adjustment: e.target.value })
+                }
+                className={`${inputClass} ${adjOk ? '' : 'border-red-500/60'}`}
+              />
+            </Field>
+          </div>
+
+          {/* Block toggle */}
+          <label className="flex items-center justify-between bg-surface-raised border border-surface-border rounded-xl px-3 py-2 cursor-pointer">
+            <div>
+              <div className="text-sm text-ink-100">חסום גישה</div>
+              <div className="text-[10.5px] text-ink-300 mt-0.5">
+                המשתמש יראה "החשבון חסום" וינותק.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={form.blocked}
+              onChange={(e) => setForm({ ...form, blocked: e.target.checked })}
+              className="w-5 h-5 accent-red-500"
+            />
+          </label>
+
+          {/* Privacy disclaimer — kept very small */}
+          <div className="text-[10.5px] text-ink-300/80 leading-snug flex items-start gap-1.5 px-1">
+            <Info size={11} className="shrink-0 mt-0.5" />
             <span>
-              הגדרות פרטיות (חשון/הרגלים) של המשתמש לא מוצגות ולא ניתנות
-              לעריכה כאן — רק המשתמש בעצמו יכול לשנות אותן.
+              הגדרות פרטיות וערכת נושא של המשתמש לא ניתנות לעריכה כאן.
             </span>
           </div>
         </div>
@@ -323,7 +410,7 @@ export function UserEditSheet({
           <button
             type="button"
             onClick={onClose}
-            disabled={submitting}
+            disabled={submitting || uploadingAvatar}
             className="flex-1 rounded-xl border border-surface-border text-ink-100 py-2.5 text-sm hover:bg-surface-raised disabled:opacity-50"
           >
             ביטול
@@ -342,27 +429,10 @@ export function UserEditSheet({
   );
 }
 
-// ── Local helpers (kept private to the sheet) ──────────────────────────────
+// ── Local helpers ────────────────────────────────────────────────────────────
 
 const inputClass =
   'w-full bg-surface-raised text-ink-100 placeholder-ink-500 rounded-xl px-3 py-2 text-sm border border-surface-border focus:outline-none focus:border-forest-500';
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-2.5">
-      <h3 className="text-[11px] uppercase tracking-wider text-ink-300">
-        {title}
-      </h3>
-      <div className="space-y-2.5">{children}</div>
-    </section>
-  );
-}
 
 function Field({
   label,
@@ -370,22 +440,67 @@ function Field({
   hintIcon,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   hint?: string;
   hintIcon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
-      <div className="text-xs text-ink-300 mb-1.5">{label}</div>
+      <div className="text-[11px] text-ink-300 mb-1">{label}</div>
       {children}
       {hint && (
-        <div className="mt-1 text-[10.5px] text-ink-300/80 leading-snug flex items-start gap-1">
+        <div className="mt-0.5 text-[10px] text-ink-300/80 leading-snug flex items-start gap-1">
           {hintIcon && <span className="mt-[1px] shrink-0">{hintIcon}</span>}
           <span>{hint}</span>
         </div>
       )}
     </label>
+  );
+}
+
+// Gender button with ♂ / ♀ glyphs and active colors per the spec:
+// male = blue, female = pink, none = neutral.
+function GenderBtn({
+  kind,
+  active,
+  onClick,
+}: {
+  kind: 'male' | 'female' | 'none';
+  active: boolean;
+  onClick: () => void;
+}) {
+  const labels: Record<typeof kind, string> = {
+    male: 'גבר',
+    female: 'אישה',
+    none: 'לא צוין',
+  };
+  // Unicode glyphs render reliably across platforms without dragging in a new
+  // icon — Lucide 0.460 doesn't ship Mars/Venus yet. The font fallback keeps
+  // them legible at small sizes.
+  const glyph: Record<typeof kind, string> = {
+    male: '♂',
+    female: '♀',
+    none: '—',
+  };
+  const activeClass: Record<typeof kind, string> = {
+    male: 'bg-sky-500/25 border-sky-400 text-sky-200',
+    female: 'bg-pink-500/25 border-pink-400 text-pink-200',
+    none: 'bg-surface-border border-surface-border text-ink-100',
+  };
+  const idleClass =
+    'bg-surface-raised text-ink-300 border-surface-border hover:text-ink-100';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center gap-1.5 py-2 rounded-xl border text-sm transition-colors ${
+        active ? activeClass[kind] : idleClass
+      }`}
+    >
+      <span className="text-base leading-none">{glyph[kind]}</span>
+      {labels[kind]}
+    </button>
   );
 }
 

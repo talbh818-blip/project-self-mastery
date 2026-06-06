@@ -68,7 +68,8 @@ export async function updateVisibility(
 // Downscales the image to fit within 512x512 (preserving aspect) and
 // re-encodes to JPEG for size. Returns the resized Blob plus the chosen
 // extension. Falls back to the original file if the canvas pipeline fails.
-async function resizeAvatar(file: File): Promise<{ blob: Blob; ext: string }> {
+// Exported so the admin flow can reuse the same pipeline.
+export async function resizeAvatar(file: File): Promise<{ blob: Blob; ext: string }> {
   const MAX = 512;
   try {
     const bitmap = await createImageBitmap(file);
