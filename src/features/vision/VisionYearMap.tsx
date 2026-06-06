@@ -140,15 +140,15 @@ export function VisionYearMap({
 
   return (
     <div dir="rtl" className="pt-1">
-      {/* ── Year selector — narrow, centred ──────────────────────────────── */}
-      <div className="flex items-center justify-center gap-2 mb-3">
+      {/* ── Year selector — full width, THIN (matches the month/week rows) ── */}
+      <div className="flex items-center gap-1.5 mb-3">
         <MapArrow dir="prev" aria-label="שנה קודמת" onClick={() => onStepYear(-1)} />
         <button
           type="button"
           onClick={onPickYear}
           className={`
-            inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl
-            text-lg font-bold transition-colors
+            flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-lg
+            text-sm font-bold transition-colors
             ${
               isYearSelected
                 ? 'bg-forest-700/30 text-ink-100 ring-2 ring-forest-600'
@@ -160,7 +160,7 @@ export function VisionYearMap({
         >
           {contentKeys.has(yearKey) && <WrittenDot />}
           {iconByKey.has(yearKey) && (
-            <HabitIcon name={iconByKey.get(yearKey)!} size={16} className="shrink-0" />
+            <HabitIcon name={iconByKey.get(yearKey)!} size={14} className="shrink-0" />
           )}
           <span>{year}</span>
         </button>
@@ -322,13 +322,13 @@ function MapArrow({
       onClick={onClick}
       disabled={disabled}
       className="
-        shrink-0 inline-flex items-center justify-center w-9 h-10 rounded-xl
+        shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg
         bg-surface-raised text-forest-500 hover:text-forest-300
         disabled:opacity-25 transition-colors
       "
       {...rest}
     >
-      <Chevron size={18} />
+      <Chevron size={16} />
     </button>
   );
 }

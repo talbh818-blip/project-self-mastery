@@ -5,10 +5,10 @@ import { ProfileProvider } from '../features/admin/ProfileContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
 import { ThemeProvider } from '../hooks/useTheme';
 
-// Routes where the brand header (compass + app name) is hidden. The Habits
-// screen is content-dense on mobile, so the header is omitted there; other
-// screens still show it so the app keeps its identity outside Home.
-const HIDE_BRAND_HEADER_ON: ReadonlySet<string> = new Set(['/']);
+// Routes where the brand header (compass + app name) is hidden. Content-dense
+// screens omit it to claim the vertical space — Habits (home) and Vision (the
+// journaling pyramid + year map). Other screens keep it for app identity.
+const HIDE_BRAND_HEADER_ON: ReadonlySet<string> = new Set(['/', '/vision']);
 
 export function Layout() {
   const headerRef = useRef<HTMLElement>(null);
