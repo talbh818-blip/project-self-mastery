@@ -18,6 +18,7 @@ import {
   RotateCcw,
   AlertCircle,
   SmilePlus,
+  History,
 } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
 import { HabitIcon } from '../habits/HabitIcon';
@@ -38,6 +39,8 @@ type Props = {
   /** Current level's icon (Lucide name or emoji char), or null. */
   icon: string | null;
   onIconClick: () => void;
+  /** Open the version-history (restore) sheet. */
+  onOpenHistory: () => void;
   /** Save indicator state — driven by useVisionEntry. */
   saveStatus: SaveStatus;
 };
@@ -51,6 +54,7 @@ export function DateBar({
   onToggleAssist,
   icon,
   onIconClick,
+  onOpenHistory,
   saveStatus,
 }: Props) {
   return (
@@ -99,6 +103,22 @@ export function DateBar({
           `}
         >
           <Emoji emoji="💡" size={15} ariaLabel="" />
+        </button>
+
+        {/* Version history — restore a previous version of this vision. */}
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          aria-label="גרסאות קודמות"
+          title="גרסאות קודמות"
+          className="
+            shrink-0 inline-flex items-center justify-center
+            h-7 w-7 rounded-lg transition-all
+            bg-surface-raised ring-1 ring-surface-border text-ink-300
+            hover:text-ink-100 hover:ring-ink-300
+          "
+        >
+          <History size={15} />
         </button>
       </div>
 

@@ -16,6 +16,7 @@ import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar
 import { VisionYearMap } from '../features/vision/VisionYearMap';
 import { VisionScrollFeed } from '../features/vision/VisionScrollFeed';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
+import { VisionHistorySheet } from '../features/vision/VisionHistorySheet';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { fetchVisionRowMeta } from '../features/vision/queries';
@@ -226,8 +227,11 @@ export function Vision() {
     prevLevelRef.current = level;
   }, [level]);
 
-  const { entry, loading, status, contentVersion, scheduleSave } =
+  const { entry, loading, status, contentVersion, scheduleSave, restore } =
     useVisionEntry(level, periodKey);
+
+  // Version-history (restore) sheet.
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Live-track whether the ACTIVE entry has content as the user types, so the
   // check-mark appears/disappears instantly (not only after the debounced
@@ -327,6 +331,7 @@ export function Vision() {
       jumpToNow={jumpToNow}
       icon={icons[level] ?? null}
       onIconClick={() => setIconPickerLevel(level)}
+      onOpenHistory={() => setHistoryOpen(true)}
       onChange={handleEditorChange}
     />
   );
@@ -424,6 +429,16 @@ export function Vision() {
         value={iconPickerLevel ? icons[iconPickerLevel] ?? null : null}
         onPick={applyIcon}
         onClose={() => setIconPickerLevel(null)}
+      />
+
+      {/* Version history — restore a previous version of the open vision. */}
+      <VisionHistorySheet
+        open={historyOpen}
+        userId={userId}
+        scope={level}
+        periodKey={periodKey}
+        onRestore={(content) => void restore(content)}
+        onClose={() => setHistoryOpen(false)}
       />
     </section>
   );

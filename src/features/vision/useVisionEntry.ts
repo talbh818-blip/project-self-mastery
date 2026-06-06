@@ -35,6 +35,7 @@ import {
   prefetchEntry,
   setCachedEntry,
 } from './visionCache';
+import { recordSnapshot } from './visionHistory';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
@@ -368,6 +369,9 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
         content,
       );
       setCachedEntry(userId, targetScope, targetPeriodKey, row);
+      // Safety-net: keep a local version history (non-empty only) so an
+      // accidental clear is always recoverable, even after a refresh.
+      recordSnapshot(userId, targetScope, targetPeriodKey, content);
       if (reqIdRef.current === myReq) {
         setEntry(row);
         setStatus('saved');
@@ -380,6 +384,46 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
       }
     }
   }, [userId, scope, periodKey]);
+
+  /**
+   * Restore a previous version: snapshot the current content (so the restore
+   * itself is reversible), write the chosen content, and re-mount the editor
+   * with it via a contentVersion bump.
+   */
+  const restore = useCallback(
+    async (content: unknown) => {
+      if (!userId) return;
+      const targetScope = scope;
+      const targetPeriodKey = periodKey;
+      const myReq = reqIdRef.current;
+      // Preserve whatever is there now before we overwrite it.
+      if (entryRef.current) {
+        recordSnapshot(userId, targetScope, targetPeriodKey, entryRef.current.content);
+      }
+      setStatus('saving');
+      try {
+        const row = await upsertVisionEntry(
+          userId,
+          targetScope,
+          targetPeriodKey,
+          content,
+        );
+        setCachedEntry(userId, targetScope, targetPeriodKey, row);
+        recordSnapshot(userId, targetScope, targetPeriodKey, content);
+        if (reqIdRef.current === myReq) {
+          setEntry(row);
+          displayedRef.current = contentJson(content);
+          setContentVersion((v) => v + 1); // re-mount editor with restored doc
+          setStatus('saved');
+        }
+        clearDraftIfOlder(lsKey(userId, targetScope, targetPeriodKey), row.updated_at);
+      } catch (err) {
+        console.error('[vision] restore failed', err);
+        if (reqIdRef.current === myReq) setStatus('error');
+      }
+    },
+    [userId, scope, periodKey],
+  );
 
   const scheduleSave = useCallback(
     (nextContent: unknown) => {
@@ -453,5 +497,6 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
     contentVersion,
     scheduleSave,
     setDocumentDate,
+    restore,
   };
 }
