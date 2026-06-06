@@ -180,9 +180,10 @@ function StepArrow({
   );
 }
 
-// Save feedback is SILENT on success: auto-save is implicit, so a permanent
-// "נשמר" is just noise. We only surface the two states that matter — a soft
-// pulse WHILE saving, and a clear alert if a save FAILS.
+// Save feedback is fully SILENT during normal use — auto-save is implicit, so
+// neither "נשמר" nor a saving pulse earns its space. The ONLY thing worth
+// surfacing is a failure (e.g. offline), so the user knows their writing
+// hasn't reached the cloud yet.
 function SaveBadge({ status }: { status: SaveStatus }) {
   if (status === 'error') {
     return (
@@ -191,27 +192,9 @@ function SaveBadge({ status }: { status: SaveStatus }) {
         aria-live="polite"
       >
         <AlertCircle size={13} />
-        שגיאה
+        לא נשמר
       </span>
     );
   }
-  if (status === 'pending' || status === 'saving') {
-    return (
-      <span
-        className="inline-flex items-center gap-[3px] shrink-0"
-        aria-label="שומר"
-        aria-live="polite"
-      >
-        {[0, 0.18, 0.36].map((delay) => (
-          <span
-            key={delay}
-            className="vision-saving-dot w-1 h-1 rounded-full bg-ink-300"
-            style={{ animationDelay: `${delay}s` }}
-          />
-        ))}
-      </span>
-    );
-  }
-  // idle / saved → nothing. "No news is good news."
   return null;
 }
