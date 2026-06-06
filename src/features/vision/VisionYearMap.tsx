@@ -2,28 +2,26 @@
 // VisionYearMap — the "board" view: a zoom-out map of an entire year.
 // ----------------------------------------------------------------------------
 // One compact picture of every monthly + weekly vision in a year, so the user
-// can see at a glance where they've written and jump straight there.
+// can see at a glance where they've written and jump straight there. The
+// chosen vision below the map updates in place — the view never leaves.
 //
-//   ┌──────────────────────────────────────────┐
-//   │  ‹            2026 •            ›          │   year bar (big)
-//   ├──────────────────────────────────────────┤
-//   │  1·ינו  2·פבר  3·מרץ  4·אפר                │   12 months, 3×4 grid
-//   │  ▪▪▪▪▫   ▪▫▫▫▫   ▫▫▫▫▫   …                  │   tiny week squares
-//   │  …                                         │
-//   └──────────────────────────────────────────┘
+//   ‹     2026 🦅 •     ›        narrow year selector (icon + written dot)
+//   ┌─────┬─────┬─────┬─────┐
+//   │1·ינו│2·פבר│3·מרץ│4·אפר│    12 months, 3×4 grid (RTL)
+//   │▫▫▫▫▫│▫▫▫▫▫│ …               tiny week squares; a white dot inside = written
+//   └─────┴─────┴─────┴─────┘
 //
-// Marks:
-//   • A FILLED square / dot = that period has written content.
-//   • A RING = the current week / month / year (where "now" lands).
-//   • A faint dashed square = a padding slot (months with 4 ISO weeks show a
-//     greyed 5th so every month lines up).
-//
-// Tapping the year, a month, or a week navigates to that period in the layered
-// view (the parent switches `view` back to 'layers').
+// Marks (mirroring the layered view):
+//   • WHITE DOT (right of the label / inside a week square) = written content.
+//   • Forest RING = the current week / month / year ("now").
+//   • Stronger forest ring/fill = the period currently open in the editor below.
+//   • A faint dashed square = a padding slot (4-week months show a greyed 5th).
+//   • Per-period icon shows to the right of the year / month label.
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
+import { HabitIcon } from '../habits/HabitIcon';
 import { fetchVisionRowMeta } from './queries';
 import { isVisionContentEmpty } from './content';
 import {
@@ -33,26 +31,29 @@ import {
   parsePeriodStart,
   weeksInMonthOf,
   isFuturePeriod,
+  type VisionScope,
 } from './period';
 
 type WeekCell = { key: string; start: Date };
 
 type Props = {
   userId: string | null;
-  /** Year currently shown. */
+  /** Year currently shown on the map. */
   year: number;
   today: Date;
+  /** The period currently open in the editor below — highlighted on the map. */
+  selectedLevel: VisionScope;
+  selectedKey: string;
   /** Step the shown year (-1 / +1) — stays in the map. */
   onStepYear: (delta: number) => void;
-  /** Navigate to the yearly vision (switches to the layered view). */
+  /** Open a period's vision in the editor BELOW (the map view stays put). */
   onPickYear: () => void;
   onPickMonth: (monthKey: string) => void;
   onPickWeek: (weekKey: string) => void;
 };
 
 // Minimum week slots rendered per month, so a 4-week month gets a greyed 5th
-// and the grid stays aligned. Months with more real weeks (rare 6) show them
-// all.
+// and the grid stays aligned. Months with more real weeks (rare 6) show them all.
 const MIN_WEEK_SLOTS = 5;
 
 /** Enumerate the ISO weeks that overlap a calendar month, in order. */
@@ -73,12 +74,13 @@ export function VisionYearMap({
   userId,
   year,
   today,
+  selectedLevel,
+  selectedKey,
   onStepYear,
   onPickYear,
   onPickMonth,
   onPickWeek,
 }: Props) {
-  // Per-month week lists — pure, recomputed only when the year changes.
   const months = useMemo(
     () =>
       Array.from({ length: 12 }, (_, m) => ({
@@ -89,8 +91,6 @@ export function VisionYearMap({
     [year],
   );
 
-  // All period keys we need content-state for: the year, 12 months, and every
-  // unique week across them.
   const allKeys = useMemo(() => {
     const keys = new Set<string>([String(year)]);
     for (const mo of months) {
@@ -100,8 +100,9 @@ export function VisionYearMap({
     return Array.from(keys);
   }, [year, months]);
 
-  // Set of period keys that actually have written content.
+  // period key → has written content, and period key → chosen icon.
   const [contentKeys, setContentKeys] = useState<Set<string>>(new Set());
+  const [iconByKey, setIconByKey] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -111,11 +112,14 @@ export function VisionYearMap({
     fetchVisionRowMeta(userId, allKeys)
       .then((rows) => {
         if (cancelled) return;
-        const next = new Set<string>();
+        const nextContent = new Set<string>();
+        const nextIcons = new Map<string, string>();
         for (const r of rows) {
-          if (!isVisionContentEmpty(r.content)) next.add(r.period_key);
+          if (!isVisionContentEmpty(r.content)) nextContent.add(r.period_key);
+          if (r.icon) nextIcons.set(r.period_key, r.icon);
         }
-        setContentKeys(next);
+        setContentKeys(nextContent);
+        setIconByKey(nextIcons);
       })
       .catch((err) => console.error('[vision] year-map fetch failed', err))
       .finally(() => {
@@ -126,37 +130,39 @@ export function VisionYearMap({
     };
   }, [userId, allKeys]);
 
-  const currentYearKey = String(today.getFullYear());
   const currentMonthKey = getPeriodKey('monthly', today);
   const currentWeekKey = getWeekKey(today);
 
-  const isCurrentYear = currentYearKey === String(year);
+  const yearKey = String(year);
+  const isCurrentYear = String(today.getFullYear()) === yearKey;
+  const isYearSelected = selectedLevel === 'yearly' && selectedKey === yearKey;
   const nextYearFuture = isFuturePeriod('yearly', String(year + 1), today);
 
   return (
     <div dir="rtl" className="pt-1">
-      {/* ── Year bar ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 mb-3">
-        <MapArrow
-          dir="prev"
-          aria-label="שנה קודמת"
-          onClick={() => onStepYear(-1)}
-        />
+      {/* ── Year selector — narrow, centred ──────────────────────────────── */}
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <MapArrow dir="prev" aria-label="שנה קודמת" onClick={() => onStepYear(-1)} />
         <button
           type="button"
           onClick={onPickYear}
           className={`
-            flex-1 inline-flex items-center justify-center gap-2 h-12 rounded-2xl
-            text-xl font-bold transition-colors
+            inline-flex items-center justify-center gap-1.5 h-10 px-5 rounded-xl
+            text-lg font-bold transition-colors
             ${
-              isCurrentYear
-                ? 'bg-forest-700/20 text-ink-100 ring-1 ring-forest-700'
-                : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
+              isYearSelected
+                ? 'bg-forest-700/30 text-ink-100 ring-2 ring-forest-600'
+                : isCurrentYear
+                  ? 'bg-forest-700/15 text-ink-100 ring-1 ring-forest-700'
+                  : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
             }
           `}
         >
+          {contentKeys.has(yearKey) && <WrittenDot />}
+          {iconByKey.has(yearKey) && (
+            <HabitIcon name={iconByKey.get(yearKey)!} size={16} className="shrink-0" />
+          )}
           <span>{year}</span>
-          {contentKeys.has(String(year)) && <ContentDot />}
         </button>
         <MapArrow
           dir="next"
@@ -176,30 +182,37 @@ export function VisionYearMap({
           {months.map((mo) => {
             const slots = Math.max(MIN_WEEK_SLOTS, mo.weeks.length);
             const monthHasContent = contentKeys.has(mo.key);
+            const monthIcon = iconByKey.get(mo.key) ?? null;
             const isCurrentMonth = mo.key === currentMonthKey;
+            const isMonthSelected =
+              selectedLevel === 'monthly' && selectedKey === mo.key;
             return (
               <div
                 key={mo.key}
                 className="rounded-xl bg-surface-card p-1.5 flex flex-col gap-1"
               >
-                {/* Month label — taps through to the monthly vision. */}
+                {/* Month label — opens the monthly vision below. */}
                 <button
                   type="button"
                   onClick={() => onPickMonth(mo.key)}
                   className={`
-                    inline-flex items-center justify-center gap-1 h-5 rounded-md
+                    inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
                     text-[10px] font-semibold leading-none transition-colors
                     ${
-                      isCurrentMonth
-                        ? 'bg-forest-700/25 text-forest-300'
-                        : 'text-ink-300 hover:text-ink-100'
+                      isMonthSelected
+                        ? 'bg-forest-700/30 text-forest-200 ring-1 ring-forest-600'
+                        : isCurrentMonth
+                          ? 'bg-forest-700/20 text-forest-300'
+                          : 'text-ink-300 hover:text-ink-100'
                     }
                   `}
                 >
+                  {/* White dot to the RIGHT (first child in RTL). */}
+                  {monthHasContent && <WrittenDot size={4} />}
+                  {monthIcon && <HabitIcon name={monthIcon} size={11} className="shrink-0" />}
                   <span className="truncate">
                     {mo.index + 1}·{monthShort(mo.index)}
                   </span>
-                  {monthHasContent && <ContentDot size={4} />}
                 </button>
 
                 {/* Week squares. */}
@@ -207,7 +220,6 @@ export function VisionYearMap({
                   {Array.from({ length: slots }, (_, i) => {
                     const week = mo.weeks[i];
                     if (!week) {
-                      // Padding slot — greyed, inert.
                       return (
                         <span
                           key={`pad-${i}`}
@@ -216,14 +228,15 @@ export function VisionYearMap({
                         />
                       );
                     }
-                    const hasContent = contentKeys.has(week.key);
-                    const isCurrentWeek = week.key === currentWeekKey;
                     return (
                       <WeekSquare
                         key={week.key}
                         start={week.start}
-                        hasContent={hasContent}
-                        isCurrent={isCurrentWeek}
+                        hasContent={contentKeys.has(week.key)}
+                        isCurrent={week.key === currentWeekKey}
+                        isSelected={
+                          selectedLevel === 'weekly' && selectedKey === week.key
+                        }
                         onClick={() => onPickWeek(week.key)}
                       />
                     );
@@ -234,18 +247,6 @@ export function VisionYearMap({
           })}
         </div>
       )}
-
-      {/* ── Legend ───────────────────────────────────────────────────────── */}
-      <div className="mt-3 flex items-center justify-center gap-4 text-[10px] text-ink-300/70">
-        <span className="inline-flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-forest-600" />
-          נכתב
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-[3px] bg-surface-raised ring-1 ring-forest-400" />
-          השבוע
-        </span>
-      </div>
     </div>
   );
 }
@@ -256,11 +257,13 @@ function WeekSquare({
   start,
   hasContent,
   isCurrent,
+  isSelected,
   onClick,
 }: {
   start: Date;
   hasContent: boolean;
   isCurrent: boolean;
+  isSelected: boolean;
   onClick: () => void;
 }) {
   const label = `${start.getDate()}.${start.getMonth() + 1}`;
@@ -271,19 +274,31 @@ function WeekSquare({
       title={label}
       aria-label={`שבוע של ${label}${hasContent ? ' — נכתב' : ''}`}
       className={`
-        flex-1 aspect-square rounded-[3px] transition-colors
-        ${hasContent ? 'bg-forest-600 hover:bg-forest-500' : 'bg-surface-raised hover:bg-surface-border'}
-        ${isCurrent ? 'ring-1 ring-forest-300' : ''}
+        relative flex-1 aspect-square rounded-[3px] transition-colors
+        flex items-center justify-center
+        bg-surface-raised hover:bg-surface-border
+        ${
+          isSelected
+            ? 'ring-2 ring-forest-500'
+            : isCurrent
+              ? 'ring-1 ring-forest-300'
+              : ''
+        }
       `}
-    />
+    >
+      {hasContent && (
+        <span aria-hidden className="w-1 h-1 rounded-full bg-white" />
+      )}
+    </button>
   );
 }
 
-function ContentDot({ size = 5 }: { size?: number }) {
+/** White "written" dot — same language as the layered view's row badge. */
+function WrittenDot({ size = 5 }: { size?: number }) {
   return (
     <span
       aria-hidden
-      className="shrink-0 rounded-full bg-forest-400"
+      className="shrink-0 rounded-full bg-white ring-2 ring-white/15"
       style={{ width: size, height: size }}
     />
   );
@@ -307,7 +322,7 @@ function MapArrow({
       onClick={onClick}
       disabled={disabled}
       className="
-        shrink-0 inline-flex items-center justify-center w-9 h-12 rounded-2xl
+        shrink-0 inline-flex items-center justify-center w-9 h-10 rounded-xl
         bg-surface-raised text-forest-500 hover:text-forest-300
         disabled:opacity-25 transition-colors
       "
