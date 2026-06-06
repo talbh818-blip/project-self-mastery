@@ -16,16 +16,9 @@
 // the admin asked for "everything I want to edit".
 // ============================================================================
 import { useEffect, useRef, useState } from 'react';
-import {
-  AlertTriangle,
-  Camera,
-  Info,
-  Sparkles,
-  TreePine,
-  Trash2,
-  X,
-} from 'lucide-react';
+import { AlertTriangle, Camera, Info, Trash2, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { Emoji } from '../../components/Emoji';
 import type { Gender, Profile } from './types';
 import { uploadAvatarForUser, type ProfileAdminPatch } from './queries';
 
@@ -217,80 +210,86 @@ export function UserEditSheet({
         )}
 
         <div className="flex-1 overflow-y-auto themed-scroll px-5 py-3 space-y-3">
-          {/* Avatar — centered, clickable */}
-          <div className="flex flex-col items-center gap-2 pb-1">
-            <div className="relative">
-              {previewAvatar ? (
-                <img
-                  src={previewAvatar}
-                  alt=""
-                  className="w-20 h-20 rounded-full object-cover"
-                  referrerPolicy="no-referrer"
+          {/* Identity row — avatar on the right (RTL: first DOM child is
+              rightmost), three name fields stacked on the left. Packs four
+              elements into one row that used to take four. */}
+          <div className="flex items-start gap-3">
+            {/* Avatar with camera badge + "הסר תמונה" link */}
+            <div className="flex flex-col items-center gap-1 shrink-0">
+              <div className="relative">
+                {previewAvatar ? (
+                  <img
+                    src={previewAvatar}
+                    alt=""
+                    className="w-[72px] h-[72px] rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-[72px] h-[72px] rounded-full bg-forest-700 text-on-accent text-xl font-bold flex items-center justify-center">
+                    {initials}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handlePickAvatar}
+                  disabled={uploadingAvatar || submitting}
+                  aria-label="החלף תמונה"
+                  className="absolute bottom-0 -left-1 w-7 h-7 rounded-full bg-forest-700 text-on-accent flex items-center justify-center shadow border-2 border-surface-card disabled:opacity-50"
+                >
+                  <Camera size={13} />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarFile}
+                  className="hidden"
                 />
+              </div>
+              {previewAvatar ? (
+                <button
+                  type="button"
+                  onClick={handleClearAvatar}
+                  className="text-[10px] text-ink-300 hover:text-red-400 inline-flex items-center gap-1"
+                >
+                  <Trash2 size={10} /> הסר
+                </button>
+              ) : uploadingAvatar ? (
+                <span className="text-[10px] text-ink-300">מעלה…</span>
               ) : (
-                <div className="w-20 h-20 rounded-full bg-forest-700 text-on-accent text-xl font-bold flex items-center justify-center">
-                  {initials}
-                </div>
+                <span className="text-[10px] text-ink-500">תמונה</span>
               )}
-              <button
-                type="button"
-                onClick={handlePickAvatar}
-                disabled={uploadingAvatar || submitting}
-                aria-label="החלף תמונה"
-                className="absolute bottom-0 -left-1 w-7 h-7 rounded-full bg-forest-700 text-on-accent flex items-center justify-center shadow border-2 border-surface-card disabled:opacity-50"
-              >
-                <Camera size={13} />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleAvatarFile}
-                className="hidden"
-              />
             </div>
-            {previewAvatar && (
-              <button
-                type="button"
-                onClick={handleClearAvatar}
-                className="text-[10.5px] text-ink-300 hover:text-red-400 inline-flex items-center gap-1"
-              >
-                <Trash2 size={11} /> הסר תמונה
-              </button>
-            )}
-            {uploadingAvatar && (
-              <div className="text-[10.5px] text-ink-300">מעלה תמונה…</div>
-            )}
-          </div>
 
-          {/* Display name */}
-          <Field label="שם תצוגה">
-            <input
-              type="text"
-              value={form.display_name}
-              onChange={(e) => setForm({ ...form, display_name: e.target.value })}
-              className={inputClass}
-            />
-          </Field>
-
-          {/* First / Last on one row */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <Field label="שם פרטי">
-              <input
-                type="text"
-                value={form.first_name}
-                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="שם משפחה">
-              <input
-                type="text"
-                value={form.last_name}
-                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                className={inputClass}
-              />
-            </Field>
+            {/* Three stacked name fields */}
+            <div className="flex-1 min-w-0 space-y-2">
+              <Field label="שם תצוגה">
+                <input
+                  type="text"
+                  value={form.display_name}
+                  onChange={(e) => setForm({ ...form, display_name: e.target.value })}
+                  className={inputClass}
+                />
+              </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="שם פרטי">
+                  <input
+                    type="text"
+                    value={form.first_name}
+                    onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="שם משפחה">
+                  <input
+                    type="text"
+                    value={form.last_name}
+                    onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </div>
           </div>
 
           {/* Email + phone on one row */}
@@ -340,12 +339,14 @@ export function UserEditSheet({
             </div>
           </Field>
 
-          {/* Trees + score, with icons inside the labels */}
+          {/* Trees + score, with 3D emoji inside the labels.
+              Fluent 3D emoji match the celebratory tone of the planting +
+              version-gate flows where 🌳 and ⭐ already appear. */}
           <div className="grid grid-cols-2 gap-2.5">
             <Field
               label={
                 <span className="inline-flex items-center gap-1">
-                  <TreePine size={12} className="text-forest-400" />
+                  <Emoji emoji="🌳" size={14} ariaLabel="" />
                   עצים שתולים
                 </span>
               }
@@ -364,7 +365,7 @@ export function UserEditSheet({
             <Field
               label={
                 <span className="inline-flex items-center gap-1">
-                  <Sparkles size={12} className="text-amber-400" />
+                  <Emoji emoji="⭐" size={14} ariaLabel="" />
                   התאמת ניקוד
                 </span>
               }
