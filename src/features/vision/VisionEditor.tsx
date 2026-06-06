@@ -6,14 +6,15 @@
 // keystroke fires `onChange(json)` so the parent can debounce + persist.
 //
 // LAYOUT:
-//   • DateBar (top of card): doc date + Assist toggle + save status
-//   • EditorContent: the writing surface
+//   • DateBar (top of card): title + period stepper, icon picker, Assist
+//     toggle, save status.
+//   • EditorContent: the writing surface.
 //   • VisionToolbar (fixed, rides above the keyboard): size / bold / italic /
-//     underline / list / highlight / undo-redo, plus "+ שאלה" in Assist mode.
+//     underline / list / highlight / undo-redo.
 //
-// ASSIST MODE: when the toggle (in DateBar) is on AND this is the first time
-// we've seen it on for an empty doc, we auto-inject STARTER_QUESTION_COUNT
-// questions so the user has something to react to.
+// ASSIST MODE: the DateBar toggle reveals a "הוסף שאלה מנחה" button under the
+// title. Questions are inserted ONLY on tap — there is no auto-seeding (it
+// used to re-seed every empty week as you navigated, which was unwanted).
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -38,11 +39,7 @@ import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { uploadVisionImage } from './storage';
 import { useAuth } from '../../hooks/useAuth';
-import {
-  pickQuestion,
-  STARTER_QUESTION_COUNT,
-  type VisionQuestion,
-} from './questions';
+import { pickQuestion } from './questions';
 import type { VisionScope } from './period';
 
 type Props = {
@@ -204,36 +201,11 @@ export function VisionEditor({
 
   const { enabled: assistOn, toggle: toggleAssist } = useAssistMode();
 
-  // First time Assist activates on this period — if the doc is empty, seed
-  // it with a few starter questions so the user has something to react to.
-  // A ref makes sure we only seed once per (editor, scope, on→true).
-  const seededForRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!editor || editor.isDestroyed) return;
-    if (!assistOn) return;
-    const key = `${resetKey}`;
-    if (seededForRef.current === key) return;
-    if (!isDocEmpty(editor)) {
-      seededForRef.current = key; // mark seen even if non-empty
-      return;
-    }
-    const used = new Set<string>();
-    const picks: VisionQuestion[] = [];
-    for (let i = 0; i < STARTER_QUESTION_COUNT; i++) {
-      const q = pickQuestion(scope, used);
-      used.add(q.id);
-      picks.push(q);
-    }
-    const content = picks.flatMap((q) => [
-      {
-        type: 'visionQuestion',
-        attrs: { questionId: q.id, scope, text: q.text },
-      },
-      { type: 'paragraph' },
-    ]);
-    editor.chain().focus().insertContent(content).run();
-    seededForRef.current = key;
-  }, [assistOn, editor, scope, resetKey]);
+  // NOTE: Assist no longer auto-seeds questions. It used to drop a few starter
+  // questions into any empty doc when on — but because the editor remounts on
+  // every period change, navigating week→week with Assist on re-seeded each
+  // empty week (unwanted). Questions are now added ONLY when the user taps the
+  // "הוסף שאלה מנחה" button.
 
   if (!editor) {
     return (
@@ -364,17 +336,4 @@ function normaliseContent(value: unknown): unknown {
   const v = value as Record<string, unknown>;
   if (Object.keys(v).length === 0) return null;
   return value;
-}
-
-/**
- * "Empty" = no real content. We consider a single empty paragraph empty
- * (Tiptap inserts one by default) but anything beyond it counts.
- */
-function isDocEmpty(editor: Editor): boolean {
-  const doc = editor.state.doc;
-  if (doc.childCount === 0) return true;
-  if (doc.childCount > 1) return false;
-  const first = doc.firstChild;
-  if (!first) return true;
-  return first.type.name === 'paragraph' && first.content.size === 0;
 }
