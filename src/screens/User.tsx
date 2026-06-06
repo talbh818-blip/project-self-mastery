@@ -149,37 +149,35 @@ export function User() {
           {uploading && (
             <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
           )}
-          {/* Personal-settings utilities — just three, never crammed. */}
-          <div className="mt-2 flex items-center gap-2">
-            <ActionIcon
-              onClick={() => setEditOpen(true)}
-              icon={<Pencil size={16} />}
-              label="ערוך פרטים אישיים"
-            />
-            <ActionIcon
-              onClick={() => setTicketOpen(true)}
-              icon={<HelpCircle size={16} />}
-              label="פידבק ועזרה"
-            />
-            <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
+          {/* Action row: personal settings (right) · app actions (left). */}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <ActionIcon
+                onClick={() => setEditOpen(true)}
+                icon={<Pencil size={16} />}
+                label="ערוך פרטים אישיים"
+              />
+              <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <ActionIcon
+                onClick={handleInstall}
+                icon={<Download size={16} />}
+                label="התקן אפליקציה"
+              />
+              <ActionIcon
+                onClick={handleUpdate}
+                icon={
+                  <RefreshCw
+                    size={16}
+                    className={updating ? 'animate-spin' : ''}
+                  />
+                }
+                label="עדכן גרסה"
+              />
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Prominent app actions — install + update, labelled and side by side */}
-      <div className="grid grid-cols-2 gap-3">
-        <AppActionButton
-          onClick={handleInstall}
-          icon={<Download size={18} />}
-          label="התקן אפליקציה"
-        />
-        <AppActionButton
-          onClick={handleUpdate}
-          icon={
-            <RefreshCw size={18} className={updating ? 'animate-spin' : ''} />
-          }
-          label="עדכן גרסה"
-        />
       </div>
 
       {/* Thin habits-privacy row (vision is always private, so not shown) */}
@@ -188,8 +186,14 @@ export function User() {
       {/* Active users directory */}
       <UsersDirectory />
 
-      {/* Footer info rows */}
+      {/* Footer rows — feedback (opens sheet) + legal links, same style */}
       <div className="bg-surface-card rounded-2xl overflow-hidden">
+        <ButtonRow
+          onClick={() => setTicketOpen(true)}
+          icon={<HelpCircle size={18} />}
+          label="פידבק ועזרה"
+        />
+        <Divider />
         <LinkRow
           to="/privacy"
           icon={<Shield size={18} />}
@@ -286,7 +290,9 @@ function ActionIcon({
   );
 }
 
-function AppActionButton({
+// Footer row that fires an action (e.g. open a sheet) but looks exactly like
+// a LinkRow so feedback sits flush with the legal links.
+function ButtonRow({
   onClick,
   icon,
   label,
@@ -299,10 +305,13 @@ function AppActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="bg-surface-card ring-1 ring-surface-border rounded-2xl py-3 px-2 flex items-center justify-center gap-2 text-sm font-medium text-ink-100 hover:bg-surface-raised hover:ring-forest-700/50 transition-colors"
+      className="w-full flex items-center justify-between px-5 py-3.5 text-ink-100 hover:bg-surface-raised/40 transition-colors"
     >
-      <span className="text-forest-500 shrink-0">{icon}</span>
-      <span className="truncate">{label}</span>
+      <span className="flex items-center gap-3">
+        <span className="text-ink-300">{icon}</span>
+        <span className="text-sm">{label}</span>
+      </span>
+      <ChevronLeft size={16} className="text-ink-500" />
     </button>
   );
 }
