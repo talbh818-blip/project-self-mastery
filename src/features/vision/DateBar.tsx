@@ -10,7 +10,7 @@
 // is consolidated here so the toolbar stays focused on text formatting.
 // ============================================================================
 import { useState } from 'react';
-import { Calendar, CalendarCheck, CheckCircle2, SmilePlus } from 'lucide-react';
+import { Calendar, CheckCircle2, SmilePlus } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
 import { HabitIcon } from '../habits/HabitIcon';
 import { DatePickerSheet } from './DatePickerSheet';
@@ -30,8 +30,6 @@ type Props = {
   onIconClick: () => void;
   /** Save indicator state — driven by useVisionEntry. */
   saveStatus: SaveStatus;
-  /** "Jump to current period" (השבוע / החודש / השנה); null = hidden. */
-  jumpToNow: { label: string; onJump: () => void } | null;
 };
 
 const HEB_MONTHS_FULL = [
@@ -53,7 +51,6 @@ export function DateBar({
   icon,
   onIconClick,
   saveStatus,
-  jumpToNow,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -129,25 +126,6 @@ export function DateBar({
 
         {/* Spacer pushes the controls below to the visual LEFT. */}
         <div className="grow" />
-
-        {/* Jump-to-current-period chip (השבוע / החודש / השנה). Only shown
-            when off the current period. */}
-        {jumpToNow && (
-          <button
-            type="button"
-            onClick={jumpToNow.onJump}
-            aria-label={`חזרה ל${jumpToNow.label}`}
-            className="
-              shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-lg
-              text-[11px] font-medium text-forest-500
-              border border-forest-500/60 hover:bg-forest-700/10
-              transition-colors
-            "
-          >
-            <CalendarCheck size={13} className="shrink-0" />
-            {jumpToNow.label}
-          </button>
-        )}
 
         {/* Save status — LEFT-most in RTL */}
         <SaveBadge status={saveStatus} />

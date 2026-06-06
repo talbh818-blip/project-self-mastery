@@ -58,8 +58,6 @@ type Props = {
   /** ISO 'YYYY-MM-DD' — date stamped at the top of the entry. */
   documentDate: string;
   onDateChange: (iso: string) => void;
-  /** "Jump to current period" control shown in the DateBar; null = hidden. */
-  jumpToNow: { label: string; onJump: () => void } | null;
   /** Current level's icon (Lucide name or emoji char), shown on the DateBar
    *  picker button. null = none chosen yet. */
   icon: string | null;
@@ -78,7 +76,6 @@ export function VisionEditor({
   zoomDir,
   documentDate,
   onDateChange,
-  jumpToNow,
   icon,
   onIconClick,
   onChange,
@@ -244,7 +241,6 @@ export function VisionEditor({
           icon={icon}
           onIconClick={onIconClick}
           saveStatus={saveStatus}
-          jumpToNow={jumpToNow}
         />
         <div className="py-8">
           <CompassLoader size="md" />
@@ -284,7 +280,6 @@ export function VisionEditor({
           icon={icon}
           onIconClick={onIconClick}
           saveStatus={saveStatus}
-          jumpToNow={jumpToNow}
         />
         <EditorContent editor={editor} />
       </div>

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { VisionLayers } from '../features/vision/VisionLayers';
+import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { fetchVisionRowMeta } from '../features/vision/queries';
@@ -49,6 +50,11 @@ export function Vision() {
   // Single position in the pyramid: a zoom level + an anchor date.
   const [level, setLevel] = useState<VisionScope>('yearly');
   const [anchor, setAnchor] = useState<Date>(today);
+
+  // Top-bar state: whether the 3-layer navigator drawer is expanded, and
+  // which view is active. 'board' is a placeholder until its spec lands.
+  const [layersOpen, setLayersOpen] = useState(true);
+  const [view, setView] = useState<VisionView>('layers');
 
   const periodKey = getPeriodKey(level, anchor);
   const locked = isFuturePeriod(level, periodKey);
@@ -219,13 +225,31 @@ export function Vision() {
   return (
     // -mt-3 tightens the gap with the global brand header.
     <section className="-mt-3 pb-3">
-      <VisionLayers
-        level={level}
-        anchor={anchor}
-        onPick={pick}
-        icons={icons}
-        written={written}
+      <VisionViewBar
+        layersOpen={layersOpen}
+        onToggleLayers={() => setLayersOpen((v) => !v)}
+        jumpToNow={jumpToNow}
+        view={view}
+        onViewChange={setView}
       />
+
+      {/* Layered navigator — collapses as a drawer. The grid 0fr↔1fr trick
+          animates real content height with no JS measuring; the inner wrapper
+          clips during the fold. */}
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden min-h-0">
+          <VisionLayers
+            level={level}
+            anchor={anchor}
+            onPick={pick}
+            icons={icons}
+            written={written}
+          />
+        </div>
+      </div>
 
       {/* Body — flat-top writing surface flush under the nav's divider. */}
       {locked ? (
@@ -247,7 +271,6 @@ export function Vision() {
           saveStatus={status}
           documentDate={documentDate}
           onDateChange={(iso) => void setDocumentDate(iso)}
-          jumpToNow={jumpToNow}
           icon={icons[level] ?? null}
           onIconClick={() => setIconPickerLevel(level)}
           onChange={handleEditorChange}
