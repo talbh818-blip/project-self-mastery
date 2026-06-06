@@ -109,70 +109,68 @@ export function User() {
 
   return (
     <section className="-mt-4 pb-6 space-y-4">
-      {/* Profile card — header (avatar + name + edit/theme) and, inside the
-          same container, the labelled app-action buttons. */}
-      <div className="bg-surface-card rounded-2xl p-4 space-y-3">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={handleAvatarClick}
-            className="relative group shrink-0"
-            aria-label="החלף תמונת פרופיל"
-            disabled={uploading}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt=""
-                className="w-20 h-20 rounded-full object-cover border-2 border-surface-border"
-              />
-            ) : (
-              <UserCircle size={80} strokeWidth={1.2} className="text-ink-300" />
-            )}
-            <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
-              <Camera size={11} className="text-on-accent" />
-            </span>
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleAvatarChange}
-            className="hidden"
-          />
+      {/* Profile card — one row: avatar + name + edit/theme (right) and the
+          stacked app-action buttons on the left. */}
+      <div className="bg-surface-card rounded-2xl p-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleAvatarClick}
+          className="relative group shrink-0"
+          aria-label="החלף תמונת פרופיל"
+          disabled={uploading}
+        >
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="w-20 h-20 rounded-full object-cover border-2 border-surface-border"
+            />
+          ) : (
+            <UserCircle size={80} strokeWidth={1.2} className="text-ink-300" />
+          )}
+          <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
+            <Camera size={11} className="text-on-accent" />
+          </span>
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleAvatarChange}
+          className="hidden"
+        />
 
-          <div className="flex-1 min-w-0">
-            <p
-              className="text-base font-semibold text-ink-100 truncate"
-              title={fullName}
-            >
-              {fullName}
-            </p>
-            {uploading && (
-              <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
-            )}
-            <div className="mt-2 flex items-center gap-2">
-              <ActionIcon
-                onClick={() => setEditOpen(true)}
-                icon={<Pencil size={16} />}
-                label="ערוך פרטים אישיים"
-              />
-              <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
-            </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-base font-semibold text-ink-100 truncate"
+            title={fullName}
+          >
+            {fullName}
+          </p>
+          {uploading && (
+            <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
+          )}
+          <div className="mt-2 flex items-center gap-2">
+            <ActionIcon
+              onClick={() => setEditOpen(true)}
+              icon={<Pencil size={16} />}
+              label="ערוך פרטים אישיים"
+            />
+            <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
           </div>
         </div>
 
-        {/* App actions — labelled buttons, inside the profile container */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* App actions — stacked labelled buttons on the left (RTL) */}
+        <div className="shrink-0 flex flex-col gap-2 w-[36%] max-w-[150px]">
           <AppActionButton
             onClick={handleInstall}
-            icon={<Download size={18} />}
+            icon={<Download size={15} />}
             label="התקן אפליקציה"
           />
           <AppActionButton
             onClick={handleUpdate}
             icon={
-              <RefreshCw size={18} className={updating ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={updating ? 'animate-spin' : ''} />
             }
             label="עדכן גרסה"
           />
@@ -304,7 +302,7 @@ function AppActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="bg-surface-raised ring-1 ring-surface-border rounded-xl py-2.5 px-2 flex items-center justify-center gap-2 text-sm font-medium text-ink-100 hover:ring-forest-700/50 transition-colors"
+      className="bg-surface-raised ring-1 ring-surface-border rounded-xl py-2 px-2 flex items-center justify-center gap-1.5 text-[11px] font-medium text-ink-100 hover:ring-forest-700/50 transition-colors"
     >
       <span className="text-forest-500 shrink-0">{icon}</span>
       <span className="truncate">{label}</span>
