@@ -93,11 +93,11 @@ export function UsersDirectory() {
                     </span>
                   </div>
 
-                  {/* Stats — 2×2 grid: trees · score / habits · vision */}
-                  <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-ink-300">
+                  {/* Stats — packed 2×2 grid: trees · score / habits · vision */}
+                  <div className="mt-1.5 grid grid-cols-[auto_auto] justify-start gap-x-5 gap-y-1 text-[11px] text-ink-300">
                     <Stat emoji="🌳" value={row.trees_planted} suffix="עצים" />
                     <Stat emoji="✨" value={row.score} suffix="נק׳" />
-                    <Stat emoji="✅" value={row.habit_count} suffix="הרגלים" />
+                    <Stat emoji="📊" value={row.habit_count} suffix="הרגלים" />
                     <Stat emoji="📖" value={row.vision_count} suffix="כתיבות חזון" />
                   </div>
                 </div>
