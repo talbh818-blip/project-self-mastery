@@ -28,8 +28,7 @@ import {
   getPeriodKey,
   getWeekKey,
   monthShort,
-  parsePeriodStart,
-  weeksInMonthOf,
+  firstWeekStartOfMonth,
   isFuturePeriod,
   type VisionScope,
 } from './period';
@@ -56,16 +55,16 @@ type Props = {
 // and the grid stays aligned. Months with more real weeks (rare 6) show them all.
 const MIN_WEEK_SLOTS = 5;
 
-/** Enumerate the ISO weeks that overlap a calendar month, in order. */
+/** Enumerate the weeks (Sundays) that fall inside a calendar month, in order.
+ *  A week belongs to the month its Sunday lands in, so there's no overlap with
+ *  neighbouring months — most months get 4 weeks, some 5. */
 function monthWeeks(year: number, monthIndex: number): WeekCell[] {
-  const monthStart = new Date(year, monthIndex, 1);
-  const count = weeksInMonthOf(monthStart);
-  const firstStart = parsePeriodStart('weekly', getWeekKey(monthStart));
   const out: WeekCell[] = [];
-  for (let i = 0; i < count; i++) {
-    const start = new Date(firstStart);
-    start.setDate(firstStart.getDate() + i * 7);
+  const d = firstWeekStartOfMonth(year, monthIndex);
+  while (d.getFullYear() === year && d.getMonth() === monthIndex) {
+    const start = new Date(d);
     out.push({ key: getWeekKey(start), start });
+    d.setDate(d.getDate() + 7);
   }
   return out;
 }

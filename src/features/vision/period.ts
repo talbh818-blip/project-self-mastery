@@ -10,9 +10,12 @@
 //   • the future-guard (can the user write to this period yet?)
 //   • Hebrew display labels
 //
-// ISO week note: ISO 8601 weeks start on Monday, and the year a week belongs
-// to is the year containing that week's Thursday. So '2026-W01' may begin in
-// late Dec 2025. We follow ISO consistently so week keys never collide.
+// Week note: weeks run SUNDAY→Saturday (the Israeli week). A week is
+// identified by the date of its Sunday ('YYYY-MM-DD') and BELONGS to the
+// calendar month that Sunday falls in. So each month owns 4–5 whole weeks and
+// no week is ever shared across two months (unlike ISO weeks, which straddle
+// month boundaries). A week that starts on the last Sunday of a month stays
+// entirely with that month even though it spills into the next.
 // ============================================================================
 
 export type VisionScope = 'yearly' | 'monthly' | 'weekly';
@@ -29,10 +32,9 @@ export function getMonthKey(date: Date): string {
   return `${y}-${m}`;
 }
 
-/** ISO-week key: YYYY-Www (e.g. "2026-W22"). */
+/** Week key = the date of the week's Sunday: 'YYYY-MM-DD' (e.g. "2026-06-07"). */
 export function getWeekKey(date: Date): string {
-  const { year, week } = isoWeekParts(date);
-  return `${year}-W${String(week).padStart(2, '0')}`;
+  return isoDate(weekStart(date));
 }
 
 export function getPeriodKey(scope: VisionScope, date: Date): string {
@@ -59,9 +61,9 @@ export function parsePeriodStart(scope: VisionScope, key: string): Date {
       return new Date(Number(ys), Number(ms) - 1, 1);
     }
     case 'weekly': {
-      const m = /^(\d{4})-W(\d{2})$/.exec(key);
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
       if (!m) throw new Error(`Invalid week key: ${key}`);
-      return isoWeekStart(Number(m[1]), Number(m[2]));
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     }
   }
 }
@@ -241,13 +243,13 @@ export function formatScopeCrumb(
  */
 function weekOfMonth(weekKey: string, monthKey: string): number {
   const monthStart = parsePeriodStart('monthly', monthKey);
-  const firstWeekStart = parsePeriodStart(
-    'weekly',
-    getPeriodKey('weekly', monthStart),
+  const firstSunday = firstWeekStartOfMonth(
+    monthStart.getFullYear(),
+    monthStart.getMonth(),
   );
-  const targetStart = parsePeriodStart('weekly', weekKey);
+  const targetSunday = parsePeriodStart('weekly', weekKey);
   const diffWeeks = Math.round(
-    (targetStart.getTime() - firstWeekStart.getTime()) /
+    (targetSunday.getTime() - firstSunday.getTime()) /
       (1000 * 60 * 60 * 24 * 7),
   );
   return Math.max(1, diffWeeks + 1);
@@ -277,16 +279,14 @@ export function isOutsideParent(
     return parsePeriodStart('monthly', key).getFullYear() !== Number(parentKey);
   }
   if (scope === 'weekly' && parentScope === 'monthly') {
-    const weekStart = parsePeriodStart('weekly', key);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
+    // A week belongs to the month its SUNDAY falls in, so "outside" just means
+    // that Sunday sits in a different calendar month.
+    const sunday = parsePeriodStart('weekly', key);
     const monthStart = parsePeriodStart('monthly', parentKey);
-    const monthEnd = new Date(
-      monthStart.getFullYear(),
-      monthStart.getMonth() + 1,
-      0,
+    return (
+      sunday.getFullYear() !== monthStart.getFullYear() ||
+      sunday.getMonth() !== monthStart.getMonth()
     );
-    return weekEnd < monthStart || weekStart > monthEnd;
   }
   return false;
 }
@@ -312,7 +312,11 @@ export function clampWeeklyToMonth(
     return weeklyKey;
   }
   const monthStart = parsePeriodStart('monthly', monthlyKey);
-  return getPeriodKey('weekly', monthStart);
+  const firstSunday = firstWeekStartOfMonth(
+    monthStart.getFullYear(),
+    monthStart.getMonth(),
+  );
+  return getWeekKey(firstSunday);
 }
 
 /**
@@ -338,36 +342,29 @@ function periodDiff(scope: VisionScope, a: string, b: string): number {
   return Math.round(ms / (1000 * 60 * 60 * 24 * 7));
 }
 
-// ─── ISO-week internals ─────────────────────────────────────────────────────
+// ─── Sunday-week internals ───────────────────────────────────────────────────
 
-function isoWeekParts(date: Date): { year: number; week: number } {
-  // Copy to UTC midnight to avoid DST drift.
-  const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  // ISO weekday: Mon=1..Sun=7. JS getUTCDay: Sun=0..Sat=6.
-  const dayNum = d.getUTCDay() || 7;
-  // Thursday of the current ISO week determines the week-year.
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const year = d.getUTCFullYear();
-  const jan1 = new Date(Date.UTC(year, 0, 1));
-  const week =
-    Math.floor((d.getTime() - jan1.getTime()) / 86400000 / 7) + 1;
-  return { year, week };
+/** Local-date 'YYYY-MM-DD'. */
+function isoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-/** Returns the local-time Date for Monday of the given ISO week. */
-function isoWeekStart(weekYear: number, week: number): Date {
-  // Thursday of week 1 of weekYear is always between Jan 1 and Jan 7.
-  const jan4 = new Date(weekYear, 0, 4);
-  const jan4Dow = jan4.getDay() || 7; // ISO weekday
-  // Monday of week 1
-  const week1Monday = new Date(jan4);
-  week1Monday.setDate(jan4.getDate() - (jan4Dow - 1));
-  // Monday of target week
-  const target = new Date(week1Monday);
-  target.setDate(week1Monday.getDate() + (week - 1) * 7);
-  return target;
+/** The Sunday on or before `date` (local midnight). getDay(): Sun=0..Sat=6. */
+function weekStart(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+/** The first Sunday that falls WITHIN the given calendar month. */
+export function firstWeekStartOfMonth(year: number, month: number): Date {
+  const first = new Date(year, month, 1);
+  const dow = first.getDay();
+  const offset = dow === 0 ? 0 : 7 - dow;
+  return new Date(year, month, 1 + offset);
 }
 
 // ============================================================================
@@ -406,22 +403,13 @@ export function weekOfMonthOf(anchor: Date): number {
   return weekOfMonth(getWeekKey(anchor), getMonthKey(anchor));
 }
 
-/** How many ISO weeks overlap the anchor's calendar month (4 or 5, rarely 6). */
+/** How many whole weeks (Sundays) fall in the anchor's calendar month (4–5). */
 export function weeksInMonthOf(anchor: Date): number {
-  const monthStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const monthEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
-  const firstWeekStart = parsePeriodStart(
-    'weekly',
-    getPeriodKey('weekly', monthStart),
-  );
-  const lastWeekStart = parsePeriodStart(
-    'weekly',
-    getPeriodKey('weekly', monthEnd),
-  );
-  return (
-    Math.round(
-      (lastWeekStart.getTime() - firstWeekStart.getTime()) /
-        (1000 * 60 * 60 * 24 * 7),
-    ) + 1
-  );
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
+  const firstSunday = firstWeekStartOfMonth(year, month);
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  let count = 0;
+  for (let day = firstSunday.getDate(); day <= lastDay; day += 7) count++;
+  return count;
 }
