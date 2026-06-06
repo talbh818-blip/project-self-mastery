@@ -27,7 +27,7 @@ import {
   getPeriodKey,
   getWeekKey,
   isFuturePeriod,
-  monthName,
+  monthShort,
   parsePeriodStart,
   type VisionScope,
 } from '../features/vision/period';
@@ -412,7 +412,8 @@ export function Vision() {
 function formatVisionTitle(level: VisionScope, anchor: Date): string {
   if (level === 'yearly') return `חזון שנתי · ${anchor.getFullYear()}`;
   if (level === 'monthly') {
-    return `חזון חודשי · ${monthName(anchor)} ${anchor.getFullYear()}`;
+    const yy = String(anchor.getFullYear()).slice(-2);
+    return `חזון חודשי · ${monthShort(anchor.getMonth())} ${yy}`;
   }
   // weekly — short: just the Sunday that opens the week (day.month).
   const start = parsePeriodStart('weekly', getWeekKey(anchor));
