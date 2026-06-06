@@ -44,30 +44,64 @@ const PLACEHOLDERS: Record<VisionScope, string> = {
   weekly: 'מה המיקוד שלך לשבוע הזה?',
 };
 
+// Per-user remembered view. The map ("board") is the default for a brand-new
+// user; once someone switches, their choice sticks (per user, per device).
+const VIEW_LS_PREFIX = 'vision-view:';
+
+function readSavedView(userId: string | null): VisionView {
+  if (!userId) return 'board';
+  try {
+    const saved = localStorage.getItem(`${VIEW_LS_PREFIX}${userId}`);
+    if (saved === 'layers' || saved === 'board') return saved;
+  } catch {
+    // ignore — fall through to default
+  }
+  return 'board';
+}
+
 export function Vision() {
   const today = useMemo(() => new Date(), []);
   const { user } = useAuth();
   const userId = user?.id ?? null;
 
-  // Single position in the pyramid: a zoom level + an anchor date.
-  const [level, setLevel] = useState<VisionScope>('yearly');
+  // Single position in the pyramid: a zoom level + an anchor date. Fresh
+  // loads land on the CURRENT WEEK — the most actionable horizon.
+  const [level, setLevel] = useState<VisionScope>('weekly');
   const [anchor, setAnchor] = useState<Date>(today);
 
-  // Top-bar state: whether the 3-layer navigator drawer is expanded, and
-  // which view is active.
+  // Top-bar state: whether the navigator drawer is expanded, and which view is
+  // active. The map ("board") is the default view; each user's last choice is
+  // remembered per-user in localStorage and wins on entry.
   const [layersOpen, setLayersOpen] = useState(true);
-  const [view, setView] = useState<VisionView>('layers');
+  const [view, setView] = useState<VisionView>(() => readSavedView(userId));
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
 
-  // Entering the map view, line it up with whatever period is open.
+  // Once auth resolves, apply this user's saved view preference (the lazy
+  // initializer above may have run before userId was known).
+  const viewLoadedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userId || viewLoadedForRef.current === userId) return;
+    viewLoadedForRef.current = userId;
+    setView(readSavedView(userId));
+  }, [userId]);
+
+  // Switch + remember the view. Entering the map lines it up with the open
+  // period's year.
   const changeView = useCallback(
     (v: VisionView) => {
       if (v === 'board') setMapYear(anchor.getFullYear());
       setView(v);
+      if (userId) {
+        try {
+          localStorage.setItem(`${VIEW_LS_PREFIX}${userId}`, v);
+        } catch {
+          // private-mode / quota — preference just won't persist.
+        }
+      }
     },
-    [anchor],
+    [anchor, userId],
   );
 
   const periodKey = getPeriodKey(level, anchor);

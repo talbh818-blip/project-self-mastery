@@ -40,21 +40,22 @@ export function VisionViewBar({
 }: Props) {
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
-      {/* physical RIGHT (first DOM child): the two view toggles */}
+      {/* physical RIGHT (first DOM child): the two view toggles. The map
+          (primary view) leads — rightmost in RTL. */}
       <div className="inline-flex items-center gap-0.5 rounded-xl bg-surface-raised p-0.5 ring-1 ring-surface-border">
-        <ViewToggle
-          active={view === 'layers'}
-          label="תצוגת שכבות"
-          onClick={() => onViewChange('layers')}
-        >
-          <Rows3 size={16} />
-        </ViewToggle>
         <ViewToggle
           active={view === 'board'}
           label="מפת השנה"
           onClick={() => onViewChange('board')}
         >
           <LayoutGrid size={16} />
+        </ViewToggle>
+        <ViewToggle
+          active={view === 'layers'}
+          label="תצוגת שכבות"
+          onClick={() => onViewChange('layers')}
+        >
+          <Rows3 size={16} />
         </ViewToggle>
       </div>
 
