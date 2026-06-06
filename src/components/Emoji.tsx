@@ -24,6 +24,11 @@ import { fluent3dUrlFor } from './fluent-emoji-map';
 const FALLBACK_CDN_BASE = 'https://emojicdn.elk.sh';
 const FALLBACK_STYLE = 'microsoft';
 
+// Module-level memo of image URLs that have already decoded at least once.
+// Lets re-mounts (e.g. re-opening the picker) paint instantly instead of
+// fading in again — and is the main thing that kills the perceived flicker.
+const LOADED_SRCS = new Set<string>();
+
 type EmojiProps = {
   /** The raw emoji character(s), e.g. "🔥", "✨", "👨‍👩‍👧". */
   emoji: string;
@@ -56,6 +61,9 @@ export function Emoji({
   const primary = fluent3d ?? fallback;
   const [src, setSrc] = useState<string>(primary);
   const [triedFallback, setTriedFallback] = useState<boolean>(fluent3d == null);
+  // Fade the image in on first decode; if it's already been decoded once
+  // (cached in LOADED_SRCS) start fully opaque so there's no re-fade flicker.
+  const [loaded, setLoaded] = useState<boolean>(() => LOADED_SRCS.has(primary));
 
   // Reset the source chain when the `emoji` prop changes. <Emoji> instances
   // are reused across icon swaps (same position in the tree), and useState
@@ -68,6 +76,7 @@ export function Emoji({
     setShownFor(emoji);
     setSrc(primary);
     setTriedFallback(fluent3d == null);
+    setLoaded(LOADED_SRCS.has(primary));
   }
 
   const handleError = (e: SyntheticEvent<HTMLImageElement>) => {
@@ -75,6 +84,7 @@ export function Emoji({
       // Fluent 3D failed — try emojicdn microsoft next.
       setTriedFallback(true);
       setSrc(fallback);
+      setLoaded(LOADED_SRCS.has(fallback));
       return;
     }
     // Both CDNs failed — fall back to the OS glyph so the user still sees
@@ -88,6 +98,11 @@ export function Emoji({
     img.replaceWith(span);
   };
 
+  const handleLoad = () => {
+    LOADED_SRCS.add(src);
+    setLoaded(true);
+  };
+
   const decorative = ariaLabel === '';
   return (
     <img
@@ -97,8 +112,15 @@ export function Emoji({
       width={size}
       height={size}
       draggable={false}
+      loading="lazy"
+      decoding="async"
       className={`inline-block align-[-0.15em] ${className}`}
-      style={style}
+      style={{
+        ...style,
+        opacity: loaded ? 1 : 0,
+        transition: 'opacity 160ms ease-out',
+      }}
+      onLoad={handleLoad}
       onError={handleError}
     />
   );

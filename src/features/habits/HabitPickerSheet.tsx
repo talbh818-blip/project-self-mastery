@@ -18,6 +18,16 @@ import {
   type HabitType,
   type SlotIndex,
 } from './types';
+import {
+  SKIN_TONES,
+  type SkinToneKey,
+  isTonableEmoji,
+  applySkinTone,
+  stripSkinTone,
+  skinToneOf,
+} from '../../components/fluent-emoji-map';
+
+const SKIN_TONE_STORAGE_KEY = 'habit-emoji-skin-tone';
 
 type Props = {
   open: boolean;
@@ -64,6 +74,15 @@ export function HabitPickerSheet({
   const [type, setType] = useState<HabitType>(DEFAULTS.type);
   const [icon, setIcon] = useState<string>(DEFAULTS.icon);
   const [iconMode, setIconMode] = useState<'icons' | 'emojis'>('icons');
+  // Global skin tone for the (tonable) person emojis. Remembered across
+  // sessions so the user's preference sticks.
+  const [skinTone, setSkinTone] = useState<SkinToneKey>(() => {
+    try {
+      return (localStorage.getItem(SKIN_TONE_STORAGE_KEY) as SkinToneKey) || 'default';
+    } catch {
+      return 'default';
+    }
+  });
   const [name, setName] = useState<string>(DEFAULTS.name);
   const [description, setDescription] = useState<string>(DEFAULTS.description);
   const [descriptionFormat, setDescriptionFormat] = useState<DescriptionFormat>(
@@ -90,6 +109,10 @@ export function HabitPickerSheet({
       setType(editingHabit.type);
       setIcon(editingHabit.icon);
       setIconMode(HABIT_ICONS.includes(editingHabit.icon) ? 'icons' : 'emojis');
+      // If the saved icon is a toned emoji, reflect its tone in the selector.
+      if (isTonableEmoji(editingHabit.icon)) {
+        setSkinTone(skinToneOf(editingHabit.icon));
+      }
       setName(editingHabit.name);
       setDescription(editingHabit.description ?? '');
       setDescriptionFormat(editingHabit.description_format ?? 'text');
@@ -143,17 +166,29 @@ export function HabitPickerSheet({
   const handleTypeChange = (next: HabitType) => {
     setType(next);
     // If current icon is no longer valid for the new type, switch to a sensible
-    // default in the same icon-mode.
+    // default in the same icon-mode. Compare against the tone-stripped base so
+    // a toned emoji still counts as "in the list".
     const nextIcons = next === 'positive' ? POSITIVE_HABIT_ICONS : NEGATIVE_HABIT_ICONS;
     const nextEmojis = next === 'positive' ? POSITIVE_HABIT_EMOJIS : NEGATIVE_HABIT_EMOJIS;
     const nextList = iconMode === 'icons' ? nextIcons : nextEmojis;
-    if (!nextList.includes(icon)) setIcon(nextList[0]);
+    if (!nextList.includes(stripSkinTone(icon))) setIcon(nextList[0]);
   };
 
   const handleIconModeChange = (mode: 'icons' | 'emojis') => {
     setIconMode(mode);
     const nextList = mode === 'icons' ? iconList : emojiList;
-    if (!nextList.includes(icon)) setIcon(nextList[0]);
+    if (!nextList.includes(stripSkinTone(icon))) setIcon(nextList[0]);
+  };
+
+  const handleSkinToneChange = (tone: SkinToneKey) => {
+    setSkinTone(tone);
+    try {
+      localStorage.setItem(SKIN_TONE_STORAGE_KEY, tone);
+    } catch {
+      /* ignore storage failures */
+    }
+    // Keep the currently-selected tonable emoji in sync with the new tone.
+    if (isTonableEmoji(icon)) setIcon(applySkinTone(icon, tone));
   };
 
   const canSubmit = name.trim().length > 0 && !submitting;
@@ -302,11 +337,38 @@ export function HabitPickerSheet({
                   </button>
                 </div>
               </div>
+              {/* Skin-tone selector — only in emoji mode. Sets the tone for
+                  all the person emojis at once; picking one then stores that
+                  toned variant. */}
+              {iconMode === 'emojis' && (
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[11px] text-ink-500 shrink-0">גוון עור:</span>
+                  <div className="flex items-center gap-1.5">
+                    {SKIN_TONES.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        onClick={() => handleSkinToneChange(t.key)}
+                        title={t.label}
+                        aria-label={t.label}
+                        aria-pressed={skinTone === t.key}
+                        className={`w-5 h-5 rounded-full transition-transform ${
+                          skinTone === t.key
+                            ? 'ring-2 ring-ink-100 ring-offset-2 ring-offset-surface-card scale-95'
+                            : 'hover:scale-110'
+                        }`}
+                        style={{ backgroundColor: t.swatch }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
               <IconGrid
                 items={currentIconList}
                 value={icon}
                 onChange={setIcon}
                 accentColor={color}
+                skinTone={skinTone}
               />
             </section>
 
@@ -679,21 +741,27 @@ function IconGrid({
   value,
   onChange,
   accentColor,
+  skinTone,
 }: {
   items: readonly string[];
   value: string;
   onChange: (name: string) => void;
   accentColor: string;
+  skinTone: SkinToneKey;
 }) {
   return (
     <div className="grid grid-cols-7 gap-2 max-h-[140px] overflow-y-auto themed-scroll p-1">
       {items.map((name) => {
-        const selected = value === name;
+        // Tonable person emojis render — and are stored — in the chosen tone.
+        const display = isTonableEmoji(name) ? applySkinTone(name, skinTone) : name;
+        // Compare on the tone-stripped base so a toned value still highlights
+        // its base swatch.
+        const selected = stripSkinTone(value) === name;
         return (
           <button
             key={name}
             type="button"
-            onClick={() => onChange(name)}
+            onClick={() => onChange(display)}
             className={`aspect-square rounded-xl flex items-center justify-center transition-colors ${
               selected
                 ? 'text-cream-50'
@@ -702,7 +770,7 @@ function IconGrid({
             style={selected ? { backgroundColor: accentColor } : undefined}
             aria-label={name}
           >
-            <HabitIcon name={name} size={28} strokeWidth={1.7} />
+            <HabitIcon name={display} size={28} strokeWidth={1.7} />
           </button>
         );
       })}

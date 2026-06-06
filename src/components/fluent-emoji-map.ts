@@ -397,23 +397,140 @@ export const EMOJI_TO_FLUENT_NAME: Record<string, string> = {
   '🚯': 'No littering',
 };
 
+// ============================================================================
+// Skin tones
+// ============================================================================
+// A subset of emojis (people / body parts) have skin-tone variants. In the
+// Fluent repo these live under a per-tone subfolder with a tone suffix on the
+// filename, e.g.:
+//   assets/Flexed biceps/Default/3D/flexed_biceps_3d_default.png
+//   assets/Flexed biceps/Dark/3D/flexed_biceps_3d_dark.png
+// (whereas a non-tonable emoji like Fire is just assets/Fire/3D/fire_3d.png).
+//
+// IMPORTANT: requesting the non-tonable path for a tonable emoji returns 403,
+// which is exactly what made all the person emojis flicker (every render fell
+// through to the slower fallback CDN). Routing them to the correct tonable
+// path fixes both the flicker AND unlocks the tone picker.
+
+export type SkinToneKey =
+  | 'default'
+  | 'light'
+  | 'medium-light'
+  | 'medium'
+  | 'medium-dark'
+  | 'dark';
+
+/** Tone metadata for the picker. `swatch` is a representative skin color. */
+export const SKIN_TONES: ReadonlyArray<{
+  key: SkinToneKey;
+  modifier: string;
+  swatch: string;
+  label: string;
+}> = [
+  { key: 'default', modifier: '', swatch: '#FCD24B', label: 'ברירת מחדל' },
+  { key: 'light', modifier: '\u{1F3FB}', swatch: '#F4D9C6', label: 'בהיר' },
+  { key: 'medium-light', modifier: '\u{1F3FC}', swatch: '#E2BC93', label: 'בהיר-בינוני' },
+  { key: 'medium', modifier: '\u{1F3FD}', swatch: '#C79C6B', label: 'בינוני' },
+  { key: 'medium-dark', modifier: '\u{1F3FE}', swatch: '#9A6A41', label: 'כהה-בינוני' },
+  { key: 'dark', modifier: '\u{1F3FF}', swatch: '#5C4434', label: 'כהה' },
+];
+
+const MODIFIER_TO_TONE: Record<string, SkinToneKey> = {
+  '\u{1F3FB}': 'light',
+  '\u{1F3FC}': 'medium-light',
+  '\u{1F3FD}': 'medium',
+  '\u{1F3FE}': 'medium-dark',
+  '\u{1F3FF}': 'dark',
+};
+const ALL_MODIFIERS = Object.keys(MODIFIER_TO_TONE);
+
+// Base emojis (FE0F + tone stripped) that have Fluent skin-tone variants.
+const TONABLE = new Set<string>([
+  '🏃', '🚴', '🏋', '🧘', '🤸', '🏊', '🚶', '💪', '🧗', '🏌', '🏄', '🚣',
+  '🤽', '👶', '🙏',
+]);
+
+// Normalised lookup: keys are the FE0F-stripped emoji, so a tone-stripped base
+// (which may or may not carry FE0F) always resolves.
+const NORMALIZED_NAME = new Map<string, string>();
+for (const [k, v] of Object.entries(EMOJI_TO_FLUENT_NAME)) {
+  NORMALIZED_NAME.set(k.replace(/️/g, ''), v);
+}
+
+/** Split an emoji into its base char and skin-tone key. */
+function splitTone(emoji: string): { base: string; tone: SkinToneKey } {
+  for (const mod of ALL_MODIFIERS) {
+    if (emoji.includes(mod)) {
+      return { base: emoji.replace(mod, ''), tone: MODIFIER_TO_TONE[mod] };
+    }
+  }
+  return { base: emoji, tone: 'default' };
+}
+
+/** Bare base emoji (no FE0F, no tone) used for map + tonable lookups. */
+function bareBase(emoji: string): string {
+  return splitTone(emoji).base.replace(/️/g, '');
+}
+
+/** True iff this emoji (any tone) has Fluent skin-tone variants. */
+export function isTonableEmoji(emoji: string): boolean {
+  return TONABLE.has(bareBase(emoji));
+}
+
+/** The skin tone currently applied to an emoji ('default' if none). */
+export function skinToneOf(emoji: string): SkinToneKey {
+  return splitTone(emoji).tone;
+}
+
+/** Remove any skin-tone modifier, returning the base emoji. */
+export function stripSkinTone(emoji: string): string {
+  return splitTone(emoji).base;
+}
+
+/**
+ * Apply a skin tone to an emoji. Non-tonable emojis and the 'default' tone
+ * return the bare base. The skin-tone modifier replaces the FE0F variation
+ * selector (the two are mutually exclusive in a valid sequence).
+ */
+export function applySkinTone(emoji: string, tone: SkinToneKey): string {
+  const base = splitTone(emoji).base; // drop any existing tone first
+  if (!isTonableEmoji(base) || tone === 'default') {
+    return base;
+  }
+  const modifier = SKIN_TONES.find((t) => t.key === tone)?.modifier ?? '';
+  return base.replace(/️/g, '') + modifier;
+}
+
+function toneDirName(tone: SkinToneKey): string {
+  // 'medium-dark' → 'Medium-Dark', 'default' → 'Default'
+  return tone
+    .split('-')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join('-');
+}
+
 /**
  * Build the jsDelivr URL for an emoji's Microsoft Fluent 3D PNG.
- * Returns null if the emoji isn't in our map (caller should fall back to
- * a different CDN or to the OS glyph).
+ * Handles skin-tone variants for tonable emojis. Returns null if the emoji
+ * isn't in our map (caller should fall back to a different CDN / OS glyph).
  */
 export function fluent3dUrlFor(emoji: string): string | null {
-  // Try the emoji as-is; some emojis include the U+FE0F variation selector
-  // which our keys above don't (e.g., '❤️' is stored as '❤' + FE0F).
-  // We match both forms to be safe.
-  const name =
-    EMOJI_TO_FLUENT_NAME[emoji] ??
-    EMOJI_TO_FLUENT_NAME[emoji.replace(/️/g, '')];
+  const { base, tone } = splitTone(emoji);
+  const lookupKey = base.replace(/️/g, '');
+  const name = NORMALIZED_NAME.get(lookupKey);
   if (!name) return null;
 
-  // Directory name preserves spaces/case for the URL path; the filename is
-  // lowercased, spaces → underscores.
+  const root = 'https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets';
   const dir = encodeURIComponent(name);
-  const filename = encodeURIComponent(name.toLowerCase().replace(/\s+/g, '_'));
-  return `https://cdn.jsdelivr.net/gh/microsoft/fluentui-emoji@main/assets/${dir}/3D/${filename}_3d.png`;
+  const fileBase = name.toLowerCase().replace(/\s+/g, '_');
+
+  if (TONABLE.has(lookupKey)) {
+    // Tonable: assets/<Name>/<Tone>/3D/<file>_3d_<tone>.png
+    const toneDir = encodeURIComponent(toneDirName(tone));
+    const file = encodeURIComponent(`${fileBase}_3d_${tone}`);
+    return `${root}/${dir}/${toneDir}/3D/${file}.png`;
+  }
+  // Non-tonable: assets/<Name>/3D/<file>_3d.png
+  const file = encodeURIComponent(`${fileBase}_3d`);
+  return `${root}/${dir}/3D/${file}.png`;
 }
