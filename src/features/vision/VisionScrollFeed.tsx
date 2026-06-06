@@ -165,7 +165,7 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
         <div
           ref={containerRef}
           dir="ltr"
-          className="vision-feed-scroll h-[68vh] overflow-y-auto overscroll-contain rounded-2xl bg-surface-base/40 p-1.5"
+          className="vision-feed-scroll h-[calc(100dvh-180px)] min-h-[40vh] overflow-y-auto overscroll-contain rounded-2xl bg-surface-base/40 p-1.5"
         >
           <div dir="rtl" className="space-y-2">
             {filtered.length === 0 ? (
@@ -176,6 +176,17 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
               filtered.map(({ item, icon, title, text }) => {
                 const hasText = text.length > 0;
                 const isCurrent = !q && item.key === currentKey;
+                // Subtle level cue: month/year cards get a faint forest tint
+                // (year a touch stronger + larger title); weeks stay neutral.
+                const bg = isCurrent
+                  ? 'bg-surface-card ring-2 ring-forest-600'
+                  : item.scope === 'yearly'
+                    ? 'bg-forest-700/[0.16] hover:bg-forest-700/20'
+                    : item.scope === 'monthly'
+                      ? 'bg-forest-700/[0.10] hover:bg-forest-700/[0.14]'
+                      : 'bg-surface-card/70 hover:bg-surface-card';
+                const titleSize =
+                  item.scope === 'yearly' ? 'text-sm' : 'text-[13px]';
                 return (
                   <button
                     key={item.key}
@@ -186,14 +197,7 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
                       else itemRefs.current.delete(item.key);
                     }}
                     onClick={() => onOpen(item.scope, item.anchor)}
-                    className={`
-                      w-full text-right rounded-2xl p-3 transition-colors
-                      ${
-                        isCurrent
-                          ? 'bg-surface-card ring-2 ring-forest-600'
-                          : 'bg-surface-card/70 hover:bg-surface-card'
-                      }
-                    `}
+                    className={`w-full text-right rounded-2xl p-3 transition-colors ${bg}`}
                   >
                     <div className="flex items-center gap-1.5 mb-1">
                       {hasText && (
@@ -203,7 +207,7 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
                         />
                       )}
                       {icon && <HabitIcon name={icon} size={15} className="shrink-0" />}
-                      <span className="text-[13px] font-bold text-ink-100 truncate">
+                      <span className={`${titleSize} font-bold text-ink-100 truncate`}>
                         {title}
                       </span>
                     </div>
