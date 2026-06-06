@@ -51,10 +51,6 @@ type Props = {
   onPickWeek: (weekKey: string) => void;
 };
 
-// Minimum week slots rendered per month, so a 4-week month gets a greyed 5th
-// and the grid stays aligned. Months with more real weeks (rare 6) show them all.
-const MIN_WEEK_SLOTS = 5;
-
 /** Enumerate the weeks (Sundays) that fall inside a calendar month, in order.
  *  A week belongs to the month its Sunday lands in, so there's no overlap with
  *  neighbouring months — most months get 4 weeks, some 5. */
@@ -150,9 +146,10 @@ export function VisionYearMap({
             text-[13px] font-bold transition-colors
             ${
               isYearSelected
-                ? 'bg-forest-700/30 text-ink-100 ring-2 ring-forest-600'
+                ? // The ONLY ring on the map marks the period open below.
+                  'bg-forest-700/30 text-ink-100 ring-2 ring-forest-600'
                 : isCurrentYear
-                  ? 'bg-forest-700/15 text-ink-100 ring-1 ring-forest-700'
+                  ? 'bg-forest-700/15 text-ink-100'
                   : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
             }
           `}
@@ -179,21 +176,23 @@ export function VisionYearMap({
       ) : (
         <div className="grid grid-cols-4 gap-1.5">
           {months.map((mo) => {
-            const slots = Math.max(MIN_WEEK_SLOTS, mo.weeks.length);
             const monthHasContent = contentKeys.has(mo.key);
             const monthIcon = iconByKey.get(mo.key) ?? null;
             const isCurrentMonth = mo.key === currentMonthKey;
             const isMonthSelected =
               selectedLevel === 'monthly' && selectedKey === mo.key;
+            const isFutureMonth = isFuturePeriod('monthly', mo.key, today);
             return (
               <div
                 key={mo.key}
                 className="rounded-xl bg-surface-card p-1.5 flex flex-col gap-1"
               >
-                {/* Month label — opens the monthly vision below. */}
+                {/* Month label — opens the monthly vision below. Future months
+                    (not reached yet) are dimmed and inert. */}
                 <button
                   type="button"
-                  onClick={() => onPickMonth(mo.key)}
+                  onClick={isFutureMonth ? undefined : () => onPickMonth(mo.key)}
+                  disabled={isFutureMonth}
                   className={`
                     inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
                     text-[10px] font-semibold leading-none transition-colors
@@ -202,7 +201,9 @@ export function VisionYearMap({
                         ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
                         : isCurrentMonth
                           ? 'bg-forest-700/20 text-forest-300'
-                          : 'text-ink-300 hover:text-ink-100'
+                          : isFutureMonth
+                            ? 'text-ink-500/50 cursor-default'
+                            : 'text-ink-300 hover:text-ink-100'
                     }
                   `}
                 >
@@ -214,32 +215,24 @@ export function VisionYearMap({
                   </span>
                 </button>
 
-                {/* Week squares. */}
-                <div className="flex gap-0.5">
-                  {Array.from({ length: slots }, (_, i) => {
-                    const week = mo.weeks[i];
-                    if (!week) {
-                      return (
-                        <span
-                          key={`pad-${i}`}
-                          aria-hidden
-                          className="flex-1 aspect-square rounded-[3px] border border-dashed border-surface-border/60 opacity-40"
-                        />
-                      );
-                    }
-                    return (
-                      <WeekSquare
-                        key={week.key}
-                        start={week.start}
-                        hasContent={contentKeys.has(week.key)}
-                        isCurrent={week.key === currentWeekKey}
-                        isSelected={
-                          selectedLevel === 'weekly' && selectedKey === week.key
-                        }
-                        onClick={() => onPickWeek(week.key)}
-                      />
-                    );
-                  })}
+                {/* Week squares — CENTRED and a uniform size everywhere. Each
+                    square is sized as 1/5 of the row regardless of how many
+                    weeks the month has, so a 4-week month just centres its
+                    four same-size squares (no side padding). */}
+                <div className="flex justify-center gap-[2px]">
+                  {mo.weeks.map((week) => (
+                    <WeekSquare
+                      key={week.key}
+                      start={week.start}
+                      hasContent={contentKeys.has(week.key)}
+                      isCurrent={week.key === currentWeekKey}
+                      isSelected={
+                        selectedLevel === 'weekly' && selectedKey === week.key
+                      }
+                      isFuture={isFuturePeriod('weekly', week.key, today)}
+                      onClick={() => onPickWeek(week.key)}
+                    />
+                  ))}
                 </div>
               </div>
             );
@@ -257,25 +250,35 @@ function WeekSquare({
   hasContent,
   isCurrent,
   isSelected,
+  isFuture,
   onClick,
 }: {
   start: Date;
   hasContent: boolean;
   isCurrent: boolean;
   isSelected: boolean;
+  isFuture: boolean;
   onClick: () => void;
 }) {
   const label = `${start.getDate()}.${start.getMonth() + 1}`;
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={isFuture ? undefined : onClick}
+      disabled={isFuture}
       title={label}
       aria-label={`שבוע של ${label}${hasContent ? ' — נכתב' : ''}`}
+      // Fixed 1/5-of-row width (shrink-0) → every square is the same size no
+      // matter how many weeks the month has; the row centres them.
+      style={{ width: 'calc((100% - 8px) / 5)' }}
       className={`
-        relative flex-1 aspect-square rounded-[3px] transition-colors
+        relative shrink-0 aspect-square rounded-[3px] transition-colors
         flex items-center justify-center
-        bg-surface-raised hover:bg-surface-border
+        ${
+          isFuture
+            ? 'bg-surface-raised/40 opacity-40 cursor-default'
+            : 'bg-surface-raised hover:bg-surface-border'
+        }
         ${
           isSelected
             ? 'ring-2 ring-forest-500'
