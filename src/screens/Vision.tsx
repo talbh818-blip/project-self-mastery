@@ -308,9 +308,20 @@ export function Vision() {
 
   // The writing surface for the active period — shared by BOTH views (the map
   // shows it below the grid, the layered view below the navigator).
+  //
+  // CRITICAL: only mount the editor once `entry` actually belongs to the
+  // CURRENT (level, periodKey). When you jump periods — especially from the
+  // free-scroll feed — `entry` lags one render behind (useVisionEntry updates
+  // in an effect), so for a frame it still holds the PREVIOUS period's
+  // content. Mounting then would show (and could save) the old period's text
+  // under the new period's key — the data-loss bug where tapping a month in
+  // the feed overwrote it with the last week's text. Guard against it.
+  const periodReady =
+    entry === null ||
+    (entry.scope === level && entry.period_key === periodKey);
   const editorBlock = locked ? (
     <LockedNotice level={level} />
-  ) : loading ? (
+  ) : loading || !periodReady ? (
     <div className="vision-page py-10">
       <CompassLoader size="md" />
     </div>
