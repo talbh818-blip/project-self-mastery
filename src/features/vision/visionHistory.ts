@@ -19,7 +19,17 @@ const MAX_SNAPSHOTS = 12;
 const keyFor = (userId: string, scope: VisionScope, periodKey: string) =>
   `vision-history:${userId}:${scope}:${periodKey}`;
 
-const contentJson = (c: unknown) => JSON.stringify(c ?? null);
+// CANONICAL serialisation — sorts object keys recursively. The editor's JSON
+// and the DB's jsonb round-trip with DIFFERENT key order, so a plain
+// JSON.stringify would treat structurally-identical content as different and
+// defeat dedupe (→ duplicate snapshots on restore). Sorting keys fixes that.
+function canonical(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonical(obj[k])}`).join(',')}}`;
+}
 
 function read(userId: string, scope: VisionScope, periodKey: string): VisionSnapshot[] {
   try {
@@ -59,8 +69,10 @@ export function recordSnapshot(
 ): void {
   if (!userId || isVisionContentEmpty(content)) return;
   const items = read(userId, scope, periodKey);
-  const last = items[items.length - 1];
-  if (last && contentJson(last.content) === contentJson(content)) return;
+  const next = canonical(content);
+  // Dedupe against ANY recent snapshot (not just the last) so restoring an
+  // earlier version doesn't re-add an identical copy.
+  if (items.some((s) => canonical(s.content) === next)) return;
   items.push({ content, savedAt: Date.now() });
   while (items.length > MAX_SNAPSHOTS) items.shift();
   write(userId, scope, periodKey, items);

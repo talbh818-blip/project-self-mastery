@@ -409,7 +409,8 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
           content,
         );
         setCachedEntry(userId, targetScope, targetPeriodKey, row);
-        recordSnapshot(userId, targetScope, targetPeriodKey, content);
+        // (No snapshot of the restored content — it's already in history; the
+        // pre-restore content was snapshotted above so the restore is undoable.)
         if (reqIdRef.current === myReq) {
           setEntry(row);
           displayedRef.current = contentJson(content);
