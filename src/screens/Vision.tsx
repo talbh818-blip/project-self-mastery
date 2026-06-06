@@ -207,20 +207,19 @@ export function Vision() {
     setLevel(targetLevel);
   };
 
-  // "Jump to now" for the CURRENT level — lives in the editor's DateBar row.
-  // Hidden when already on the current period.
+  // "Jump to now" for the CURRENT level — always shown in the top bar, but
+  // INACTIVE when we're already on the current period (nothing to jump to).
   const isCurrentPeriod = periodKey === getPeriodKey(level, today);
-  const jumpToNow = isCurrentPeriod
-    ? null
-    : {
-        label:
-          level === 'yearly'
-            ? 'השנה'
-            : level === 'monthly'
-              ? 'החודש'
-              : 'השבוע',
-        onJump: () => setAnchor(today),
-      };
+  const jumpToNow = {
+    label:
+      level === 'yearly'
+        ? 'השנה'
+        : level === 'monthly'
+          ? 'החודש'
+          : 'השבוע',
+    enabled: !isCurrentPeriod,
+    onJump: () => setAnchor(today),
+  };
 
   return (
     // -mt-3 tightens the gap with the global brand header.

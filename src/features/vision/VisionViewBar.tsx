@@ -23,8 +23,9 @@ type Props = {
   /** Is the layered navigator currently expanded? */
   layersOpen: boolean;
   onToggleLayers: () => void;
-  /** "Jump to current period" (היום / החודש / השבוע); null = already there. */
-  jumpToNow: { label: string; onJump: () => void } | null;
+  /** "Jump to current period" (השנה / החודש / השבוע). Always rendered; goes
+   *  INACTIVE (enabled=false) when we're already on the current period. */
+  jumpToNow: { label: string; enabled: boolean; onJump: () => void };
   /** Active view. Only 'layers' is wired today; 'board' is a placeholder. */
   view: VisionView;
   onViewChange: (view: VisionView) => void;
@@ -64,22 +65,31 @@ export function VisionViewBar({
           (left-most). DOM order [jump][chevron] → in RTL the chevron lands
           on the far left, the jump just to its right. */}
       <div className="inline-flex items-center gap-1.5">
-        {jumpToNow && (
-          <button
-            type="button"
-            onClick={jumpToNow.onJump}
-            aria-label={`חזרה ל${jumpToNow.label}`}
-            className="
-              shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-lg
-              text-[11px] font-medium text-forest-500
-              border border-forest-500/60 hover:bg-forest-700/10
-              transition-colors
-            "
-          >
-            <CalendarCheck size={13} className="shrink-0" />
-            {jumpToNow.label}
-          </button>
-        )}
+        {/* Always present so it never shifts the layout; a solid green chip
+            when there's somewhere to jump to, a muted disabled chip when
+            we're already on the current period. */}
+        <button
+          type="button"
+          onClick={jumpToNow.enabled ? jumpToNow.onJump : undefined}
+          disabled={!jumpToNow.enabled}
+          aria-label={
+            jumpToNow.enabled
+              ? `חזרה ל${jumpToNow.label}`
+              : `כבר ב${jumpToNow.label}`
+          }
+          className={`
+            shrink-0 inline-flex items-center gap-1 h-7 px-3 rounded-lg
+            text-[11px] font-semibold transition-colors
+            ${
+              jumpToNow.enabled
+                ? 'bg-forest-700 text-cream-50 hover:bg-forest-600'
+                : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
+            }
+          `}
+        >
+          <CalendarCheck size={13} className="shrink-0" />
+          {jumpToNow.label}
+        </button>
         <button
           type="button"
           onClick={onToggleLayers}
