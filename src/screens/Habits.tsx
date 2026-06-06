@@ -1076,8 +1076,8 @@ function HabitRow({
               >
                 {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
               </span>
-              {/* Difficulty */}
-              <span className="inline-flex items-center gap-1 text-ink-300">
+              {/* Difficulty — almost-white for easy reading */}
+              <span className="inline-flex items-center gap-1 text-white/80">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
                     habit.difficulty === 'easy'
@@ -1103,7 +1103,8 @@ function HabitRow({
                   </span>
                 </>
               )}
-              {/* Points from this habit (all-time) */}
+              {/* Points from this habit (all-time) — almost-white when
+                  neutral; keeps the green/red tint for gains/losses. */}
               <span className="text-ink-500">·</span>
               <span
                 className={
@@ -1111,7 +1112,7 @@ function HabitRow({
                     ? 'text-forest-500'
                     : totalPoints < 0
                     ? 'text-red-400'
-                    : 'text-ink-300'
+                    : 'text-white/80'
                 }
               >
                 {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
