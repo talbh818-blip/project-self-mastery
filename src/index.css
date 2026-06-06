@@ -67,6 +67,31 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* ----------------------------------------------------------------------------
+ * Hide the browser's default number-input spinner buttons.
+ * ----------------------------------------------------------------------------
+ * Chrome/Edge render small up/down arrows on the side of every
+ * <input type="number">, and Firefox renders a similar control. They use the
+ * OS chrome (a chunky pale element on Windows) which clashes hard with the
+ * app's dark, themed surface tokens — and on RTL forms they end up on the
+ * leading edge of the field, where they read as a UI glitch.
+ *
+ * Hiding them keeps a clean text field. Manual typing still works, and on
+ * mobile the numeric keypad is brought up by the input type alone. Apply
+ * globally so every <input type="number"> in the app gets the same look
+ * without each form having to remember.
+ * --------------------------------------------------------------------------*/
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 /* Loading indicator — orbiting dots around the compass logo.
    See src/components/CompassLoader.tsx. */
 @keyframes compass-loader-dot {
