@@ -85,7 +85,7 @@ export function User() {
     'משתמש';
 
   return (
-    <section className="pt-1 pb-6 space-y-4">
+    <section className="-mt-4 pb-6 space-y-4">
       {/* Profile card — avatar (right in RTL) + name + action row */}
       <div className="bg-surface-card rounded-2xl p-4 flex items-center gap-4">
         <button
