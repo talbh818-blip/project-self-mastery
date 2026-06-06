@@ -38,6 +38,7 @@ import {
   type CreateHabitInput,
   type UpdateHabitInput,
 } from './mutations';
+import { applyOutbox, clearCell, enqueueLog, flushOutbox } from './outbox';
 
 type Loaded = {
   habits: Habit[];
@@ -103,7 +104,11 @@ export function useHabitData(userId: string | null): UseHabitData {
     fetchAllUserData(userId)
       .then((data) => {
         if (cancelled) return;
-        setState({ status: 'ready', data, error: null });
+        // Overlay any un-synced offline marks so they survive the reload,
+        // then try to push them now that we (presumably) have the network.
+        const logs = applyOutbox(userId, data.logs);
+        setState({ status: 'ready', data: { ...data, logs }, error: null });
+        void flushOutbox(userId);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
@@ -182,7 +187,7 @@ export function useHabitData(userId: string | null): UseHabitData {
         error: null,
       });
 
-      // Persist in the background. On error, rollback and surface to caller.
+      // Persist in the background.
       try {
         await setHabitLog({
           userId,
@@ -191,7 +196,19 @@ export function useHabitData(userId: string | null): UseHabitData {
           newStatus: status,
           newAmount: amount,
         });
+        // Success — make sure no stale offline copy lingers for this cell.
+        clearCell(userId, habitId, date);
       } catch (e) {
+        const offline =
+          typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (offline) {
+          // OFFLINE: keep the optimistic mark and queue it for later. The
+          // 'online' listener (below) flushes it when the network returns.
+          enqueueLog(userId, { habitId, date, status, amount });
+          return;
+        }
+        // ONLINE but the write still failed → a real error: roll back so the
+        // user isn't misled into thinking it saved.
         setState({
           status: 'ready',
           data: { ...state.data, logs: prevLogs },
@@ -202,6 +219,16 @@ export function useHabitData(userId: string | null): UseHabitData {
     },
     [userId, state],
   );
+
+  // Flush the offline outbox on mount and whenever the network comes back, so
+  // marks made offline reach the cloud without needing a manual refresh.
+  useEffect(() => {
+    if (!userId) return;
+    const flush = () => void flushOutbox(userId);
+    flush();
+    window.addEventListener('online', flush);
+    return () => window.removeEventListener('online', flush);
+  }, [userId]);
 
   const createHabit = useCallback(
     async ({

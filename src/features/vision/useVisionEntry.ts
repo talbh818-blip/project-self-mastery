@@ -306,6 +306,37 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
     };
   }, [userId, scope, periodKey]);
 
+  // ── Online retry ──────────────────────────────────────────────────────────
+  // A save that failed offline leaves an unsynced localStorage draft (the
+  // periodic save clears the draft once the DB catches up). When the network
+  // returns, re-push the current period's draft so the user doesn't have to
+  // reload. Other periods' drafts get rescued on navigation (see load above).
+  useEffect(() => {
+    if (!userId) return;
+    const onOnline = () => {
+      const key = lsKey(userId, scope, periodKey);
+      const draft = readDraft(key);
+      if (!draft) return; // nothing unsynced for this period
+      const myReq = reqIdRef.current;
+      setStatus('saving');
+      upsertVisionEntry(userId, scope, periodKey, draft.content)
+        .then((row) => {
+          setCachedEntry(userId, scope, periodKey, row);
+          if (reqIdRef.current === myReq) {
+            setEntry(row);
+            setStatus('saved');
+          }
+          clearDraftIfOlder(key, row.updated_at);
+        })
+        .catch((err) => {
+          console.error('[vision] online-retry failed', err);
+          if (reqIdRef.current === myReq) setStatus('error');
+        });
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [userId, scope, periodKey]);
+
   const flush = useCallback(async () => {
     if (!userId || pendingContentRef.current === null) return;
     const myReq = reqIdRef.current;
