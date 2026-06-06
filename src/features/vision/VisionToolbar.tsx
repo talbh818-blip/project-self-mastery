@@ -66,6 +66,22 @@ export function VisionToolbar({
    *  upload anonymously. */
   canUpload: boolean;
 }) {
+  // Re-render on every editor transaction so the active states (bold / italic /
+  // underline / heading / list / highlight) and the undo/redo enablement always
+  // reflect the CURRENT cursor. Tiptap mutates the editor instance in place, so
+  // without this subscription React never re-renders the toolbar after a click
+  // or a caret move — a toggled mark looked "stuck", needed extra taps, and the
+  // active highlight lagged behind. `transaction` covers both doc and selection
+  // changes.
+  const [, forceRerender] = useState(0);
+  useEffect(() => {
+    const tick = () => forceRerender((n) => n + 1);
+    editor.on('transaction', tick);
+    return () => {
+      editor.off('transaction', tick);
+    };
+  }, [editor]);
+
   // The "+" button forwards its click to a hidden file input. We reset the
   // input's value on every change so picking the SAME file twice in a row
   // still fires onChange the second time (browsers de-dupe identical values).
