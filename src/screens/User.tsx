@@ -149,35 +149,37 @@ export function User() {
           {uploading && (
             <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
           )}
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {/* Personal-settings utilities — just three, never crammed. */}
+          <div className="mt-2 flex items-center gap-2">
             <ActionIcon
               onClick={() => setEditOpen(true)}
-              icon={<Pencil size={15} />}
+              icon={<Pencil size={16} />}
               label="ערוך פרטים אישיים"
             />
             <ActionIcon
               onClick={() => setTicketOpen(true)}
-              icon={<HelpCircle size={15} />}
+              icon={<HelpCircle size={16} />}
               label="פידבק ועזרה"
             />
             <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
-            <ActionIcon
-              onClick={handleInstall}
-              icon={<Download size={15} />}
-              label="התקן אפליקציה"
-            />
-            <ActionIcon
-              onClick={handleUpdate}
-              icon={
-                <RefreshCw
-                  size={15}
-                  className={updating ? 'animate-spin' : ''}
-                />
-              }
-              label="עדכן לגרסה האחרונה"
-            />
           </div>
         </div>
+      </div>
+
+      {/* Prominent app actions — install + update, labelled and side by side */}
+      <div className="grid grid-cols-2 gap-3">
+        <AppActionButton
+          onClick={handleInstall}
+          icon={<Download size={18} />}
+          label="התקן אפליקציה"
+        />
+        <AppActionButton
+          onClick={handleUpdate}
+          icon={
+            <RefreshCw size={18} className={updating ? 'animate-spin' : ''} />
+          }
+          label="עדכן גרסה"
+        />
       </div>
 
       {/* Thin habits-privacy row (vision is always private, so not shown) */}
@@ -277,9 +279,30 @@ function ActionIcon({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="w-8 h-8 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-on-accent flex items-center justify-center transition-colors"
+      className="w-9 h-9 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-on-accent flex items-center justify-center transition-colors"
     >
       {icon}
+    </button>
+  );
+}
+
+function AppActionButton({
+  onClick,
+  icon,
+  label,
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="bg-surface-card ring-1 ring-surface-border rounded-2xl py-3 px-2 flex items-center justify-center gap-2 text-sm font-medium text-ink-100 hover:bg-surface-raised hover:ring-forest-700/50 transition-colors"
+    >
+      <span className="text-forest-500 shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </button>
   );
 }
