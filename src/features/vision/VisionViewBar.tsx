@@ -15,7 +15,7 @@
 // This component is purely presentational — all state lives in the Vision
 // screen so the drawer animation and the editor stay in sync.
 // ============================================================================
-import { ChevronDown, Rows3, LayoutGrid } from 'lucide-react';
+import { ChevronDown, Rows3, LayoutGrid, GalleryVertical } from 'lucide-react';
 
 export type VisionView = 'layers' | 'board';
 
@@ -26,6 +26,9 @@ type Props = {
   /** Active view: layered stack or the year map. */
   view: VisionView;
   onViewChange: (view: VisionView) => void;
+  /** Free-scroll browse mode (board view only). */
+  freeScroll: boolean;
+  onToggleFreeScroll: () => void;
 };
 
 export function VisionViewBar({
@@ -33,26 +36,53 @@ export function VisionViewBar({
   onToggleLayers,
   view,
   onViewChange,
+  freeScroll,
+  onToggleFreeScroll,
 }: Props) {
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
-      {/* physical RIGHT (first DOM child): the two view toggles. The map
-          (primary view) leads — rightmost in RTL. */}
-      <div className="inline-flex items-center gap-0.5 rounded-xl bg-surface-raised p-0.5 ring-1 ring-surface-border">
-        <ViewToggle
-          active={view === 'board'}
-          label="מפת השנה"
-          onClick={() => onViewChange('board')}
-        >
-          <LayoutGrid size={16} />
-        </ViewToggle>
-        <ViewToggle
-          active={view === 'layers'}
-          label="תצוגת שכבות"
-          onClick={() => onViewChange('layers')}
-        >
-          <Rows3 size={16} />
-        </ViewToggle>
+      {/* physical RIGHT (first DOM child): view toggles + (board only) the
+          free-scroll toggle just to their left. */}
+      <div className="inline-flex items-center gap-1.5">
+        <div className="inline-flex items-center gap-0.5 rounded-xl bg-surface-raised p-0.5 ring-1 ring-surface-border">
+          <ViewToggle
+            active={view === 'board'}
+            label="מפת השנה"
+            onClick={() => onViewChange('board')}
+          >
+            <LayoutGrid size={16} />
+          </ViewToggle>
+          <ViewToggle
+            active={view === 'layers'}
+            label="תצוגת שכבות"
+            onClick={() => onViewChange('layers')}
+          >
+            <Rows3 size={16} />
+          </ViewToggle>
+        </div>
+
+        {/* Free-scroll browse — only meaningful with the map (it highlights
+            the scrolled-to vision there). Toggles a feed of all visions. */}
+        {view === 'board' && (
+          <button
+            type="button"
+            onClick={onToggleFreeScroll}
+            aria-label="גלילה חופשית בין החזונות"
+            aria-pressed={freeScroll}
+            title="גלילה חופשית בין החזונות"
+            className={`
+              shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-lg
+              transition-all
+              ${
+                freeScroll
+                  ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                  : 'bg-surface-raised ring-1 ring-surface-border text-ink-300 hover:text-ink-100 hover:ring-ink-300'
+              }
+            `}
+          >
+            <GalleryVertical size={16} />
+          </button>
+        )}
       </div>
 
       {/* physical LEFT (last DOM child): collapse chevron — folds whichever

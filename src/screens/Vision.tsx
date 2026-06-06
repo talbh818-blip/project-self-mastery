@@ -14,6 +14,8 @@ import { VisionEditor } from '../features/vision/VisionEditor';
 import { VisionLayers } from '../features/vision/VisionLayers';
 import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar';
 import { VisionYearMap } from '../features/vision/VisionYearMap';
+import { VisionScrollFeed } from '../features/vision/VisionScrollFeed';
+import { type TimelineItem } from '../features/vision/visionTimeline';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
@@ -81,6 +83,9 @@ export function Vision() {
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
+  // Free-scroll browse mode (board view only) + the feed's current item.
+  const [freeScroll, setFreeScroll] = useState(false);
+  const [feedCurrent, setFeedCurrent] = useState<TimelineItem | null>(null);
 
   // Once auth resolves, apply this user's saved view preference (the lazy
   // initializer above may have run before userId was known).
@@ -92,10 +97,11 @@ export function Vision() {
   }, [userId]);
 
   // Switch + remember the view. Entering the map lines it up with the open
-  // period's year.
+  // period's year; leaving the map turns free-scroll off (it's board-only).
   const changeView = useCallback(
     (v: VisionView) => {
       if (v === 'board') setMapYear(anchor.getFullYear());
+      else setFreeScroll(false);
       setView(v);
       if (userId) {
         try {
@@ -286,11 +292,19 @@ export function Vision() {
   };
 
   // Map-view navigation: tapping a period opens it in the editor BELOW the
-  // map — the map view stays put (no switch to the layered view).
+  // map — the map view stays put. If free-scroll was on, opening a vision
+  // exits it back to the single editor.
   const goToPeriod = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
+    setFreeScroll(false);
   };
+
+  // The vision the map should highlight: the feed's current item while
+  // free-scrolling, otherwise the open period.
+  const mapSelectedLevel =
+    freeScroll && feedCurrent ? feedCurrent.scope : level;
+  const mapSelectedKey = freeScroll && feedCurrent ? feedCurrent.key : periodKey;
 
   // The writing surface for the active period — shared by BOTH views (the map
   // shows it below the grid, the layered view below the navigator).
@@ -329,6 +343,8 @@ export function Vision() {
         onToggleLayers={() => setLayersOpen((v) => !v)}
         view={view}
         onViewChange={changeView}
+        freeScroll={freeScroll}
+        onToggleFreeScroll={() => setFreeScroll((v) => !v)}
       />
 
       {/* Active navigator (layer stack OR year map) — collapses as a drawer.
@@ -344,8 +360,8 @@ export function Vision() {
               userId={userId}
               year={mapYear}
               today={today}
-              selectedLevel={level}
-              selectedKey={periodKey}
+              selectedLevel={mapSelectedLevel}
+              selectedKey={mapSelectedKey}
               onStepYear={(delta) => setMapYear((y) => y + delta)}
               onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
               onPickMonth={(monthKey) =>
@@ -367,34 +383,48 @@ export function Vision() {
         </div>
       </div>
 
-      {/* The chosen vision — shown beneath whichever view is active. Wrapped
-          in an error boundary so a transient editor remount crash (Tiptap's
-          destroy/recreate race on fast navigation) self-heals instead of
-          black-screening the app. Resets on every period/level change. */}
-      <div className={view === 'board' ? 'mt-4' : ''}>
-        <ErrorBoundary
-          resetKeys={[level, periodKey, contentVersion]}
-          pendingFallback={
-            <div className="vision-page py-10">
-              <CompassLoader size="md" />
-            </div>
-          }
-          fallback={(retry) => (
-            <div className="vision-page text-center py-10">
-              <p className="text-ink-100 font-medium">משהו השתבש בטעינת החזון</p>
-              <button
-                type="button"
-                onClick={retry}
-                className="mt-3 inline-flex items-center h-9 px-4 rounded-lg bg-forest-700 text-cream-50 text-sm font-medium hover:bg-forest-600 transition-colors"
-              >
-                נסה שוב
-              </button>
-            </div>
-          )}
-        >
-          {editorBlock}
-        </ErrorBoundary>
-      </div>
+      {/* Below the navigator: either the free-scroll feed (board mode) or the
+          single chosen vision. The editor is wrapped in an error boundary so a
+          transient remount crash self-heals instead of black-screening. */}
+      {view === 'board' && freeScroll ? (
+        <div className="mt-4">
+          <VisionScrollFeed
+            userId={userId}
+            today={today}
+            initialKey={periodKey}
+            onOpen={goToPeriod}
+            onCurrentChange={(item) => {
+              setFeedCurrent(item);
+              setMapYear(item.anchor.getFullYear());
+            }}
+          />
+        </div>
+      ) : (
+        <div className={view === 'board' ? 'mt-4' : ''}>
+          <ErrorBoundary
+            resetKeys={[level, periodKey, contentVersion]}
+            pendingFallback={
+              <div className="vision-page py-10">
+                <CompassLoader size="md" />
+              </div>
+            }
+            fallback={(retry) => (
+              <div className="vision-page text-center py-10">
+                <p className="text-ink-100 font-medium">משהו השתבש בטעינת החזון</p>
+                <button
+                  type="button"
+                  onClick={retry}
+                  className="mt-3 inline-flex items-center h-9 px-4 rounded-lg bg-forest-700 text-cream-50 text-sm font-medium hover:bg-forest-600 transition-colors"
+                >
+                  נסה שוב
+                </button>
+              </div>
+            )}
+          >
+            {editorBlock}
+          </ErrorBoundary>
+        </div>
+      )}
 
       {/* Icon picker — opened from the DateBar's icon button (current level). */}
       <VisionIconPicker
