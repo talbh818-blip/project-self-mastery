@@ -35,6 +35,9 @@ export type TimelineItem = {
  */
 export function buildVisionTimeline(today: Date, yearsBack = 1): TimelineItem[] {
   const items: TimelineItem[] = [];
+  // Boundary weeks overlap two months; dedupe so each week shows once in the
+  // feed (it lands under the earlier month it touches).
+  const seenWeeks = new Set<string>();
   const curYear = today.getFullYear();
   for (let y = curYear - yearsBack; y <= curYear; y++) {
     items.push({ scope: 'yearly', key: String(y), anchor: new Date(y, 0, 1) });
@@ -49,15 +52,14 @@ export function buildVisionTimeline(today: Date, yearsBack = 1): TimelineItem[] 
         anchor: monthStart,
       });
 
-      // Whole weeks (Sundays) that fall inside this month, earliest→latest.
+      // Weeks (Sundays) that OVERLAP this month, earliest→latest.
+      const monthEnd = new Date(y, m + 1, 0);
       const d = firstWeekStartOfMonth(y, m);
-      while (d.getFullYear() === y && d.getMonth() === m) {
-        if (d <= today) {
-          items.push({
-            scope: 'weekly',
-            key: getWeekKey(d),
-            anchor: new Date(d),
-          });
+      while (d <= monthEnd) {
+        const key = getWeekKey(d);
+        if (d <= today && !seenWeeks.has(key)) {
+          seenWeeks.add(key);
+          items.push({ scope: 'weekly', key, anchor: new Date(d) });
         }
         d.setDate(d.getDate() + 7);
       }

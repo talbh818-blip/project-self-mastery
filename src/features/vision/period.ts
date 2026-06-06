@@ -11,11 +11,11 @@
 //   • Hebrew display labels
 //
 // Week note: weeks run SUNDAY→Saturday (the Israeli week). A week is
-// identified by the date of its Sunday ('YYYY-MM-DD') and BELONGS to the
-// calendar month that Sunday falls in. So each month owns 4–5 whole weeks and
-// no week is ever shared across two months (unlike ISO weeks, which straddle
-// month boundaries). A week that starts on the last Sunday of a month stays
-// entirely with that month even though it spills into the next.
+// identified by the date of its Sunday ('YYYY-MM-DD'). A week BELONGS to every
+// calendar month its 7-day span OVERLAPS — so a boundary week (e.g. 31.5–6.6)
+// appears at the END of one month and the START of the next, and is shared
+// between them. This means the current week is always "open" under the current
+// month even before its Sunday rolls into that month.
 // ============================================================================
 
 export type VisionScope = 'yearly' | 'monthly' | 'weekly';
@@ -285,14 +285,18 @@ export function isOutsideParent(
     return parsePeriodStart('monthly', key).getFullYear() !== Number(parentKey);
   }
   if (scope === 'weekly' && parentScope === 'monthly') {
-    // A week belongs to the month its SUNDAY falls in, so "outside" just means
-    // that Sunday sits in a different calendar month.
-    const sunday = parsePeriodStart('weekly', key);
+    // A week belongs to EVERY month it overlaps (Sun..Sat range), so "outside"
+    // means the week's 7-day span doesn't touch the month at all.
+    const weekStartD = parsePeriodStart('weekly', key);
+    const weekEnd = new Date(weekStartD);
+    weekEnd.setDate(weekStartD.getDate() + 6);
     const monthStart = parsePeriodStart('monthly', parentKey);
-    return (
-      sunday.getFullYear() !== monthStart.getFullYear() ||
-      sunday.getMonth() !== monthStart.getMonth()
+    const monthEnd = new Date(
+      monthStart.getFullYear(),
+      monthStart.getMonth() + 1,
+      0,
     );
+    return weekEnd < monthStart || weekStartD > monthEnd;
   }
   return false;
 }
@@ -365,12 +369,11 @@ function weekStart(date: Date): Date {
   return d;
 }
 
-/** The first Sunday that falls WITHIN the given calendar month. */
+/** Start (Sunday) of the first week that OVERLAPS the month — i.e. the week
+ *  CONTAINING the 1st. It may begin in the previous month (that boundary week
+ *  is shared between the two months). */
 export function firstWeekStartOfMonth(year: number, month: number): Date {
-  const first = new Date(year, month, 1);
-  const dow = first.getDay();
-  const offset = dow === 0 ? 0 : 7 - dow;
-  return new Date(year, month, 1 + offset);
+  return weekStart(new Date(year, month, 1));
 }
 
 // ============================================================================
@@ -409,13 +412,17 @@ export function weekOfMonthOf(anchor: Date): number {
   return weekOfMonth(getWeekKey(anchor), getMonthKey(anchor));
 }
 
-/** How many whole weeks (Sundays) fall in the anchor's calendar month (4–5). */
+/** How many weeks OVERLAP the anchor's month — from the week containing the
+ *  1st through the week containing the last day (4–6; boundary weeks shared). */
 export function weeksInMonthOf(anchor: Date): number {
   const year = anchor.getFullYear();
   const month = anchor.getMonth();
-  const firstSunday = firstWeekStartOfMonth(year, month);
-  const lastDay = new Date(year, month + 1, 0).getDate();
+  const monthEnd = new Date(year, month + 1, 0);
   let count = 0;
-  for (let day = firstSunday.getDate(); day <= lastDay; day += 7) count++;
+  const d = firstWeekStartOfMonth(year, month);
+  while (d <= monthEnd) {
+    count++;
+    d.setDate(d.getDate() + 7);
+  }
   return count;
 }

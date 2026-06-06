@@ -51,13 +51,15 @@ type Props = {
   onPickWeek: (weekKey: string) => void;
 };
 
-/** Enumerate the weeks (Sundays) that fall inside a calendar month, in order.
- *  A week belongs to the month its Sunday lands in, so there's no overlap with
- *  neighbouring months — most months get 4 weeks, some 5. */
+/** Enumerate the weeks (Sundays) that OVERLAP a calendar month, in order —
+ *  from the week containing the 1st through the week containing the last day.
+ *  Boundary weeks are shared with the neighbouring month (so a month gets 4–6
+ *  weeks, and the current week opens under the current month immediately). */
 function monthWeeks(year: number, monthIndex: number): WeekCell[] {
   const out: WeekCell[] = [];
+  const monthEnd = new Date(year, monthIndex + 1, 0);
   const d = firstWeekStartOfMonth(year, monthIndex);
-  while (d.getFullYear() === year && d.getMonth() === monthIndex) {
+  while (d <= monthEnd) {
     const start = new Date(d);
     out.push({ key: getWeekKey(start), start });
     d.setDate(d.getDate() + 7);
