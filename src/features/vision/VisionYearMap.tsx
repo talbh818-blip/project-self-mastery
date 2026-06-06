@@ -214,10 +214,10 @@ export function VisionYearMap({
                       isMonthSelected
                         ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
                         : isCurrentMonth
-                          ? 'bg-forest-700/20 text-forest-300'
+                          ? 'bg-forest-700/20 text-ink-100'
                           : isFutureMonth
-                            ? 'text-ink-500/50 cursor-default'
-                            : 'text-ink-300 hover:text-ink-100'
+                            ? 'text-ink-100/55 cursor-default'
+                            : 'text-ink-100'
                     }
                   `}
                 >
@@ -290,8 +290,8 @@ function WeekSquare({
         flex items-center justify-center
         ${
           isFuture
-            ? 'bg-surface-raised/40 opacity-40 cursor-default'
-            : 'bg-surface-raised hover:bg-surface-border'
+            ? 'vision-week-cell--future cursor-default'
+            : 'vision-week-cell'
         }
         ${
           isSelected
