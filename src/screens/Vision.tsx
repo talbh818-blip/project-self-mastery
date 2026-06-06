@@ -221,26 +221,21 @@ export function Vision() {
     setLevel(targetLevel);
   };
 
-  // "Jump to now" — always shown in the top bar, INACTIVE when there's
-  // nothing to jump to. In the map view it resets the MAP to the current year;
-  // in the layered view it resets the active level to its current period.
-  const jumpToNow =
-    view === 'board'
-      ? {
-          label: 'השנה',
-          enabled: mapYear !== today.getFullYear(),
-          onJump: () => setMapYear(today.getFullYear()),
-        }
-      : {
-          label:
-            level === 'yearly'
-              ? 'השנה'
-              : level === 'monthly'
-                ? 'החודש'
-                : 'השבוע',
-          enabled: periodKey !== getPeriodKey(level, today),
-          onJump: () => setAnchor(today),
-        };
+  // "Jump to now" — always returns to the CURRENT WEEK (which inherently
+  // lands on the current month + year too). One consistent "back to today"
+  // action in both views. Disabled only when we're already there.
+  const onCurrentWeek =
+    level === 'weekly' && periodKey === getPeriodKey('weekly', today);
+  const mapOnCurrentYear = view !== 'board' || mapYear === today.getFullYear();
+  const jumpToNow = {
+    label: 'השבוע',
+    enabled: !(onCurrentWeek && mapOnCurrentYear),
+    onJump: () => {
+      setAnchor(today);
+      setLevel('weekly');
+      setMapYear(today.getFullYear());
+    },
+  };
 
   // Map-view navigation: tapping a period opens it in the editor BELOW the
   // map — the map view stays put (no switch to the layered view).
