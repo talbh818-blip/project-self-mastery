@@ -59,6 +59,9 @@ type Props = {
   onStepPeriod: (delta: number) => void;
   /** Whether the next period is reachable (not future). */
   canStepNext: boolean;
+  /** "Back to current week" control, shown in the DateBar. Inactive when
+   *  we're already on it. */
+  jumpToNow: { label: string; enabled: boolean; onJump: () => void };
   /** Current level's icon (Lucide name or emoji char), shown on the DateBar
    *  picker button. null = none chosen yet. */
   icon: string | null;
@@ -78,6 +81,7 @@ export function VisionEditor({
   title,
   onStepPeriod,
   canStepNext,
+  jumpToNow,
   icon,
   onIconClick,
   onChange,
@@ -214,6 +218,7 @@ export function VisionEditor({
           title={title}
           onStepPeriod={onStepPeriod}
           canStepNext={canStepNext}
+          jumpToNow={jumpToNow}
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
           icon={icon}
@@ -254,6 +259,7 @@ export function VisionEditor({
           title={title}
           onStepPeriod={onStepPeriod}
           canStepNext={canStepNext}
+          jumpToNow={jumpToNow}
           assistOn={assistOn}
           onToggleAssist={toggleAssist}
           icon={icon}

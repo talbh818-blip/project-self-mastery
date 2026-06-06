@@ -250,8 +250,14 @@ export function Vision() {
   );
 
   // The DateBar title (scope name + period range) + its quick period stepper.
+  // Stepping the title also moves the MAP's year to match, so crossing a year
+  // boundary (e.g. back into 2025) re-paints the board for that year.
   const visionTitle = formatVisionTitle(level, anchor);
-  const stepPeriod = (delta: number) => setAnchor(addAnchor(level, anchor, delta));
+  const stepPeriod = (delta: number) => {
+    const next = addAnchor(level, anchor, delta);
+    setAnchor(next);
+    setMapYear(next.getFullYear());
+  };
   const canStepNext = !isFuturePeriod(
     level,
     getPeriodKey(level, addAnchor(level, anchor, 1)),
@@ -308,6 +314,7 @@ export function Vision() {
       title={visionTitle}
       onStepPeriod={stepPeriod}
       canStepNext={canStepNext}
+      jumpToNow={jumpToNow}
       icon={icons[level] ?? null}
       onIconClick={() => setIconPickerLevel(level)}
       onChange={handleEditorChange}
@@ -320,7 +327,6 @@ export function Vision() {
       <VisionViewBar
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((v) => !v)}
-        jumpToNow={jumpToNow}
         view={view}
         onViewChange={changeView}
       />

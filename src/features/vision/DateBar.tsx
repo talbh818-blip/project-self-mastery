@@ -12,7 +12,13 @@
 // (The old document-date picker was dropped — the title shows the period
 // itself, which is what users actually want to see.)
 // ============================================================================
-import { ChevronRight, ChevronLeft, CheckCircle2, SmilePlus } from 'lucide-react';
+import {
+  ChevronRight,
+  ChevronLeft,
+  RotateCcw,
+  AlertCircle,
+  SmilePlus,
+} from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
 import { HabitIcon } from '../habits/HabitIcon';
 import type { SaveStatus } from './useVisionEntry';
@@ -24,6 +30,8 @@ type Props = {
   onStepPeriod: (delta: number) => void;
   /** Whether the NEXT period is reachable (not in the future). */
   canStepNext: boolean;
+  /** "Back to current week" control — inactive when already there. */
+  jumpToNow: { label: string; enabled: boolean; onJump: () => void };
   /** Assist toggle state + handler. */
   assistOn: boolean;
   onToggleAssist: () => void;
@@ -38,6 +46,7 @@ export function DateBar({
   title,
   onStepPeriod,
   canStepNext,
+  jumpToNow,
   assistOn,
   onToggleAssist,
   icon,
@@ -111,9 +120,32 @@ export function DateBar({
         />
       </div>
 
-      {/* LEFT: save indicator (RTL → justify-self-end = left). */}
-      <div className="justify-self-end">
+      {/* LEFT cluster (RTL → justify-self-end = left): "back to now" button,
+          with a minimal save indicator to its right. */}
+      <div className="justify-self-end flex items-center gap-1.5">
         <SaveBadge status={saveStatus} />
+        <button
+          type="button"
+          onClick={jumpToNow.enabled ? jumpToNow.onJump : undefined}
+          disabled={!jumpToNow.enabled}
+          aria-label={
+            jumpToNow.enabled
+              ? `חזרה ל${jumpToNow.label}`
+              : `כבר ב${jumpToNow.label}`
+          }
+          className={`
+            shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-lg
+            text-[11px] font-semibold transition-colors
+            ${
+              jumpToNow.enabled
+                ? 'bg-forest-700 text-cream-50 hover:bg-forest-600'
+                : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
+            }
+          `}
+        >
+          <RotateCcw size={13} className="shrink-0" />
+          {jumpToNow.label}
+        </button>
       </div>
     </div>
   );
@@ -148,41 +180,38 @@ function StepArrow({
   );
 }
 
+// Save feedback is SILENT on success: auto-save is implicit, so a permanent
+// "נשמר" is just noise. We only surface the two states that matter — a soft
+// pulse WHILE saving, and a clear alert if a save FAILS.
 function SaveBadge({ status }: { status: SaveStatus }) {
-  // Fixed-size slot so the row never reflows as the status changes.
-  if (status === 'idle') {
-    return <span className="block w-5 h-5 shrink-0" aria-hidden />;
-  }
-  if (status === 'saved') {
-    return (
-      <CheckCircle2
-        size={17}
-        className="text-forest-500 shrink-0"
-        aria-label="נשמר"
-      />
-    );
-  }
   if (status === 'error') {
     return (
-      <span className="text-[11px] text-red-400 shrink-0" aria-live="polite">
+      <span
+        className="inline-flex items-center gap-0.5 text-[11px] text-red-400 shrink-0"
+        aria-live="polite"
+      >
+        <AlertCircle size={13} />
         שגיאה
       </span>
     );
   }
-  // pending / saving → three softly-pulsing dots (no "שומר" text).
-  return (
-    <span
-      className="inline-flex items-center gap-[3px] shrink-0"
-      aria-label="שומר"
-      aria-live="polite"
-    >
-      {[0, 0.18, 0.36].map((delay) => (
-        <span
-          key={delay}
-          className="vision-saving-dot w-1 h-1 rounded-full bg-ink-300"
-          style={{ animationDelay: `${delay}s` }}
-        />
-      ))}
-    </span>
-  );
+  if (status === 'pending' || status === 'saving') {
+    return (
+      <span
+        className="inline-flex items-center gap-[3px] shrink-0"
+        aria-label="שומר"
+        aria-live="polite"
+      >
+        {[0, 0.18, 0.36].map((delay) => (
+          <span
+            key={delay}
+            className="vision-saving-dot w-1 h-1 rounded-full bg-ink-300"
+            style={{ animationDelay: `${delay}s` }}
+          />
+        ))}
+      </span>
+    );
+  }
+  // idle / saved → nothing. "No news is good news."
+  return null;
 }

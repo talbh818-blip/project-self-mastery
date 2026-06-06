@@ -15,7 +15,7 @@
 // This component is purely presentational — all state lives in the Vision
 // screen so the drawer animation and the editor stay in sync.
 // ============================================================================
-import { ChevronDown, Rows3, LayoutGrid, RotateCcw } from 'lucide-react';
+import { ChevronDown, Rows3, LayoutGrid } from 'lucide-react';
 
 export type VisionView = 'layers' | 'board';
 
@@ -23,10 +23,7 @@ type Props = {
   /** Is the layered navigator currently expanded? */
   layersOpen: boolean;
   onToggleLayers: () => void;
-  /** "Jump to current period" (השנה / החודש / השבוע). Always rendered; goes
-   *  INACTIVE (enabled=false) when we're already on the current period. */
-  jumpToNow: { label: string; enabled: boolean; onJump: () => void };
-  /** Active view. Only 'layers' is wired today; 'board' is a placeholder. */
+  /** Active view: layered stack or the year map. */
   view: VisionView;
   onViewChange: (view: VisionView) => void;
 };
@@ -34,7 +31,6 @@ type Props = {
 export function VisionViewBar({
   layersOpen,
   onToggleLayers,
-  jumpToNow,
   view,
   onViewChange,
 }: Props) {
@@ -59,56 +55,28 @@ export function VisionViewBar({
         </ViewToggle>
       </div>
 
-      {/* physical LEFT (last DOM child): jump (right) + collapse chevron
-          (left-most). DOM order [jump][chevron] → in RTL the chevron lands
-          on the far left, the jump just to its right. */}
-      <div className="inline-flex items-center gap-1.5">
-        {/* Always present so it never shifts the layout; a solid green chip
-            when there's somewhere to jump to, a muted disabled chip when
-            we're already on the current period. */}
-        <button
-          type="button"
-          onClick={jumpToNow.enabled ? jumpToNow.onJump : undefined}
-          disabled={!jumpToNow.enabled}
-          aria-label={
-            jumpToNow.enabled
-              ? `חזרה ל${jumpToNow.label}`
-              : `כבר ב${jumpToNow.label}`
-          }
-          className={`
-            shrink-0 inline-flex items-center gap-1 h-7 px-3 rounded-lg
-            text-[11px] font-semibold transition-colors
-            ${
-              jumpToNow.enabled
-                ? 'bg-forest-700 text-on-accent hover:bg-forest-600'
-                : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
-            }
-          `}
-        >
-          <RotateCcw size={13} className="shrink-0" />
-          {jumpToNow.label}
-        </button>
-        {/* Collapse chevron — folds whichever navigator is active (the 3-layer
-            stack OR the year map) up and down like a drawer. */}
-        <button
-          type="button"
-          onClick={onToggleLayers}
-          aria-label={layersOpen ? 'כווץ תצוגה' : 'פתח תצוגה'}
-          aria-expanded={layersOpen}
-          className="
-            shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
-            bg-surface-raised ring-1 ring-surface-border
-            text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
-          "
-        >
-          <ChevronDown
-            size={16}
-            className={`transition-transform duration-300 ease-in-out ${
-              layersOpen ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
-      </div>
+      {/* physical LEFT (last DOM child): collapse chevron — folds whichever
+          navigator is active (the 3-layer stack OR the year map) like a
+          drawer. (The "back to now" control now lives in the editor's title
+          row, next to the save indicator.) */}
+      <button
+        type="button"
+        onClick={onToggleLayers}
+        aria-label={layersOpen ? 'כווץ תצוגה' : 'פתח תצוגה'}
+        aria-expanded={layersOpen}
+        className="
+          shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
+          bg-surface-raised ring-1 ring-surface-border
+          text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
+        "
+      >
+        <ChevronDown
+          size={16}
+          className={`transition-transform duration-300 ease-in-out ${
+            layersOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
     </div>
   );
 }
