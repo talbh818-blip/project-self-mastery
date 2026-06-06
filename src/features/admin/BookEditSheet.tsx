@@ -190,7 +190,7 @@ export function BookEditSheet({ open, book, onClose, onSubmit }: Props) {
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full py-3 rounded-2xl font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-cream-50 bg-forest-700 hover:bg-forest-800"
+            className="w-full py-3 rounded-2xl font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-on-accent bg-forest-700 hover:bg-forest-800"
           >
             {submitting ? 'שומר...' : isEditing ? 'שמור שינויים' : 'הוסף ספר'}
           </button>

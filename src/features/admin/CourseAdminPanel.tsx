@@ -91,7 +91,7 @@ export function CourseAdminPanel() {
         <button
           type="button"
           onClick={() => setEditing('new')}
-          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-forest-700 hover:bg-forest-800 text-cream-50"
+          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-forest-700 hover:bg-forest-800 text-on-accent"
         >
           <Plus size={16} />
           הוסף ספר

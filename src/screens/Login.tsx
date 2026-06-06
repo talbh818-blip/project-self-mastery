@@ -25,7 +25,7 @@ export function Login() {
       </p>
       <button
         onClick={signInWithGoogle}
-        className="bg-forest-700 hover:bg-forest-800 active:bg-forest-900 text-cream-50 font-medium px-7 py-3 rounded-2xl transition-colors shadow-sm"
+        className="bg-forest-700 hover:bg-forest-800 active:bg-forest-900 text-on-accent font-medium px-7 py-3 rounded-2xl transition-colors shadow-sm"
       >
         התחבר עם Google
       </button>

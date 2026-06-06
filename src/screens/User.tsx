@@ -105,7 +105,7 @@ export function User() {
             <UserCircle size={80} strokeWidth={1.2} className="text-ink-300" />
           )}
           <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-forest-700 flex items-center justify-center border-2 border-surface-card group-hover:bg-forest-600 transition-colors">
-            <Camera size={11} className="text-cream-50" />
+            <Camera size={11} className="text-on-accent" />
           </span>
         </button>
         <input
@@ -233,7 +233,7 @@ function ActionIcon({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="w-9 h-9 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-cream-50 flex items-center justify-center transition-colors"
+      className="w-9 h-9 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-on-accent flex items-center justify-center transition-colors"
     >
       {icon}
     </button>

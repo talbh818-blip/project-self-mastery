@@ -307,7 +307,7 @@ export function VisionToolbar({
             aria-label="הוסף שאלה מנחה"
             className="
               shrink-0 inline-flex items-center gap-1 px-2.5 h-10 rounded-lg
-              text-[13px] font-medium text-cream-50 bg-forest-700
+              text-[13px] font-medium text-on-accent bg-forest-700
               hover:bg-forest-600 transition-colors
             "
           >
@@ -330,7 +330,7 @@ function toolBtnClass(active: boolean): string {
     'h-10 flex items-center justify-center rounded-lg transition-colors',
     'disabled:opacity-30 disabled:pointer-events-none',
     active
-      ? 'bg-forest-700 text-cream-50'
+      ? 'bg-forest-700 text-on-accent'
       : 'text-ink-300 hover:bg-surface-raised hover:text-ink-100',
   ].join(' ');
 }

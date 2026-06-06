@@ -342,7 +342,7 @@ export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props)
           {/* Trees-planted badge — small circle pinned to the bottom-right
               of the tree illustration (visually right in both LTR and RTL). */}
           <span
-            className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-forest-600 text-cream-50 text-[11px] font-bold tabular-nums flex items-center justify-center shadow-md ring-2 ring-surface-card"
+            className="absolute -bottom-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-forest-600 text-on-accent text-[11px] font-bold tabular-nums flex items-center justify-center shadow-md ring-2 ring-surface-card"
             aria-label={`${treesPlanted} עצים נשתלו`}
           >
             {treesPlanted}
@@ -420,7 +420,7 @@ export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props)
             e.stopPropagation();
             handlePlant();
           }}
-          className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-95 transition-all py-2.5 text-cream-50 text-sm font-bold flex items-center justify-center gap-2 shadow-md btn-shimmer"
+          className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-95 transition-all py-2.5 text-on-accent text-sm font-bold flex items-center justify-center gap-2 shadow-md btn-shimmer"
         >
           <span>🎉</span>
           <span>העץ שלך מוכן לשתילה!</span>
@@ -1529,7 +1529,7 @@ function TreeFieldModal({
               <button
                 type="button"
                 onClick={startPlanting}
-                className="flex-1 rounded-xl bg-forest-500 hover:bg-forest-400 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md flex items-center justify-center gap-1.5 btn-shimmer"
+                className="flex-1 rounded-xl bg-forest-500 hover:bg-forest-400 active:scale-[0.98] transition-all py-3 text-on-accent text-sm font-bold shadow-md flex items-center justify-center gap-1.5 btn-shimmer"
               >
                 <Emoji emoji="🌍" size={16} />
                 <span>שתול את העץ שלך</span>
@@ -1547,7 +1547,7 @@ function TreeFieldModal({
               type="button"
               onClick={onClose}
               disabled={isAnimating}
-              className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-[0.98] transition-all py-3 text-cream-50 text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-wait disabled:active:scale-100"
+              className="mt-3 w-full rounded-xl bg-forest-600 hover:bg-forest-500 active:scale-[0.98] transition-all py-3 text-on-accent text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-wait disabled:active:scale-100"
             >
               המשך
             </button>

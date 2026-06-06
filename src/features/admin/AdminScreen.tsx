@@ -218,7 +218,7 @@ function TabBtn({
       onClick={onClick}
       className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
         active
-          ? 'bg-forest-700 text-cream-50 border-forest-700'
+          ? 'bg-forest-700 text-on-accent border-forest-700'
           : 'bg-surface-card text-ink-300 border-surface-border hover:text-ink-100'
       }`}
     >
@@ -268,7 +268,7 @@ function UserCard({
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="w-10 h-10 rounded-full bg-forest-700 text-cream-50 text-sm font-bold flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-full bg-forest-700 text-on-accent text-sm font-bold flex items-center justify-center shrink-0">
             {initials}
           </div>
         )}

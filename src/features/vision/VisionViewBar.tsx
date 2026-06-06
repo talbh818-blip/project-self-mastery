@@ -82,7 +82,7 @@ export function VisionViewBar({
             text-[11px] font-semibold transition-colors
             ${
               jumpToNow.enabled
-                ? 'bg-forest-700 text-cream-50 hover:bg-forest-600'
+                ? 'bg-forest-700 text-on-accent hover:bg-forest-600'
                 : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
             }
           `}

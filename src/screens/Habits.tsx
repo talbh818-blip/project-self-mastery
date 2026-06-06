@@ -250,7 +250,7 @@ export function Habits() {
             onClick={() => setViewMode('week')}
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
               viewMode === 'week'
-                ? 'bg-forest-700 text-cream-50'
+                ? 'bg-forest-700 text-on-accent'
                 : 'text-ink-300 hover:text-ink-100'
             }`}
             aria-label="תצוגה שבועית"
@@ -263,7 +263,7 @@ export function Habits() {
             onClick={() => setViewMode('month')}
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
               viewMode === 'month'
-                ? 'bg-forest-700 text-cream-50'
+                ? 'bg-forest-700 text-on-accent'
                 : 'text-ink-300 hover:text-ink-100'
             }`}
             aria-label="תצוגה חודשית"
@@ -276,7 +276,7 @@ export function Habits() {
             onClick={() => setViewMode('data')}
             className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center transition-colors ${
               viewMode === 'data'
-                ? 'bg-forest-700 text-cream-50'
+                ? 'bg-forest-700 text-on-accent'
                 : 'text-ink-300 hover:text-ink-100'
             }`}
             aria-label="תצוגת נתונים"

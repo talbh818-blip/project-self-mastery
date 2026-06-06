@@ -23,8 +23,13 @@
   --color-forest-800: #3d7a52;
   --color-forest-900: #285238;
 
-  /* Cream — text on green buttons, stays light */
+  /* Cream — text on coloured (habit) chips, stays light */
   --color-cream-50: #e8f2eb;
+
+  /* On-accent — text/icon colour for SOLID forest-green surfaces. In the
+     dark theme the greens are bright, so this is a near-black green for
+     contrast; the light theme flips it to cream (greens there are dark). */
+  --color-on-accent: #0c1f14;
 
   --font-sans: "Heebo", ui-sans-serif, system-ui, sans-serif;
 }
@@ -87,7 +92,11 @@ html[data-theme="light"] {
 
   /* Slightly deeper green on light backgrounds for contrast. */
   --color-forest-500: #3d7a52;
+  --color-forest-600: #356b47;
   --color-forest-700: #2f6240;
+
+  /* Light theme greens are dark, so on-accent text flips back to cream. */
+  --color-on-accent: #e8f2eb;
 }
 
 .pb-safe {

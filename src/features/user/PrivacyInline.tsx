@@ -67,7 +67,7 @@ export function PrivacyInline() {
               onClick={() => save(opt.value)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] transition-colors ${
                 active
-                  ? 'bg-forest-700 text-cream-50'
+                  ? 'bg-forest-700 text-on-accent'
                   : 'text-ink-300 hover:text-ink-100'
               }`}
             >

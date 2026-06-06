@@ -129,7 +129,7 @@ export function DatePickerSheet({ open, value, onConfirm, onClose }: Props) {
             type="button"
             onClick={handleConfirm}
             aria-label="אישור"
-            className="w-9 h-9 flex items-center justify-center rounded-xl text-cream-50 bg-forest-700 hover:bg-forest-600"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-on-accent bg-forest-700 hover:bg-forest-600"
           >
             <Check size={18} />
           </button>

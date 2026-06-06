@@ -283,7 +283,7 @@ export function HabitPickerSheet({
                     onClick={() => handleIconModeChange('icons')}
                     className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
                       iconMode === 'icons'
-                        ? 'bg-forest-700 text-cream-50'
+                        ? 'bg-forest-700 text-on-accent'
                         : 'text-ink-300 hover:text-ink-100'
                     }`}
                   >
@@ -294,7 +294,7 @@ export function HabitPickerSheet({
                     onClick={() => handleIconModeChange('emojis')}
                     className={`px-3 py-1 rounded-full text-[11px] transition-colors ${
                       iconMode === 'emojis'
-                        ? 'bg-forest-700 text-cream-50'
+                        ? 'bg-forest-700 text-on-accent'
                         : 'text-ink-300 hover:text-ink-100'
                     }`}
                   >
@@ -350,7 +350,7 @@ export function HabitPickerSheet({
                       title={label}
                       className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
                         descriptionFormat === fmt
-                          ? 'bg-forest-700 text-cream-50'
+                          ? 'bg-forest-700 text-on-accent'
                           : 'text-ink-300 hover:text-ink-100'
                       }`}
                     >
@@ -464,7 +464,7 @@ export function HabitPickerSheet({
                           onClick={() => setFrequencyPeriod(opt.v)}
                           className={`py-2 rounded-xl text-sm transition-colors ${
                             frequencyPeriod === opt.v
-                              ? 'bg-forest-700 text-cream-50'
+                              ? 'bg-forest-700 text-on-accent'
                               : 'bg-surface-raised text-ink-300 hover:text-ink-100'
                           }`}
                         >
