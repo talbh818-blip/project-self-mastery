@@ -1,5 +1,48 @@
 import { supabase } from '../../lib/supabase';
-import type { PublicProfileRow, PublicProfileDetail } from '../admin/types';
+import type {
+  PublicProfileRow,
+  PublicProfileDetail,
+  Gender,
+  Visibility,
+} from '../admin/types';
+
+// One habit as exposed on another user's dashboard (no logs inline).
+export type DashboardHabit = {
+  id: string;
+  name: string;
+  icon: string;
+  type: 'positive' | 'negative';
+  color: string;
+};
+
+// Per-day count of successful (V) marks across the user's habits.
+export type DailyV = { date: string; v: number };
+
+// Shape returned by get_user_dashboard(target). habits/daily present only
+// when can_view_habits is true.
+export type UserDashboard = {
+  id: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  gender: Gender | null;
+  created_at: string;
+  trees_planted: number;
+  score: number;
+  habit_count: number;
+  vision_count: number;
+  habits_visibility: Visibility;
+  can_view_habits: boolean;
+  habits?: DashboardHabit[];
+  daily?: DailyV[];
+};
+
+export async function fetchUserDashboard(
+  target: string,
+): Promise<UserDashboard | null> {
+  const { data, error } = await supabase.rpc('get_user_dashboard', { target });
+  if (error) throw error;
+  return (data as UserDashboard | null) ?? null;
+}
 
 // Fetches the directory of active users for the User screen.
 // Calls a SECURITY DEFINER function that returns only safe-to-share columns,
