@@ -24,13 +24,30 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
 // Lightweight activity rollup. Admin sees one summary number per user; we
 // don't need the full scoring pipeline (bonuses, etc.) — that's per-user
 // and shown inside that user's own UI.
+//
+// habit_count uses the SAME definition as list_active_profiles() in
+// migration 0028: "distinct habits currently sitting in a slot (open
+// assignment) and not archived". Counting every non-archived row in
+// `habits` is wrong because habits are immutable history — when a slot
+// gets swapped, the old row sticks around so its log history stays
+// inspectable. Without the assignment filter, a user who has cycled
+// through 14 habits but only tracks 3 right now shows up as 14.
 export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> {
-  const [logsRes, habitsRes] = await Promise.all([
+  const [logsRes, habitsRes, assignmentsRes] = await Promise.all([
     supabase.from('habit_logs').select('user_id,status'),
-    supabase.from('habits').select('user_id,archived_at'),
+    supabase.from('habits').select('id,user_id,archived_at'),
+    supabase.from('habit_slot_assignments').select('habit_id,end_date'),
   ]);
   if (logsRes.error) throw logsRes.error;
   if (habitsRes.error) throw habitsRes.error;
+  if (assignmentsRes.error) throw assignmentsRes.error;
+
+  // Set of habit_ids that currently have an open slot assignment.
+  const habitsWithOpenAssignment = new Set<string>();
+  for (const row of assignmentsRes.data ?? []) {
+    const r = row as { habit_id: string; end_date: string | null };
+    if (r.end_date === null) habitsWithOpenAssignment.add(r.habit_id);
+  }
 
   const map = new Map<string, UserActivity>();
   const get = (uid: string): UserActivity => {
@@ -53,8 +70,10 @@ export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> 
     }
   }
   for (const row of habitsRes.data ?? []) {
-    if ((row as { archived_at: string | null }).archived_at !== null) continue;
-    const r = get(row.user_id as string);
+    const h = row as { id: string; user_id: string; archived_at: string | null };
+    if (h.archived_at !== null) continue;
+    if (!habitsWithOpenAssignment.has(h.id)) continue;
+    const r = get(h.user_id);
     r.habit_count++;
   }
 
