@@ -13,6 +13,7 @@ import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
 import { VisionLayers } from '../features/vision/VisionLayers';
 import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar';
+import { VisionYearMap } from '../features/vision/VisionYearMap';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { fetchVisionRowMeta } from '../features/vision/queries';
@@ -21,8 +22,10 @@ import { isVisionContentEmpty } from '../features/vision/content';
 import { useAuth } from '../hooks/useAuth';
 import { CompassLoader } from '../components/CompassLoader';
 import {
+  addAnchor,
   getPeriodKey,
   isFuturePeriod,
+  parsePeriodStart,
   type VisionScope,
 } from '../features/vision/period';
 
@@ -207,18 +210,32 @@ export function Vision() {
     setLevel(targetLevel);
   };
 
-  // "Jump to now" for the CURRENT level — always shown in the top bar, but
-  // INACTIVE when we're already on the current period (nothing to jump to).
-  const isCurrentPeriod = periodKey === getPeriodKey(level, today);
-  const jumpToNow = {
-    label:
-      level === 'yearly'
-        ? 'השנה'
-        : level === 'monthly'
-          ? 'החודש'
-          : 'השבוע',
-    enabled: !isCurrentPeriod,
-    onJump: () => setAnchor(today),
+  // "Jump to now" — always shown in the top bar, INACTIVE when there's
+  // nothing to jump to. In the map view it resets to the current YEAR; in the
+  // layered view it resets the active level to its current period.
+  const jumpToNow =
+    view === 'board'
+      ? {
+          label: 'השנה',
+          enabled: anchor.getFullYear() !== today.getFullYear(),
+          onJump: () => setAnchor(today),
+        }
+      : {
+          label:
+            level === 'yearly'
+              ? 'השנה'
+              : level === 'monthly'
+                ? 'החודש'
+                : 'השבוע',
+          enabled: periodKey !== getPeriodKey(level, today),
+          onJump: () => setAnchor(today),
+        };
+
+  // Map-view navigation: tapping a period jumps to it in the layered view.
+  const goToPeriod = (targetLevel: VisionScope, targetAnchor: Date) => {
+    setAnchor(targetAnchor);
+    setLevel(targetLevel);
+    setView('layers');
   };
 
   return (
@@ -232,48 +249,66 @@ export function Vision() {
         onViewChange={setView}
       />
 
-      {/* Layered navigator — collapses as a drawer. The grid 0fr↔1fr trick
-          animates real content height with no JS measuring; the inner wrapper
-          clips during the fold. */}
-      <div
-        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-        style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
-      >
-        <div className="overflow-hidden min-h-0">
-          <VisionLayers
-            level={level}
-            anchor={anchor}
-            onPick={pick}
-            icons={icons}
-            written={written}
-          />
-        </div>
-      </div>
-
-      {/* Body — flat-top writing surface flush under the nav's divider. */}
-      {locked ? (
-        <LockedNotice level={level} />
-      ) : loading ? (
-        <div className="vision-page py-10">
-          <CompassLoader size="md" />
-        </div>
-      ) : (
-        <VisionEditor
-          // resetKey re-mounts the editor when the period changes — and when
-          // contentVersion bumps (external/live content replaced what's
-          // shown), so cross-device edits become visible.
-          resetKey={`${level}:${periodKey}:${contentVersion}`}
-          scope={level}
-          zoomDir={zoomDir}
-          initialContent={entry?.content ?? null}
-          placeholder={PLACEHOLDERS[level]}
-          saveStatus={status}
-          documentDate={documentDate}
-          onDateChange={(iso) => void setDocumentDate(iso)}
-          icon={icons[level] ?? null}
-          onIconClick={() => setIconPickerLevel(level)}
-          onChange={handleEditorChange}
+      {view === 'board' ? (
+        <VisionYearMap
+          userId={userId}
+          year={anchor.getFullYear()}
+          today={today}
+          onStepYear={(delta) => setAnchor(addAnchor('yearly', anchor, delta))}
+          onPickYear={() => goToPeriod('yearly', anchor)}
+          onPickMonth={(monthKey) =>
+            goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+          }
+          onPickWeek={(weekKey) =>
+            goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+          }
         />
+      ) : (
+        <>
+          {/* Layered navigator — collapses as a drawer. The grid 0fr↔1fr trick
+              animates real content height with no JS measuring; the inner
+              wrapper clips during the fold. */}
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
+          >
+            <div className="overflow-hidden min-h-0">
+              <VisionLayers
+                level={level}
+                anchor={anchor}
+                onPick={pick}
+                icons={icons}
+                written={written}
+              />
+            </div>
+          </div>
+
+          {/* Body — flat-top writing surface flush under the nav's divider. */}
+          {locked ? (
+            <LockedNotice level={level} />
+          ) : loading ? (
+            <div className="vision-page py-10">
+              <CompassLoader size="md" />
+            </div>
+          ) : (
+            <VisionEditor
+              // resetKey re-mounts the editor when the period changes — and
+              // when contentVersion bumps (external/live content replaced
+              // what's shown), so cross-device edits become visible.
+              resetKey={`${level}:${periodKey}:${contentVersion}`}
+              scope={level}
+              zoomDir={zoomDir}
+              initialContent={entry?.content ?? null}
+              placeholder={PLACEHOLDERS[level]}
+              saveStatus={status}
+              documentDate={documentDate}
+              onDateChange={(iso) => void setDocumentDate(iso)}
+              icon={icons[level] ?? null}
+              onIconClick={() => setIconPickerLevel(level)}
+              onChange={handleEditorChange}
+            />
+          )}
+        </>
       )}
 
       {/* Icon picker — opened from the DateBar's icon button (current level). */}
