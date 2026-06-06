@@ -162,12 +162,17 @@ export function EditDetailsSheet({ open, onClose }: Props) {
                     onClick={() =>
                       setGender((g) => (g === opt.value ? null : opt.value))
                     }
-                    className={`flex-1 py-2 rounded-lg text-sm transition-colors ${
+                    className={`flex-1 py-2 rounded-lg text-sm flex items-center justify-center gap-1.5 transition-colors ${
                       active
                         ? 'bg-forest-700 text-on-accent font-semibold'
                         : 'text-ink-300 hover:text-ink-100'
                     }`}
                   >
+                    {opt.value === 'male' ? (
+                      <MaleIcon size={16} />
+                    ) : (
+                      <FemaleIcon size={16} />
+                    )}
                     {opt.label}
                   </button>
                 );
@@ -216,5 +221,47 @@ function Field({
       {children}
       {hint && <p className="text-[10px] text-ink-500 mt-1">{hint}</p>}
     </div>
+  );
+}
+
+// Lucide-style gender glyphs (the icon set doesn't ship Mars/Venus in this
+// version). 24×24 viewBox, currentColor stroke — matches the other icons.
+function MaleIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="10" cy="14" r="6" />
+      <path d="M14.5 9.5 19 5" />
+      <path d="M15 5h4v4" />
+    </svg>
+  );
+}
+
+function FemaleIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="6" />
+      <path d="M12 14v8" />
+      <path d="M9 19h6" />
+    </svg>
   );
 }
