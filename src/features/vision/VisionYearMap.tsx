@@ -147,8 +147,8 @@ export function VisionYearMap({
           type="button"
           onClick={onPickYear}
           className={`
-            flex-1 inline-flex items-center justify-center gap-1.5 h-8 rounded-lg
-            text-sm font-bold transition-colors
+            flex-1 inline-flex items-center justify-center gap-1.5 h-7 rounded-lg
+            text-[13px] font-bold transition-colors
             ${
               isYearSelected
                 ? 'bg-forest-700/30 text-ink-100 ring-2 ring-forest-600'
@@ -200,7 +200,7 @@ export function VisionYearMap({
                     text-[10px] font-semibold leading-none transition-colors
                     ${
                       isMonthSelected
-                        ? 'bg-forest-700/30 text-forest-200 ring-1 ring-forest-600'
+                        ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
                         : isCurrentMonth
                           ? 'bg-forest-700/20 text-forest-300'
                           : 'text-ink-300 hover:text-ink-100'
@@ -322,7 +322,7 @@ function MapArrow({
       onClick={onClick}
       disabled={disabled}
       className="
-        shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg
+        shrink-0 inline-flex items-center justify-center w-8 h-7 rounded-lg
         bg-surface-raised text-forest-500 hover:text-forest-300
         disabled:opacity-25 transition-colors
       "
