@@ -14,15 +14,42 @@ import {
   Shield,
   FileText,
   ChevronLeft,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useCurrentProfile } from '../features/admin/ProfileContext';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 import { updateTheme, uploadAvatar } from '../features/user/mutations';
 import { EditDetailsSheet } from '../features/user/EditDetailsSheet';
 import { TicketSheet } from '../features/user/TicketSheet';
+import { InstallSheet } from '../features/user/InstallSheet';
 import { PrivacyInline } from '../features/user/PrivacyInline';
 import { UsersDirectory } from '../features/user/UsersDirectory';
 import type { Theme } from '../features/admin/types';
+
+// Forces the freshest build: ask the SW to update, wipe caches, reload.
+// Solves the "still seeing the old version" problem without DevTools.
+async function forceAppUpdate(): Promise<void> {
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update();
+        reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+      }
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch (e) {
+    console.error('[update] failed:', e);
+  } finally {
+    // Cache-busted reload so index.html is fetched from the network.
+    window.location.reload();
+  }
+}
 
 export function User() {
   const { user, signOut } = useAuth();
@@ -31,7 +58,25 @@ export function User() {
   const [uploading, setUploading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [ticketOpen, setTicketOpen] = useState(false);
+  const [installOpen, setInstallOpen] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { canInstall, installed, isIOS, promptInstall } = useInstallPrompt();
+
+  const handleInstall = async () => {
+    if (canInstall) {
+      const outcome = await promptInstall();
+      if (outcome === 'unavailable') setInstallOpen(true);
+      return;
+    }
+    // No native prompt (iOS, already installed, or unsupported) → guidance.
+    setInstallOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    setUpdating(true);
+    await forceAppUpdate(); // navigates away (reload); no need to reset state
+  };
 
   const handleAvatarClick = () => fileInputRef.current?.click();
 
@@ -126,18 +171,33 @@ export function User() {
           {uploading && (
             <p className="text-[10px] text-ink-300 mt-0.5">מעלה תמונה…</p>
           )}
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <ActionIcon
               onClick={() => setEditOpen(true)}
-              icon={<Pencil size={16} />}
+              icon={<Pencil size={15} />}
               label="ערוך פרטים אישיים"
             />
             <ActionIcon
               onClick={() => setTicketOpen(true)}
-              icon={<HelpCircle size={16} />}
+              icon={<HelpCircle size={15} />}
               label="פידבק ועזרה"
             />
             <ThemeToggle theme={theme} onToggle={handleThemeToggle} />
+            <ActionIcon
+              onClick={handleInstall}
+              icon={<Download size={15} />}
+              label="התקן אפליקציה"
+            />
+            <ActionIcon
+              onClick={handleUpdate}
+              icon={
+                <RefreshCw
+                  size={15}
+                  className={updating ? 'animate-spin' : ''}
+                />
+              }
+              label="עדכן לגרסה האחרונה"
+            />
           </div>
         </div>
       </div>
@@ -174,6 +234,12 @@ export function User() {
 
       <EditDetailsSheet open={editOpen} onClose={() => setEditOpen(false)} />
       <TicketSheet open={ticketOpen} onClose={() => setTicketOpen(false)} />
+      <InstallSheet
+        open={installOpen}
+        isIOS={isIOS}
+        installed={installed}
+        onClose={() => setInstallOpen(false)}
+      />
     </section>
   );
 }
@@ -233,7 +299,7 @@ function ActionIcon({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="w-9 h-9 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-on-accent flex items-center justify-center transition-colors"
+      className="w-8 h-8 shrink-0 rounded-full bg-surface-raised text-ink-300 hover:bg-forest-700 hover:text-on-accent flex items-center justify-center transition-colors"
     >
       {icon}
     </button>
