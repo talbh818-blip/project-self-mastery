@@ -624,6 +624,29 @@ html {
   .vision-label-anim { animation: none; }
 }
 
+/* Vision free-scroll feed — a slim, in-app scrollbar (not the bare OS gray).
+   The scroll container is dir:ltr so the bar sits on the RIGHT (its content
+   is re-flipped to dir:rtl), matching the app's reading direction. */
+.vision-feed-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-forest-700, #2f5d3a) transparent;
+}
+.vision-feed-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.vision-feed-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.vision-feed-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-forest-700, #2f5d3a);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.vision-feed-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-forest-600, #3a7249);
+}
+
 /* "Saving…" indicator — three dots that fade in sequence (a soft typing-style
    pulse) instead of the word "שומר". Each dot is staggered by 0.18s. */
 @keyframes vision-saving-dot {
