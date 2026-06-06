@@ -105,25 +105,6 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
     scrolledRef.current = true;
   }, [initialKey, timeline, loading, q]);
 
-  // Ring the vision crossing the centre line ("you are here").
-  const [currentKey, setCurrentKey] = useState<string>(initialKey);
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const obs = new IntersectionObserver(
-      (entriesObs) => {
-        for (const e of entriesObs) {
-          if (!e.isIntersecting) continue;
-          const key = (e.target as HTMLElement).dataset.key;
-          if (key) setCurrentKey((prev) => (prev === key ? prev : key));
-        }
-      },
-      { root: container, rootMargin: '-50% 0px -50% 0px', threshold: 0 },
-    );
-    for (const el of itemRefs.current.values()) obs.observe(el);
-    return () => obs.disconnect();
-  }, [filtered, loading]);
-
   return (
     <div dir="rtl" className="flex flex-col gap-2 mt-1">
       {/* Search */}
@@ -175,12 +156,10 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
             ) : (
               filtered.map(({ item, icon, title, text }) => {
                 const hasText = text.length > 0;
-                const isCurrent = !q && item.key === currentKey;
                 // Subtle level cue: month/year cards get a faint forest tint
                 // (year a touch stronger + larger title); weeks stay neutral.
-                const bg = isCurrent
-                  ? 'bg-surface-card ring-2 ring-forest-600'
-                  : item.scope === 'yearly'
+                const bg =
+                  item.scope === 'yearly'
                     ? 'bg-forest-700/[0.16] hover:bg-forest-700/20'
                     : item.scope === 'monthly'
                       ? 'bg-forest-700/[0.10] hover:bg-forest-700/[0.14]'

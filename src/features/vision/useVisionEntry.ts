@@ -122,6 +122,10 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
   // JSON of the content currently in the editor — the yardstick for deciding
   // whether an incoming row is genuinely new (external) and needs a re-mount.
   const displayedRef = useRef<string>('');
+  // Live mirror of the loaded entry, so non-reactive callbacks (the online
+  // retry) can compare against the DB's timestamp without a stale closure.
+  const entryRef = useRef<VisionEntry | null>(null);
+  entryRef.current = entry;
 
   // Load whenever (user, scope, periodKey) changes.
   useEffect(() => {
@@ -317,6 +321,16 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
       const key = lsKey(userId, scope, periodKey);
       const draft = readDraft(key);
       if (!draft) return; // nothing unsynced for this period
+      // SAFETY: only push a draft that is genuinely NEWER than what's already
+      // in the DB. Without this, a stale/empty draft could clobber good cloud
+      // content on a network blip.
+      const dbTs = entryRef.current
+        ? new Date(entryRef.current.updated_at).getTime()
+        : 0;
+      if (draft.updatedAt <= dbTs) {
+        clearDraftIfOlder(key, entryRef.current?.updated_at ?? '');
+        return;
+      }
       const myReq = reqIdRef.current;
       setStatus('saving');
       upsertVisionEntry(userId, scope, periodKey, draft.content)
