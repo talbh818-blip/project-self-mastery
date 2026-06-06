@@ -381,16 +381,9 @@ function formatVisionTitle(level: VisionScope, anchor: Date): string {
   if (level === 'monthly') {
     return `חזון חודשי · ${monthName(anchor)} ${anchor.getFullYear()}`;
   }
-  // weekly — Sunday→Saturday range, compact numeric.
+  // weekly — short: just the Sunday that opens the week (day.month).
   const start = parsePeriodStart('weekly', getWeekKey(anchor));
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  const yy = String(end.getFullYear()).slice(-2);
-  const range =
-    start.getMonth() === end.getMonth()
-      ? `${start.getDate()}–${end.getDate()}.${end.getMonth() + 1}.${yy}`
-      : `${start.getDate()}.${start.getMonth() + 1}–${end.getDate()}.${end.getMonth() + 1}.${yy}`;
-  return `חזון שבועי · ${range}`;
+  return `חזון שבועי · ${start.getDate()}.${start.getMonth() + 1}`;
 }
 
 function LockedNotice({ level }: { level: VisionScope }) {

@@ -45,33 +45,56 @@ export function DateBar({
   saveStatus,
 }: Props) {
   return (
+    // 3-column grid with equal-width flanks (1fr each) so the TITLE in the
+    // middle column is truly centred in the row regardless of how wide the
+    // side controls are.
     <div
       dir="rtl"
-      className="flex items-center gap-2 pb-2 mb-3 border-b border-surface-border"
+      className="grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 pb-2 mb-3 border-b border-surface-border"
     >
-      {/* Icon picker — RIGHT-most in RTL. */}
-      <button
-        type="button"
-        onClick={onIconClick}
-        aria-label="בחר אייקון לחזון"
-        title="בחר אייקון לחזון"
-        className={`
-          shrink-0 inline-flex items-center justify-center
-          h-7 w-7 rounded-lg transition-all
-          ${icon
-            ? 'bg-forest-700/25 text-ink-100'
-            : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
-        `}
-      >
-        {icon ? (
-          <HabitIcon name={icon} size={16} />
-        ) : (
-          <SmilePlus size={15} strokeWidth={1.9} />
-        )}
-      </button>
+      {/* RIGHT cluster: icon picker + assist (RTL → justify-self-start = right). */}
+      <div className="flex items-center gap-1.5 justify-self-start">
+        <button
+          type="button"
+          onClick={onIconClick}
+          aria-label="בחר אייקון לחזון"
+          title="בחר אייקון לחזון"
+          className={`
+            shrink-0 inline-flex items-center justify-center
+            h-7 w-7 rounded-lg transition-all
+            ${icon
+              ? 'bg-forest-700/25 text-ink-100'
+              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
+          `}
+        >
+          {icon ? (
+            <HabitIcon name={icon} size={16} />
+          ) : (
+            <SmilePlus size={15} strokeWidth={1.9} />
+          )}
+        </button>
 
-      {/* Title + period steppers — the centrepiece. */}
-      <div className="flex-1 min-w-0 flex items-center justify-center gap-1">
+        {/* Assist — compact 💡 toggle, immediately after the icon picker. */}
+        <button
+          type="button"
+          onClick={onToggleAssist}
+          aria-label="מצב כתיבה מודרכת"
+          aria-pressed={assistOn}
+          title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
+          className={`
+            shrink-0 inline-flex items-center justify-center
+            h-7 w-7 rounded-lg transition-all
+            ${assistOn
+              ? 'bg-forest-700/25 ring-1 ring-forest-700'
+              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 opacity-70'}
+          `}
+        >
+          <Emoji emoji="💡" size={15} ariaLabel="" />
+        </button>
+      </div>
+
+      {/* CENTRE: title + period steppers — dead-centre in the row. */}
+      <div className="min-w-0 flex items-center justify-center gap-1">
         <StepArrow
           dir="prev"
           aria-label="התקופה הקודמת"
@@ -88,26 +111,10 @@ export function DateBar({
         />
       </div>
 
-      {/* Assist — compact icon toggle (no wide label). */}
-      <button
-        type="button"
-        onClick={onToggleAssist}
-        aria-label="מצב כתיבה מודרכת"
-        aria-pressed={assistOn}
-        title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
-        className={`
-          shrink-0 inline-flex items-center justify-center
-          h-7 w-7 rounded-lg transition-all
-          ${assistOn
-            ? 'bg-forest-700/25 ring-1 ring-forest-700'
-            : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 opacity-70'}
-        `}
-      >
-        <Emoji emoji="💡" size={15} ariaLabel="" />
-      </button>
-
-      {/* Save status — LEFT-most in RTL. */}
-      <SaveBadge status={saveStatus} />
+      {/* LEFT: save indicator (RTL → justify-self-end = left). */}
+      <div className="justify-self-end">
+        <SaveBadge status={saveStatus} />
+      </div>
     </div>
   );
 }
@@ -142,30 +149,40 @@ function StepArrow({
 }
 
 function SaveBadge({ status }: { status: SaveStatus }) {
+  // Fixed-size slot so the row never reflows as the status changes.
   if (status === 'idle') {
-    // Reserve a tiny invisible slot so nothing jumps when the status first
-    // appears after the first keystroke.
-    return <span className="w-0 h-4 shrink-0" aria-hidden />;
+    return <span className="block w-5 h-5 shrink-0" aria-hidden />;
   }
-  const text =
-    status === 'pending' || status === 'saving'
-      ? 'שומר…'
-      : status === 'saved'
-        ? 'נשמר'
-        : 'שגיאה';
-  const color =
-    status === 'error'
-      ? 'text-red-400'
-      : status === 'saved'
-        ? 'text-forest-500'
-        : 'text-ink-300';
+  if (status === 'saved') {
+    return (
+      <CheckCircle2
+        size={17}
+        className="text-forest-500 shrink-0"
+        aria-label="נשמר"
+      />
+    );
+  }
+  if (status === 'error') {
+    return (
+      <span className="text-[11px] text-red-400 shrink-0" aria-live="polite">
+        שגיאה
+      </span>
+    );
+  }
+  // pending / saving → three softly-pulsing dots (no "שומר" text).
   return (
     <span
-      className={`text-[11px] ${color} flex items-center gap-1 shrink-0`}
+      className="inline-flex items-center gap-[3px] shrink-0"
+      aria-label="שומר"
       aria-live="polite"
     >
-      {status === 'saved' && <CheckCircle2 size={11} />}
-      {text}
+      {[0, 0.18, 0.36].map((delay) => (
+        <span
+          key={delay}
+          className="vision-saving-dot w-1 h-1 rounded-full bg-ink-300"
+          style={{ animationDelay: `${delay}s` }}
+        />
+      ))}
     </span>
   );
 }
