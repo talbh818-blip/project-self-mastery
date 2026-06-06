@@ -58,3 +58,27 @@ export type PublicProfileDetail = Omit<PublicProfileRow, 'is_me'> & {
   can_view_vision: boolean;
   can_view_habits: boolean;
 };
+
+// Row shape of public.support_tickets. Keep in sync with migration 0012.
+export type TicketKind = 'feedback' | 'support';
+export type TicketStatus = 'open' | 'closed';
+
+export type SupportTicket = {
+  id: string;
+  user_id: string;
+  kind: TicketKind;
+  subject: string | null;
+  message: string;
+  status: TicketStatus;
+  created_at: string;
+};
+
+// Ticket joined with a thin slice of the submitter's profile so the admin
+// list can show "who sent this" without an extra round-trip per row.
+export type TicketWithSubmitter = SupportTicket & {
+  submitter: {
+    display_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  } | null;
+};

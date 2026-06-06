@@ -19,13 +19,14 @@ import {
 import type { Profile } from './types';
 import { CompassLoader } from '../../components/CompassLoader';
 import { CourseAdminPanel } from './CourseAdminPanel';
+import { FeedbackAdminPanel } from './FeedbackAdminPanel';
 
 type Row = {
   profile: Profile;
   activity: UserActivity | null;
 };
 
-type AdminTab = 'users' | 'course';
+type AdminTab = 'users' | 'feedback' | 'course';
 
 export function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('users');
@@ -133,36 +134,38 @@ export function AdminScreen() {
 
   return (
     <section className="text-ink-100">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-semibold">ניהול</h1>
-        {tab === 'users' && (
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
-            aria-label="רענן"
-          >
-            <RefreshCw size={16} />
-            רענן
-          </button>
-        )}
-      </div>
-
-      {/* Tab switcher: users ↔ course catalog */}
+      {/* Tab switcher: users / feedback / course catalog */}
       <div className="flex gap-2 mb-4">
         <TabBtn active={tab === 'users'} onClick={() => setTab('users')}>
           משתמשים
+        </TabBtn>
+        <TabBtn active={tab === 'feedback'} onClick={() => setTab('feedback')}>
+          פידבק
         </TabBtn>
         <TabBtn active={tab === 'course'} onClick={() => setTab('course')}>
           קורס
         </TabBtn>
       </div>
 
-      {tab === 'course' ? (
-        <CourseAdminPanel />
-      ) : (
+      {tab === 'course' && <CourseAdminPanel />}
+      {tab === 'feedback' && <FeedbackAdminPanel />}
+      {tab === 'users' && (
         <>
+          {/* Refresh button — sits inside the users panel since the other
+              panels own their own refresh internally. */}
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
+              aria-label="רענן"
+            >
+              <RefreshCw size={16} />
+              רענן
+            </button>
+          </div>
+
           {error && (
             <div className="mb-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
               {error}

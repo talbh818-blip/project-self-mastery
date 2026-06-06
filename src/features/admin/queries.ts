@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import type { Profile } from './types';
+import type { Profile, SupportTicket, TicketStatus, TicketWithSubmitter } from './types';
 
 // Per-user activity totals derived from habit_logs.
 // Returned for every user shown in the admin list.
@@ -65,6 +65,56 @@ export async function updateProfile(
   patch: Partial<Pick<Profile, 'blocked' | 'trees_planted' | 'score_adjustment' | 'display_name'>>,
 ): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+  if (error) throw error;
+}
+
+// ---------------------------------------------------------------------------
+// Support tickets — feedback + support submissions from the User screen.
+// Admin RLS (migration 0012) lets admins read/update every row.
+// ---------------------------------------------------------------------------
+export async function fetchAllTickets(): Promise<TicketWithSubmitter[]> {
+  // Two queries instead of a join: PostgREST joins via foreign-key embedding
+  // work only when an FK to profiles exists; here support_tickets.user_id
+  // points at auth.users, not public.profiles. Fetching profiles separately
+  // and zipping them client-side is robust and clearer.
+  const { data: tickets, error: tErr } = await supabase
+    .from('support_tickets')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (tErr) throw tErr;
+  const ticketRows = (tickets ?? []) as SupportTicket[];
+  if (ticketRows.length === 0) return [];
+
+  const userIds = Array.from(new Set(ticketRows.map((t) => t.user_id)));
+  const { data: profiles, error: pErr } = await supabase
+    .from('profiles')
+    .select('id,display_name,email,avatar_url')
+    .in('id', userIds);
+  if (pErr) throw pErr;
+
+  const byId = new Map<
+    string,
+    { display_name: string | null; email: string | null; avatar_url: string | null }
+  >();
+  for (const p of profiles ?? []) {
+    const row = p as { id: string; display_name: string | null; email: string | null; avatar_url: string | null };
+    byId.set(row.id, {
+      display_name: row.display_name,
+      email: row.email,
+      avatar_url: row.avatar_url,
+    });
+  }
+  return ticketRows.map((t) => ({ ...t, submitter: byId.get(t.user_id) ?? null }));
+}
+
+export async function updateTicketStatus(
+  ticketId: string,
+  status: TicketStatus,
+): Promise<void> {
+  const { error } = await supabase
+    .from('support_tickets')
+    .update({ status })
+    .eq('id', ticketId);
   if (error) throw error;
 }
 
