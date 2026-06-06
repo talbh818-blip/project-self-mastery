@@ -13,6 +13,8 @@ export type DashboardHabit = {
   icon: string;
   type: 'positive' | 'negative';
   color: string;
+  /** % of resolved days marked V; null when nothing logged yet. */
+  success_pct: number | null;
 };
 
 // Per-day count of successful (V) marks across the user's habits.

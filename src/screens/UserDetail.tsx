@@ -123,6 +123,14 @@ export function UserDetail() {
                   >
                     <HabitIcon name={h.icon} size={16} strokeWidth={1.8} />
                     <span className="text-xs text-ink-100">{h.name}</span>
+                    {h.success_pct !== null && (
+                      <span
+                        className="text-[11px] font-semibold text-forest-500 tabular-nums"
+                        title="אחוז הצלחה (מתוך הימים שתועדו)"
+                      >
+                        {h.success_pct}%
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
