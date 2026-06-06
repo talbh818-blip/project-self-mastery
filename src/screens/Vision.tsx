@@ -15,6 +15,7 @@ import { VisionLayers } from '../features/vision/VisionLayers';
 import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar';
 import { VisionYearMap } from '../features/vision/VisionYearMap';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { fetchVisionRowMeta } from '../features/vision/queries';
 import { updateVisionEntryIcon } from '../features/vision/mutations';
@@ -360,8 +361,34 @@ export function Vision() {
         </div>
       </div>
 
-      {/* The chosen vision — shown beneath whichever view is active. */}
-      <div className={view === 'board' ? 'mt-4' : ''}>{editorBlock}</div>
+      {/* The chosen vision — shown beneath whichever view is active. Wrapped
+          in an error boundary so a transient editor remount crash (Tiptap's
+          destroy/recreate race on fast navigation) self-heals instead of
+          black-screening the app. Resets on every period/level change. */}
+      <div className={view === 'board' ? 'mt-4' : ''}>
+        <ErrorBoundary
+          resetKeys={[level, periodKey, contentVersion]}
+          pendingFallback={
+            <div className="vision-page py-10">
+              <CompassLoader size="md" />
+            </div>
+          }
+          fallback={(retry) => (
+            <div className="vision-page text-center py-10">
+              <p className="text-ink-100 font-medium">משהו השתבש בטעינת החזון</p>
+              <button
+                type="button"
+                onClick={retry}
+                className="mt-3 inline-flex items-center h-9 px-4 rounded-lg bg-forest-700 text-cream-50 text-sm font-medium hover:bg-forest-600 transition-colors"
+              >
+                נסה שוב
+              </button>
+            </div>
+          )}
+        >
+          {editorBlock}
+        </ErrorBoundary>
+      </div>
 
       {/* Icon picker — opened from the DateBar's icon button (current level). */}
       <VisionIconPicker

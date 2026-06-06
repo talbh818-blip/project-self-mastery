@@ -62,7 +62,13 @@ export function parsePeriodStart(scope: VisionScope, key: string): Date {
     }
     case 'weekly': {
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
-      if (!m) throw new Error(`Invalid week key: ${key}`);
+      // Defensive: a malformed / legacy week key (e.g. an old ISO "2026-W23")
+      // must NEVER throw mid-render — that would blank the screen. Fall back
+      // to the current week's Sunday and warn instead.
+      if (!m) {
+        console.warn(`[period] bad week key "${key}" — using current week`);
+        return weekStart(new Date());
+      }
       return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     }
   }

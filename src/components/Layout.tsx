@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
+import { ErrorBoundary } from './ErrorBoundary';
 import { ProfileProvider } from '../features/admin/ProfileContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
 import { ThemeProvider } from '../hooks/useTheme';
@@ -98,7 +99,29 @@ export function Layout() {
         ref={mainRef}
         className="flex-1 pb-24 max-w-md mx-auto w-full px-3 sm:px-4 pt-5 min-h-screen"
       >
-        <Outlet />
+        {/* App-wide safety net: a crash on any screen shows a recoverable
+            notice instead of a black page. Resets on route change. */}
+        <ErrorBoundary
+          resetKeys={[pathname]}
+          maxRetries={1}
+          fallback={(retry) => (
+            <div className="text-center py-16">
+              <p className="text-ink-100 font-medium">משהו השתבש</p>
+              <p className="text-ink-300 text-sm mt-1">
+                נסה שוב, או רענן את הדף.
+              </p>
+              <button
+                type="button"
+                onClick={retry}
+                className="mt-4 inline-flex items-center h-9 px-4 rounded-lg bg-forest-700 text-cream-50 text-sm font-medium hover:bg-forest-600 transition-colors"
+              >
+                נסה שוב
+              </button>
+            </div>
+          )}
+        >
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <BottomNav />
     </div>

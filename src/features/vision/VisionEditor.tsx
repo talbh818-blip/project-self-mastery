@@ -209,7 +209,7 @@ export function VisionEditor({
   // A ref makes sure we only seed once per (editor, scope, on→true).
   const seededForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || editor.isDestroyed) return;
     if (!assistOn) return;
     const key = `${resetKey}`;
     if (seededForRef.current === key) return;
