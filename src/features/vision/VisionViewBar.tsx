@@ -87,28 +87,26 @@ export function VisionViewBar({
           <RotateCcw size={13} className="shrink-0" />
           {jumpToNow.label}
         </button>
-        {/* Collapse chevron — only meaningful for the layered view (it folds
-            the navigator). The map view has no drawer, so it's hidden there. */}
-        {view === 'layers' && (
-          <button
-            type="button"
-            onClick={onToggleLayers}
-            aria-label={layersOpen ? 'כווץ את שכבות החזון' : 'הצג את שכבות החזון'}
-            aria-expanded={layersOpen}
-            className="
-              shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
-              bg-surface-raised ring-1 ring-surface-border
-              text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
-            "
-          >
-            <ChevronDown
-              size={16}
-              className={`transition-transform duration-300 ease-in-out ${
-                layersOpen ? 'rotate-180' : ''
-              }`}
-            />
-          </button>
-        )}
+        {/* Collapse chevron — folds whichever navigator is active (the 3-layer
+            stack OR the year map) up and down like a drawer. */}
+        <button
+          type="button"
+          onClick={onToggleLayers}
+          aria-label={layersOpen ? 'כווץ תצוגה' : 'פתח תצוגה'}
+          aria-expanded={layersOpen}
+          className="
+            shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-lg
+            bg-surface-raised ring-1 ring-surface-border
+            text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
+          "
+        >
+          <ChevronDown
+            size={16}
+            className={`transition-transform duration-300 ease-in-out ${
+              layersOpen ? 'rotate-180' : ''
+            }`}
+          />
+        </button>
       </div>
     </div>
   );

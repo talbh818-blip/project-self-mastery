@@ -287,31 +287,31 @@ export function Vision() {
         onViewChange={changeView}
       />
 
-      {view === 'board' ? (
-        <VisionYearMap
-          userId={userId}
-          year={mapYear}
-          today={today}
-          selectedLevel={level}
-          selectedKey={periodKey}
-          onStepYear={(delta) => setMapYear((y) => y + delta)}
-          onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-          onPickMonth={(monthKey) =>
-            goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-          }
-          onPickWeek={(weekKey) =>
-            goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-          }
-        />
-      ) : (
-        // Layered navigator — collapses as a drawer. The grid 0fr↔1fr trick
-        // animates real content height with no JS measuring; the inner
-        // wrapper clips during the fold.
-        <div
-          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-          style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
-        >
-          <div className="overflow-hidden min-h-0">
+      {/* Active navigator (layer stack OR year map) — collapses as a drawer.
+          The grid 0fr↔1fr trick animates real content height with no JS
+          measuring; the inner wrapper clips during the fold. */}
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden min-h-0">
+          {view === 'board' ? (
+            <VisionYearMap
+              userId={userId}
+              year={mapYear}
+              today={today}
+              selectedLevel={level}
+              selectedKey={periodKey}
+              onStepYear={(delta) => setMapYear((y) => y + delta)}
+              onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+              onPickMonth={(monthKey) =>
+                goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+              }
+              onPickWeek={(weekKey) =>
+                goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+              }
+            />
+          ) : (
             <VisionLayers
               level={level}
               anchor={anchor}
@@ -319,9 +319,9 @@ export function Vision() {
               icons={icons}
               written={written}
             />
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* The chosen vision — shown beneath whichever view is active. */}
       <div className={view === 'board' ? 'mt-4' : ''}>{editorBlock}</div>
