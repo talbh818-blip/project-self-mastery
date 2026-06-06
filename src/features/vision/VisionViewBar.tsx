@@ -15,7 +15,7 @@
 // This component is purely presentational — all state lives in the Vision
 // screen so the drawer animation and the editor stay in sync.
 // ============================================================================
-import { ChevronDown, Rows3, LayoutGrid, CalendarCheck } from 'lucide-react';
+import { ChevronDown, Rows3, LayoutGrid, RotateCcw } from 'lucide-react';
 
 export type VisionView = 'layers' | 'board';
 
@@ -87,7 +87,7 @@ export function VisionViewBar({
             }
           `}
         >
-          <CalendarCheck size={13} className="shrink-0" />
+          <RotateCcw size={13} className="shrink-0" />
           {jumpToNow.label}
         </button>
         <button
