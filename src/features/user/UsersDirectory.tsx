@@ -87,17 +87,17 @@ export function UsersDirectory() {
                         </span>
                       )
                     )}
-                    <span className="inline-flex items-center gap-0.5 text-[10px] text-ink-500">
-                      <CalendarDays size={10} />
+                    <span className="inline-flex items-center gap-1 text-[11px] text-ink-100/70">
+                      <CalendarDays size={11} />
                       <span dir="ltr">{formatJoinDate(row.created_at)}</span>
                     </span>
                   </div>
 
-                  {/* Stats */}
-                  <div className="mt-1.5 flex items-center gap-x-3 gap-y-0.5 flex-wrap text-[11px] text-ink-300">
+                  {/* Stats — 2×2 grid: trees · score / habits · vision */}
+                  <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-ink-300">
                     <Stat emoji="🌳" value={row.trees_planted} suffix="עצים" />
-                    <Stat emoji="🎯" value={row.habit_count} suffix="הרגלים" />
-                    <Stat emoji="⭐" value={row.score} suffix="נק׳" />
+                    <Stat emoji="✨" value={row.score} suffix="נק׳" />
+                    <Stat emoji="✅" value={row.habit_count} suffix="הרגלים" />
                     <Stat emoji="📖" value={row.vision_count} suffix="כתיבות חזון" />
                   </div>
                 </div>

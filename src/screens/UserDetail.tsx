@@ -103,8 +103,8 @@ export function UserDetail() {
       {/* KPI numbers */}
       <div className="grid grid-cols-2 gap-3">
         <Kpi emoji="🌳" value={data.trees_planted} label="עצים" />
-        <Kpi emoji="⭐" value={data.score} label="ניקוד" />
-        <Kpi emoji="🎯" value={data.habit_count} label="הרגלים" />
+        <Kpi emoji="✨" value={data.score} label="ניקוד" />
+        <Kpi emoji="✅" value={data.habit_count} label="הרגלים" />
         <Kpi emoji="📖" value={data.vision_count} label="כתיבות חזון" />
       </div>
 
