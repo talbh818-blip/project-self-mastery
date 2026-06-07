@@ -15,6 +15,14 @@ export type DashboardHabit = {
   color: string;
   /** % of resolved days marked V; null when nothing logged yet. */
   success_pct: number | null;
+  frequency_period: 'daily' | 'weekly' | 'monthly';
+  frequency_target: number;
+  /** YYYY-MM-DD the (active) assignment started. */
+  start_date: string | null;
+  /** Number of days marked V (all-time). */
+  v_count: number;
+  /** Log-based points (V=+5, X/auto_x=-3), matching the admin score column. */
+  total_points: number;
 };
 
 // Per-day count of successful (V) marks across the user's habits.

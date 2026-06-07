@@ -7,8 +7,12 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { UserCircle, ArrowRight, Lock, CalendarDays } from 'lucide-react';
-import { fetchUserDashboard, type UserDashboard } from '../features/user/queries';
+import { UserCircle, ArrowRight, Lock, CalendarDays, Check } from 'lucide-react';
+import {
+  fetchUserDashboard,
+  type UserDashboard,
+  type DashboardHabit,
+} from '../features/user/queries';
 import { GenderIcon } from '../features/user/GenderIcon';
 import { MiniHeatmap } from '../features/user/MiniHeatmap';
 import { HabitIcon } from '../features/habits/HabitIcon';
@@ -66,6 +70,7 @@ export function UserDetail() {
   }
 
   const name = data.display_name || 'משתמש';
+  const daysOnJourney = daysSince(data.created_at);
 
   return (
     <section className="pt-1 pb-6 space-y-4">
@@ -100,12 +105,29 @@ export function UserDetail() {
         </div>
       </div>
 
-      {/* KPI numbers */}
-      <div className="grid grid-cols-2 gap-3">
-        <Kpi emoji="🌳" value={data.trees_planted} label="עצים" />
-        <Kpi emoji="✨" value={data.score} label="ניקוד" />
-        <Kpi emoji="📊" value={data.habit_count} label="הרגלים" />
-        <Kpi emoji="📖" value={data.vision_count} label="כתיבות חזון" />
+      {/* KPI numbers — one row: journey time · trees · score · visions */}
+      <div className="grid grid-cols-4 gap-2">
+        <Kpi
+          icon={
+            <img
+              src="/logo.png?v=3"
+              alt=""
+              className="w-6 h-6 object-contain"
+            />
+          }
+          value={
+            <>
+              {daysOnJourney}
+              <span className="text-[9px] font-normal text-ink-300 mr-0.5">
+                ימים
+              </span>
+            </>
+          }
+          label="זמן במסע"
+        />
+        <Kpi icon={<Emoji emoji="🌳" size={24} />} value={data.trees_planted} label="עצים" />
+        <Kpi icon={<Emoji emoji="✨" size={24} />} value={data.score} label="ניקוד" />
+        <Kpi icon={<Emoji emoji="📖" size={24} />} value={data.vision_count} label="כתיבות חזון" />
       </div>
 
       {/* Habits + heatmap, or a privacy notice */}
@@ -114,26 +136,11 @@ export function UserDetail() {
           <div className="bg-surface-card rounded-2xl p-5 space-y-3">
             <h2 className="text-sm font-semibold text-ink-100">ההרגלים של {name}</h2>
             {data.habits && data.habits.length > 0 ? (
-              <ul className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {data.habits.map((h) => (
-                  <li
-                    key={h.id}
-                    className="inline-flex items-center gap-1.5 bg-surface-raised rounded-full pl-3 pr-2 py-1.5"
-                    style={{ color: h.color || undefined }}
-                  >
-                    <HabitIcon name={h.icon} size={16} strokeWidth={1.8} />
-                    <span className="text-xs text-ink-100">{h.name}</span>
-                    {h.success_pct !== null && (
-                      <span
-                        className="text-[11px] font-semibold text-forest-500 tabular-nums"
-                        title="אחוז הצלחה (מתוך הימים שתועדו)"
-                      >
-                        {h.success_pct}%
-                      </span>
-                    )}
-                  </li>
+                  <UserHabitCard key={h.id} habit={h} />
                 ))}
-              </ul>
+              </div>
             ) : (
               <p className="text-xs text-ink-300">אין הרגלים פעילים כרגע.</p>
             )}
@@ -167,24 +174,98 @@ export function UserDetail() {
   );
 }
 
+// One habit card — mirrors the owner's data-dashboard card so the admin sees
+// the same info: frequency, marked-count, success %, points · start date.
+function UserHabitCard({ habit }: { habit: DashboardHabit }) {
+  const iconTileStyle: React.CSSProperties = {
+    backgroundColor: hexWithAlpha(habit.color, 0.18),
+    color: 'white',
+  };
+  const freqText = (() => {
+    const { frequency_period: p, frequency_target: t } = habit;
+    if (p === 'daily' && t === 1) return null;
+    const period = p === 'daily' ? 'ביום' : p === 'weekly' ? 'בשבוע' : 'בחודש';
+    const times = t === 1 ? 'פעם' : t === 2 ? 'פעמיים' : `${t} פעמים`;
+    return `${times} ${period}`;
+  })();
+  const points = habit.total_points;
+
+  return (
+    <div className="rounded-2xl border border-surface-border bg-surface-card p-2.5 flex flex-col items-center text-center gap-1.5 min-w-0">
+      <span
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+        style={iconTileStyle}
+      >
+        <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
+      </span>
+      <div className="text-[11px] font-medium text-ink-100 truncate w-full leading-tight">
+        {habit.name}
+      </div>
+      {freqText && (
+        <div className="text-[9px] text-white/60 leading-none">{freqText}</div>
+      )}
+      <div className="inline-flex items-center gap-1 text-[10px] text-white/70 leading-none">
+        <Check size={12} strokeWidth={2.5} className="text-forest-400 shrink-0" />
+        סומן {habit.v_count} {habit.v_count === 1 ? 'פעם' : 'פעמים'}
+      </div>
+      <div className="text-base font-bold leading-none text-ink-100">
+        <span className="tabular-nums">{habit.success_pct ?? 0}%</span>
+        <span className="text-[10px] font-normal text-white/80 mr-1">הצלחה</span>
+      </div>
+      <div className="flex items-center gap-1.5 text-[10px] leading-none">
+        <span
+          className={`font-medium tabular-nums ${
+            points > 0
+              ? 'text-forest-500'
+              : points < 0
+              ? 'text-red-400'
+              : 'text-white/70'
+          }`}
+        >
+          {points > 0 ? `+${points}` : points} נק׳
+        </span>
+        {habit.start_date && (
+          <>
+            <span className="text-ink-500">·</span>
+            <span className="text-white/70">מ-{formatShortDate(habit.start_date)}</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// "YYYY-MM-DD" → "d.m.yy" (local, no TZ drift).
+function formatShortDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return `${d}.${m}.${String(y).slice(-2)}`;
+}
+
+// Mix a hex color with an alpha → rgba() string. Accepts "#rrggbb".
+function hexWithAlpha(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
 function Kpi({
-  emoji,
+  icon,
   value,
   label,
 }: {
-  emoji: string;
-  value: number;
+  icon: React.ReactNode;
+  value: React.ReactNode;
   label: string;
 }) {
   return (
-    <div className="bg-surface-card rounded-2xl px-4 py-3 flex items-center gap-3">
-      <Emoji emoji={emoji} size={26} className="shrink-0" />
-      <div className="min-w-0">
-        <div className="text-lg font-bold text-ink-100 tabular-nums leading-none">
-          {value}
-        </div>
-        <div className="text-[11px] text-ink-300 mt-0.5">{label}</div>
+    <div className="bg-surface-card rounded-2xl px-1.5 py-3 flex flex-col items-center gap-1 text-center">
+      <span className="shrink-0">{icon}</span>
+      <div className="text-base font-bold text-ink-100 tabular-nums leading-none">
+        {value}
       </div>
+      <div className="text-[10px] text-ink-300 leading-tight">{label}</div>
     </div>
   );
 }
@@ -206,4 +287,11 @@ function formatJoinDate(iso: string): string {
   if (Number.isNaN(d.getTime())) return '';
   const yy = String(d.getFullYear()).slice(-2);
   return `${d.getDate()}.${d.getMonth() + 1}.${yy}`;
+}
+
+// Whole days since joining (day 1 = the join day itself).
+function daysSince(iso: string): number {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 0;
+  return Math.max(1, Math.floor((Date.now() - d.getTime()) / 86400000) + 1);
 }
