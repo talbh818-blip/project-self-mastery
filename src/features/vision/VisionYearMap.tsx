@@ -35,12 +35,6 @@ import {
 
 type WeekCell = { key: string; start: Date };
 
-// The active-month green pill is a UNIFORM width in every month: the span of
-// 5 week squares (5/6 of the row + the 4 gaps between them), regardless of how
-// many weeks the month actually has. Applied as a min-width so a rare long
-// label can still grow rather than truncate.
-const PILL_MIN_WIDTH = 'calc(5 * ((100% - 10px) / 6) + 8px)';
-
 type Props = {
   userId: string | null;
   /** Year currently shown on the map. */
@@ -194,7 +188,7 @@ export function VisionYearMap({
           <CompassLoader size="md" />
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5 items-start">
           {visibleMonths.map((mo) => {
             const monthHasContent = contentKeys.has(mo.key);
             const monthIcon = iconByKey.get(mo.key) ?? null;
@@ -219,7 +213,7 @@ export function VisionYearMap({
                       }
                 }
                 className={`
-                  rounded-xl p-1 flex flex-col gap-1.5 bg-surface-card
+                  rounded-xl p-1.5 flex flex-col gap-2 bg-surface-card
                   ${isFutureMonth ? '' : 'cursor-pointer'}
                 `}
               >
@@ -227,18 +221,16 @@ export function VisionYearMap({
                     below; this is just its label. Future months (not reached
                     yet) are dimmed and the card is inert. */}
                 <span
-                  style={{ minWidth: PILL_MIN_WIDTH }}
                   className={`
-                    self-center inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
-                    text-[12px] font-semibold leading-none
+                    inline-flex items-center justify-center gap-1 leading-none text-[13px]
                     ${
                       isMonthSelected
-                        ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
+                        ? 'text-forest-300 font-bold'
                         : isCurrentMonth
-                          ? 'bg-forest-700/20 text-ink-100'
+                          ? 'text-forest-300 font-semibold'
                           : isFutureMonth
-                            ? 'bg-surface-raised/40 text-ink-100/55'
-                            : 'bg-surface-raised text-ink-100'
+                            ? 'text-ink-500 font-semibold'
+                            : 'text-ink-100 font-semibold'
                     }
                   `}
                 >
