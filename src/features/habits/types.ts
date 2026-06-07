@@ -88,6 +88,10 @@ export type HabitLog = {
   date: string; // YYYY-MM-DD
   status: LogStatus;
   amount: number | null; // populated for quantitative habits, null otherwise
+  /** The per-day target in effect WHEN this log was written. Lets a later
+   *  target change stay non-retroactive — each day is judged against its own
+   *  snapshot. Null for binary habits (and legacy rows treated as complete). */
+  target_at_log: number | null;
 };
 
 // What renders inside a single slot column for a given week.

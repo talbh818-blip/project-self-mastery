@@ -101,8 +101,11 @@ export async function setHabitLog(params: {
   date: string; // YYYY-MM-DD
   newStatus: LogStatus | null;
   newAmount?: number | null;
+  /** Per-day target in effect now; snapshotted so future target changes don't
+   *  retroactively re-judge this day. Null for binary habits. */
+  targetAtLog?: number | null;
 }): Promise<void> {
-  const { userId, habitId, date, newStatus, newAmount = null } = params;
+  const { userId, habitId, date, newStatus, newAmount = null, targetAtLog = null } = params;
 
   if (newStatus === null) {
     const { error } = await supabase
@@ -125,6 +128,7 @@ export async function setHabitLog(params: {
         date,
         status: newStatus,
         amount: newAmount,
+        target_at_log: targetAtLog,
       },
       { onConflict: 'habit_id,date' },
     );

@@ -166,6 +166,12 @@ export function useHabitData(userId: string | null): UseHabitData {
       if (!userId || state.status !== 'ready') return;
       const prevLogs = state.data.logs;
 
+      // Snapshot the habit's current per-day target so a later target change
+      // doesn't retroactively re-judge this day. Null for binary habits.
+      const habit = state.data.habits.find((h) => h.id === habitId);
+      const targetAtLog =
+        habit?.is_quantitative ? (habit.quantitative_target ?? null) : null;
+
       // Optimistic: drop any existing log for (habit, date), add the new one
       // if status is not null. Then commit to local state immediately.
       const nextLogs = prevLogs.filter(
@@ -179,6 +185,7 @@ export function useHabitData(userId: string | null): UseHabitData {
           date,
           status,
           amount,
+          target_at_log: targetAtLog,
         });
       }
       setState({
@@ -195,6 +202,7 @@ export function useHabitData(userId: string | null): UseHabitData {
           date,
           newStatus: status,
           newAmount: amount,
+          targetAtLog,
         });
         // Success — make sure no stale offline copy lingers for this cell.
         clearCell(userId, habitId, date);
@@ -204,7 +212,7 @@ export function useHabitData(userId: string | null): UseHabitData {
         if (offline) {
           // OFFLINE: keep the optimistic mark and queue it for later. The
           // 'online' listener (below) flushes it when the network returns.
-          enqueueLog(userId, { habitId, date, status, amount });
+          enqueueLog(userId, { habitId, date, status, amount, targetAtLog });
           return;
         }
         // ONLINE but the write still failed → a real error: roll back so the

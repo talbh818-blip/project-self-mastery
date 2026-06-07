@@ -152,12 +152,14 @@ export function scoreHabit(params: {
       amountsByDate.set(log.date, log.amount);
     }
     if (habit.is_quantitative && log.status === 'V') {
-      // A null amount = the day was marked done under the OLD binary model,
-      // before this habit became a counter (e.g. its daily target was raised
-      // above 1). Those are full completions — counting them as partial misses
-      // is exactly the bug that dragged active users' scores deep negative.
-      // An explicit amount at/above target is also complete.
-      if (log.amount == null || log.amount >= quantTarget) {
+      // Judge completion against the target IN EFFECT WHEN THIS DAY WAS LOGGED
+      // (target_at_log), NOT the habit's current target — so raising the target
+      // later never retroactively turns a past completion into a partial.
+      // Falls back to the current target for un-stamped rows.
+      // A null amount = the day was marked done under the old BINARY model
+      // (before the habit became a counter) → a full completion.
+      const dayTarget = log.target_at_log ?? quantTarget;
+      if (log.amount == null || log.amount >= dayTarget) {
         logsByDate.set(log.date, 'V');
       } else {
         partialDates.add(log.date); // explicit partial → neutral (see loop)
