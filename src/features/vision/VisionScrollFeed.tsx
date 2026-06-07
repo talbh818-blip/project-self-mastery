@@ -8,7 +8,6 @@
 // so the feed stays fast across a year+ of entries.
 // ============================================================================
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
 import { HabitIcon } from '../habits/HabitIcon';
 import { fetchVisionRowMeta } from './queries';
@@ -21,6 +20,8 @@ type Props = {
   today: Date;
   /** Period key to centre on when the feed opens. */
   initialKey: string;
+  /** Search query — lifted to the view bar above the feed. */
+  query: string;
   /** Open a vision for editing. */
   onOpen: (scope: VisionScope, anchor: Date) => void;
 };
@@ -34,7 +35,7 @@ function itemTitle(item: TimelineItem): string {
   return `חזון שבועי · ${item.anchor.getDate()}.${item.anchor.getMonth() + 1}`;
 }
 
-export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
+export function VisionScrollFeed({ userId, today, initialKey, query, onOpen }: Props) {
   const timeline = useMemo(() => buildVisionTimeline(today, 1), [today]);
   const allKeys = useMemo(() => timeline.map((t) => t.key), [timeline]);
 
@@ -42,7 +43,6 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
     new Map(),
   );
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState('');
 
   useEffect(() => {
     if (!userId) return;
@@ -106,36 +106,7 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
   }, [initialKey, timeline, loading, q]);
 
   return (
-    <div dir="rtl" className="flex flex-col gap-2 mt-1">
-      {/* Search */}
-      <div className="relative">
-        <Search
-          size={15}
-          className="absolute top-1/2 right-3 -translate-y-1/2 text-ink-300 pointer-events-none"
-        />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="חיפוש מילה בחזונות…"
-          className="
-            w-full h-10 rounded-xl bg-surface-card text-ink-100 text-sm
-            pr-9 pl-9 ring-1 ring-surface-border focus:ring-forest-600
-            outline-none transition placeholder:text-ink-500
-          "
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={() => setQuery('')}
-            aria-label="נקה חיפוש"
-            className="absolute top-1/2 left-2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-surface-raised"
-          >
-            <X size={15} />
-          </button>
-        )}
-      </div>
-
+    <div dir="rtl" className="mt-1">
       {loading ? (
         <div className="py-10">
           <CompassLoader size="md" />
@@ -146,7 +117,7 @@ export function VisionScrollFeed({ userId, today, initialKey, onOpen }: Props) {
         <div
           ref={containerRef}
           dir="ltr"
-          className="vision-feed-scroll h-[calc(100dvh-180px)] min-h-[40vh] overflow-y-auto overscroll-contain rounded-2xl bg-surface-base/40 p-1.5"
+          className="vision-feed-scroll h-[calc(100dvh-132px)] min-h-[40vh] overflow-y-auto overscroll-contain rounded-2xl bg-surface-base/40 p-1.5"
         >
           <div dir="rtl" className="space-y-2">
             {filtered.length === 0 ? (

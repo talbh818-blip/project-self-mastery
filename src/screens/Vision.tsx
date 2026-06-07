@@ -77,6 +77,9 @@ export function Vision() {
   // remembered per-user in localStorage and wins on entry.
   const [layersOpen, setLayersOpen] = useState(true);
   const [view, setView] = useState<VisionView>(() => readSavedView(userId));
+  // Feed-view search query — lifted here so the search box can live in the top
+  // view-bar row (left of the toggles) instead of inside the feed.
+  const [feedQuery, setFeedQuery] = useState('');
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
@@ -306,6 +309,8 @@ export function Vision() {
         view={view}
         onViewChange={changeView}
         onOpenHistory={() => setHistoryOpen(true)}
+        searchQuery={feedQuery}
+        onSearchChange={setFeedQuery}
       />
 
       {view === 'feed' ? (
@@ -315,6 +320,7 @@ export function Vision() {
           userId={userId}
           today={today}
           initialKey={periodKey}
+          query={feedQuery}
           onOpen={openFromFeed}
         />
       ) : (

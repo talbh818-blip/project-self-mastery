@@ -20,6 +20,8 @@ import {
   LayoutGrid,
   GalleryVertical,
   History,
+  Search,
+  X,
 } from 'lucide-react';
 
 export type VisionView = 'board' | 'feed';
@@ -33,6 +35,10 @@ type Props = {
   onViewChange: (view: VisionView) => void;
   /** Open the version-history (restore) sheet for the open vision. */
   onOpenHistory: () => void;
+  /** Feed-view search box — rendered inline, filling the row left of the
+   *  toggles. Only shown when `view === 'feed'`. */
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
 };
 
 export function VisionViewBar({
@@ -41,6 +47,8 @@ export function VisionViewBar({
   view,
   onViewChange,
   onOpenHistory,
+  searchQuery,
+  onSearchChange,
 }: Props) {
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
@@ -63,11 +71,39 @@ export function VisionViewBar({
         </ViewToggle>
       </div>
 
-      {/* physical LEFT (last DOM child): version-history button + the collapse
-          chevron. DOM order [history][chevron] → in RTL the chevron lands
-          left-most and history sits just to its right. Hidden in the feed
-          view (no single open vision / no navigator to fold). */}
-      {view !== 'feed' && (
+      {/* physical LEFT (last DOM child). In the FEED view this is the search
+          box, filling the row left of the toggles. In the other views it's the
+          version-history button + collapse chevron (DOM order [history][chevron]
+          → in RTL the chevron lands left-most, history just to its right). */}
+      {view === 'feed' ? (
+        <div className="relative flex-1">
+          <Search
+            size={15}
+            className="absolute top-1/2 right-3 -translate-y-1/2 text-ink-300 pointer-events-none"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="חיפוש מילה בחזונות…"
+            className="
+              w-full h-9 rounded-xl bg-surface-card text-ink-100 text-sm
+              pr-9 pl-9 ring-1 ring-surface-border focus:ring-forest-600
+              outline-none transition placeholder:text-ink-500
+            "
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => onSearchChange('')}
+              aria-label="נקה חיפוש"
+              className="absolute top-1/2 left-2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-surface-raised"
+            >
+              <X size={15} />
+            </button>
+          )}
+        </div>
+      ) : (
         <div className="inline-flex items-center gap-1.5">
           <button
             type="button"
