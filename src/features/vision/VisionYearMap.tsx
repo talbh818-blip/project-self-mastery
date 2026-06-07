@@ -13,8 +13,8 @@
 //
 // Marks (mirroring the layered view):
 //   • WHITE DOT (right of the label / inside a week square) = written content.
-//   • Forest RING = the current week / month / year ("now").
-//   • Stronger forest ring/fill = the period currently open in the editor below.
+//   • Soft forest TINT = the current week / month / year ("now").
+//   • Bold forest OUTLINE (+ tint) = the period currently open in the editor.
 //   • Shorter months centre their fewer (uniform-size) week squares.
 //   • Per-period icon shows to the right of the year / month label.
 // ============================================================================
@@ -160,8 +160,7 @@ export function VisionYearMap({
             text-[13px] font-bold transition-colors
             ${
               isYearSelected
-                ? // The ONLY ring on the map marks the period open below.
-                  'bg-forest-700/30 text-ink-100 ring-2 ring-forest-600'
+                ? 'bg-forest-700/20 text-ink-100 ring-2 ring-forest-500'
                 : isCurrentYear
                   ? 'bg-forest-700/15 text-ink-100'
                   : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
@@ -213,8 +212,16 @@ export function VisionYearMap({
                       }
                 }
                 className={`
-                  rounded-xl p-1.5 flex flex-col gap-2 bg-surface-card
-                  ${isFutureMonth ? '' : 'cursor-pointer'}
+                  rounded-xl p-1.5 flex flex-col gap-2 transition-colors
+                  ${
+                    isMonthSelected
+                      ? 'bg-forest-700/20 ring-2 ring-forest-500 cursor-pointer'
+                      : isCurrentMonth
+                        ? 'bg-forest-700/15 cursor-pointer'
+                        : isFutureMonth
+                          ? 'bg-surface-card'
+                          : 'bg-surface-card cursor-pointer'
+                  }
                 `}
               >
                 {/* Month heading — the WHOLE card opens the monthly vision
@@ -222,16 +229,8 @@ export function VisionYearMap({
                     yet) are dimmed and the card is inert. */}
                 <span
                   className={`
-                    inline-flex items-center justify-center gap-1 leading-none text-[13px]
-                    ${
-                      isMonthSelected
-                        ? 'text-forest-300 font-bold'
-                        : isCurrentMonth
-                          ? 'text-forest-300 font-semibold'
-                          : isFutureMonth
-                            ? 'text-ink-500 font-semibold'
-                            : 'text-ink-100 font-semibold'
-                    }
+                    inline-flex items-center justify-center gap-1 leading-none text-[13px] font-semibold
+                    ${isFutureMonth ? 'text-ink-500' : 'text-ink-100'}
                   `}
                 >
                   {/* White dot to the RIGHT (first child in RTL). */}
@@ -311,14 +310,11 @@ function WeekSquare({
         ${
           isFuture
             ? 'bg-surface-raised/40 opacity-40 cursor-default'
-            : 'bg-surface-raised hover:bg-surface-border'
-        }
-        ${
-          isSelected
-            ? 'ring-2 ring-forest-500'
-            : isCurrent
-              ? 'ring-1 ring-forest-300'
-              : ''
+            : isSelected
+              ? 'bg-forest-700/40 ring-2 ring-forest-500'
+              : isCurrent
+                ? 'bg-forest-700/40'
+                : 'bg-surface-raised hover:bg-surface-border'
         }
       `}
     >
