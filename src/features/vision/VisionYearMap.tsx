@@ -213,7 +213,7 @@ export function VisionYearMap({
                       }
                 }
                 className={`
-                  rounded-xl p-1 flex flex-col gap-1 bg-surface-card
+                  rounded-xl p-1 flex flex-col gap-1.5 bg-surface-card
                   ${isFutureMonth ? '' : 'cursor-pointer'}
                 `}
               >
@@ -222,7 +222,7 @@ export function VisionYearMap({
                     yet) are dimmed and the card is inert. */}
                 <span
                   className={`
-                    inline-flex items-center justify-center gap-1 h-6 px-1 rounded-md
+                    self-center inline-flex items-center justify-center gap-1 h-5 px-2 rounded-md
                     text-[12px] font-semibold leading-none
                     ${
                       isMonthSelected
