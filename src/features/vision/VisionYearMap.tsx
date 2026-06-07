@@ -7,7 +7,7 @@
 //
 //   ‹     2026 🦅 •     ›        narrow year selector (icon + written dot)
 //   ┌─────┬─────┬─────┬─────┐
-//   │1·ינו│2·פבר│3·מרץ│4·אפר│    12 months, 3×4 grid (RTL)
+//   │1·ינו│2·פבר│3·מרץ│4·אפר│    12 months, 3-column grid (RTL)
 //   │▫▫▫▫▫│▫▫▫▫▫│ …               tiny week squares; a white dot inside = written
 //   └─────┴─────┴─────┴─────┘
 //
@@ -15,7 +15,7 @@
 //   • WHITE DOT (right of the label / inside a week square) = written content.
 //   • Forest RING = the current week / month / year ("now").
 //   • Stronger forest ring/fill = the period currently open in the editor below.
-//   • A faint dashed square = a padding slot (4-week months show a greyed 5th).
+//   • Shorter months centre their fewer (uniform-size) week squares.
 //   • Per-period icon shows to the right of the year / month label.
 // ============================================================================
 import { useEffect, useMemo, useState } from 'react';
@@ -89,14 +89,14 @@ export function VisionYearMap({
   );
 
   // Hide whole FUTURE rows: in the current year we only show months up to the
-  // end of the row that holds the current month (rows are groups of 4). So a
-  // future row (e.g. Sep–Dec while it's June) simply isn't rendered until its
-  // first month arrives. Past years show all 12.
+  // end of the row that holds the current month (rows are groups of 3). So a
+  // future row simply isn't rendered until its first month arrives. Past years
+  // show all 12.
   const visibleMonths = useMemo(() => {
     const cy = today.getFullYear();
     if (year < cy) return months;
     if (year > cy) return [];
-    const rowEnd = Math.ceil((today.getMonth() + 1) / 4) * 4; // 4, 8 or 12
+    const rowEnd = Math.ceil((today.getMonth() + 1) / 3) * 3; // 3, 6, 9 or 12
     return months.slice(0, rowEnd);
   }, [months, year, today]);
 
@@ -188,7 +188,7 @@ export function VisionYearMap({
           <CompassLoader size="md" />
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {visibleMonths.map((mo) => {
             const monthHasContent = contentKeys.has(mo.key);
             const monthIcon = iconByKey.get(mo.key) ?? null;
@@ -199,24 +199,42 @@ export function VisionYearMap({
             return (
               <div
                 key={mo.key}
-                className="rounded-xl bg-surface-card p-1.5 flex flex-col gap-1"
+                onClick={isFutureMonth ? undefined : () => onPickMonth(mo.key)}
+                role={isFutureMonth ? undefined : 'button'}
+                tabIndex={isFutureMonth ? undefined : 0}
+                onKeyDown={
+                  isFutureMonth
+                    ? undefined
+                    : (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onPickMonth(mo.key);
+                        }
+                      }
+                }
+                className={`
+                  rounded-xl bg-surface-card p-1.5 flex flex-col gap-1 border transition-colors
+                  ${
+                    isFutureMonth
+                      ? 'border-surface-border/40'
+                      : 'border-surface-border cursor-pointer hover:border-forest-600/50 hover:bg-surface-raised/40 active:bg-surface-raised/60'
+                  }
+                `}
               >
-                {/* Month label — opens the monthly vision below. Future months
-                    (not reached yet) are dimmed and inert. */}
-                <button
-                  type="button"
-                  onClick={isFutureMonth ? undefined : () => onPickMonth(mo.key)}
-                  disabled={isFutureMonth}
+                {/* Month heading — the WHOLE card opens the monthly vision
+                    below; this is just its label. Future months (not reached
+                    yet) are dimmed and the card is inert. */}
+                <span
                   className={`
                     inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
-                    text-[10px] font-semibold leading-none transition-colors
+                    text-[10px] font-semibold leading-none
                     ${
                       isMonthSelected
                         ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
                         : isCurrentMonth
                           ? 'bg-forest-700/20 text-ink-100'
                           : isFutureMonth
-                            ? 'text-ink-100/55 cursor-default'
+                            ? 'text-ink-100/55'
                             : 'text-ink-100'
                     }
                   `}
@@ -227,19 +245,17 @@ export function VisionYearMap({
                   <span className="truncate">
                     {mo.index + 1}·{monthShort(mo.index)}
                   </span>
-                </button>
+                </span>
 
-                {/* Week squares — each month stretches its squares to fill its
-                    own row, so squares are as LARGE as the week count allows:
-                    a 4-week month gets bigger squares, a 6-week month gets
-                    smaller ones. Square size therefore varies between months,
-                    but every row is full (no overflow, no empty padding). */}
-                <div className="flex gap-[2px]">
+                {/* Week squares — CENTRED and a uniform size everywhere: each
+                    square is 1/6 of the row (the most weeks a month can hold),
+                    so squares match across every month and a 4- or 5-week month
+                    simply centres its fewer same-size squares. */}
+                <div className="flex justify-center gap-[2px]">
                   {mo.weeks.map((week) => (
                     <WeekSquare
                       key={week.key}
                       start={week.start}
-                      count={mo.weeks.length}
                       hasContent={contentKeys.has(week.key)}
                       isCurrent={week.key === currentWeekKey}
                       isSelected={
@@ -263,7 +279,6 @@ export function VisionYearMap({
 
 function WeekSquare({
   start,
-  count,
   hasContent,
   isCurrent,
   isSelected,
@@ -271,7 +286,6 @@ function WeekSquare({
   onClick,
 }: {
   start: Date;
-  count: number;
   hasContent: boolean;
   isCurrent: boolean;
   isSelected: boolean;
@@ -282,21 +296,27 @@ function WeekSquare({
   return (
     <button
       type="button"
-      onClick={isFuture ? undefined : onClick}
+      onClick={
+        isFuture
+          ? undefined
+          : (e) => {
+              e.stopPropagation(); // open the week, not the month card behind it
+              onClick();
+            }
+      }
       disabled={isFuture}
       title={label}
       aria-label={`שבוע של ${label}${hasContent ? ' — נכתב' : ''}`}
-      // Width = an equal share of the month's own row. With N weeks and a 2px
-      // gap between them, each square fills (100% − (N−1)·2px)/N → the row is
-      // always exactly full, whether the month has 4, 5 or 6 weeks.
-      style={{ width: `calc((100% - ${(count - 1) * 2}px) / ${count})` }}
+      // Uniform 1/6-of-row width (the most weeks a month can hold) → every
+      // square is the same size in every month; shorter months centre theirs.
+      style={{ width: 'calc((100% - 10px) / 6)' }}
       className={`
         relative shrink-0 aspect-square rounded-[3px] transition-colors
         flex items-center justify-center
         ${
           isFuture
-            ? 'vision-week-cell--future cursor-default'
-            : 'vision-week-cell'
+            ? 'bg-surface-raised/40 opacity-40 cursor-default'
+            : 'bg-surface-raised hover:bg-surface-border'
         }
         ${
           isSelected

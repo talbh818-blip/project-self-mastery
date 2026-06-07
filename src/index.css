@@ -649,19 +649,6 @@ html {
   .vision-label-anim { animation: none; }
 }
 
-/* Year-map week cells — lifted off the card so they're legible on a phone
-   (the raw surface tokens are nearly indistinguishable at this small size).
-   color-mix toward ink-100 keeps it theme-aware (works in light mode too). */
-.vision-week-cell {
-  background: color-mix(in oklab, var(--color-surface-border), var(--color-ink-100) 16%);
-}
-.vision-week-cell:hover {
-  background: color-mix(in oklab, var(--color-surface-border), var(--color-ink-100) 30%);
-}
-.vision-week-cell--future {
-  background: color-mix(in oklab, var(--color-surface-raised), var(--color-ink-100) 6%);
-}
-
 /* Vision free-scroll feed — a slim, in-app scrollbar (not the bare OS gray).
    The scroll container is dir:ltr so the bar sits on the RIGHT (its content
    is re-flipped to dir:rtl), matching the app's reading direction. */
