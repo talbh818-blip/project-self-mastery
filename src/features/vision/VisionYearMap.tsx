@@ -35,6 +35,12 @@ import {
 
 type WeekCell = { key: string; start: Date };
 
+// The month-name pill (only painted for the current/active month) is a uniform
+// width — the span of 5 week squares (5/6 of the row + the 4 gaps) — so the
+// green mark sits on the title row alone, aligned to the squares, without
+// tinting the whole card. min-width lets a rare long label grow rather than cut.
+const PILL_MIN_WIDTH = 'calc(5 * ((100% - 10px) / 6) + 8px)';
+
 type Props = {
   userId: string | null;
   /** Year currently shown on the map. */
@@ -212,25 +218,27 @@ export function VisionYearMap({
                       }
                 }
                 className={`
-                  rounded-xl p-1.5 flex flex-col gap-2 transition-colors
-                  ${
-                    isMonthSelected
-                      ? 'bg-forest-700/20 ring-2 ring-forest-500 cursor-pointer'
-                      : isCurrentMonth
-                        ? 'bg-forest-700/15 cursor-pointer'
-                        : isFutureMonth
-                          ? 'bg-surface-card'
-                          : 'bg-surface-card cursor-pointer'
-                  }
+                  rounded-xl p-1.5 flex flex-col gap-2 bg-surface-card
+                  ${isFutureMonth ? '' : 'cursor-pointer'}
                 `}
               >
                 {/* Month heading — the WHOLE card opens the monthly vision
                     below; this is just its label. Future months (not reached
                     yet) are dimmed and the card is inert. */}
                 <span
+                  style={{ minWidth: PILL_MIN_WIDTH }}
                   className={`
-                    inline-flex items-center justify-center gap-1 leading-none text-[13px] font-semibold
-                    ${isFutureMonth ? 'text-ink-500' : 'text-ink-100'}
+                    self-center inline-flex items-center justify-center gap-1 h-5 px-2 rounded-md
+                    leading-none text-[13px] font-semibold transition-colors
+                    ${
+                      isMonthSelected
+                        ? 'bg-forest-700/20 ring-2 ring-forest-500 text-ink-100'
+                        : isCurrentMonth
+                          ? 'bg-forest-700/15 text-ink-100'
+                          : isFutureMonth
+                            ? 'text-ink-500'
+                            : 'text-ink-100'
+                    }
                   `}
                 >
                   {/* White dot to the RIGHT (first child in RTL). */}
