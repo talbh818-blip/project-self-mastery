@@ -115,18 +115,11 @@ export function UserDetail() {
               className="w-[22px] h-[22px] object-contain"
             />
           }
-          value={
-            <>
-              {daysOnJourney}
-              <span className="text-[9px] font-normal text-ink-300 mr-0.5">
-                ימים
-              </span>
-            </>
-          }
-          label="במסע"
+          value={daysOnJourney}
+          label="ימים במסע"
         />
-        <Kpi icon={<Emoji emoji="🌳" size={22} />} value={data.trees_planted} label="עצים" />
-        <Kpi icon={<Emoji emoji="✨" size={22} />} value={data.score} label="ניקוד" />
+        <Kpi icon={<Emoji emoji="🌳" size={22} />} value={data.trees_planted} label="עצים שנשתלו" />
+        <Kpi icon={<Emoji emoji="✨" size={22} />} value={data.score} label="סה״כ ניקוד" />
         <Kpi icon={<Emoji emoji="📖" size={22} />} value={data.vision_count} label="כתיבות חזון" />
       </div>
 
