@@ -213,12 +213,8 @@ export function VisionYearMap({
                       }
                 }
                 className={`
-                  rounded-xl p-1 flex flex-col gap-1
-                  ${
-                    isFutureMonth
-                      ? 'bg-surface-card'
-                      : 'bg-surface-border cursor-pointer'
-                  }
+                  rounded-xl p-1 flex flex-col gap-1 bg-surface-card
+                  ${isFutureMonth ? '' : 'cursor-pointer'}
                 `}
               >
                 {/* Month heading — the WHOLE card opens the monthly vision
@@ -230,9 +226,9 @@ export function VisionYearMap({
                     text-[12px] font-semibold leading-none
                     ${
                       isMonthSelected
-                        ? 'bg-forest-700/40 text-ink-100 ring-1 ring-forest-600'
+                        ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
                         : isCurrentMonth
-                          ? 'bg-forest-700/25 text-ink-100'
+                          ? 'bg-forest-700/20 text-ink-100'
                           : isFutureMonth
                             ? 'text-ink-100/55'
                             : 'text-ink-100'
