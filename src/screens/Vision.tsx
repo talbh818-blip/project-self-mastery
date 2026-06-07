@@ -11,7 +11,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
-import { VisionLayers } from '../features/vision/VisionLayers';
 import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar';
 import { VisionYearMap } from '../features/vision/VisionYearMap';
 import { VisionScrollFeed } from '../features/vision/VisionScrollFeed';
@@ -21,7 +20,6 @@ import { ErrorBoundary } from '../components/ErrorBoundary';
 import { useVisionEntry } from '../features/vision/useVisionEntry';
 import { fetchVisionRowMeta } from '../features/vision/queries';
 import { updateVisionEntryIcon } from '../features/vision/mutations';
-import { isVisionContentEmpty } from '../features/vision/content';
 import { useAuth } from '../hooks/useAuth';
 import { CompassLoader } from '../components/CompassLoader';
 import {
@@ -35,7 +33,6 @@ import {
 } from '../features/vision/period';
 
 type ScopeIcons = Partial<Record<VisionScope, string | null>>;
-type ScopeFlags = Partial<Record<VisionScope, boolean>>;
 
 // Nesting depth — drives the editor's zoom direction on level switches.
 const SCOPE_DEPTH: Record<VisionScope, number> = {
@@ -58,7 +55,7 @@ function readSavedView(userId: string | null): VisionView {
   if (!userId) return 'board';
   try {
     const saved = localStorage.getItem(`${VIEW_LS_PREFIX}${userId}`);
-    if (saved === 'layers' || saved === 'board' || saved === 'feed') return saved;
+    if (saved === 'board' || saved === 'feed') return saved;
   } catch {
     // ignore — fall through to default
   }
@@ -121,17 +118,12 @@ export function Vision() {
   const weekKey = getPeriodKey('weekly', anchor);
 
   const [icons, setIcons] = useState<ScopeIcons>({});
-  // Which rows already have written content → drives the "written" check-mark.
-  const [written, setWritten] = useState<ScopeFlags>({});
 
-  // In-memory cache of row-meta keyed by `${scope}:${periodKey}`. Navigation
-  // used to re-hit the DB on every step, so the icons + "written" dots
-  // visibly trailed the (synchronous) period labels. We now seed instantly
-  // from the cache and only round-trip for periods we haven't seen yet — so
-  // stepping back and forth feels smooth.
-  const metaCacheRef = useRef<
-    Map<string, { icon: string | null; written: boolean }>
-  >(new Map());
+  // In-memory cache of each period's icon, keyed by `${scope}:${periodKey}`.
+  // Navigation used to re-hit the DB on every step, so the active level's icon
+  // visibly trailed the (synchronous) period labels. We seed instantly from
+  // the cache and only round-trip for periods we haven't seen yet.
+  const metaCacheRef = useRef<Map<string, string | null>>(new Map());
 
   useEffect(() => {
     if (!userId) return;
@@ -141,48 +133,34 @@ export function Vision() {
       ['weekly', weekKey],
     ];
 
-    // 1. Seed from cache so revisited periods render with no lag and no flash
-    //    of the previous period's icons.
+    // 1. Seed icons from cache so revisited periods render with no lag and no
+    //    flash of the previous period's icon.
     const seedIcons: ScopeIcons = {};
-    const seedWritten: ScopeFlags = {};
     let allCached = true;
     for (const [scope, key] of pairs) {
-      const hit = metaCacheRef.current.get(`${scope}:${key}`);
-      if (hit) {
-        seedIcons[scope] = hit.icon;
-        seedWritten[scope] = hit.written;
+      const cacheKey = `${scope}:${key}`;
+      if (metaCacheRef.current.has(cacheKey)) {
+        seedIcons[scope] = metaCacheRef.current.get(cacheKey) ?? null;
       } else {
         allCached = false;
       }
     }
     setIcons(seedIcons);
-    setWritten(seedWritten);
     if (allCached) return; // fully served from cache — skip the round-trip
 
     // 2. Refresh from the DB, then cache every requested key (including the
-    //    ones with no row, cached as empty, so they don't re-fetch later).
+    //    ones with no row, cached as null, so they don't re-fetch later).
     let cancelled = false;
     fetchVisionRowMeta(userId, [yearKey, monthKey, weekKey])
       .then((rows) => {
         if (cancelled) return;
         const nextIcons: ScopeIcons = {};
-        const nextWritten: ScopeFlags = {};
-        for (const [scope] of pairs) {
-          nextIcons[scope] = null;
-          nextWritten[scope] = false;
-        }
-        for (const r of rows) {
-          nextIcons[r.scope] = r.icon;
-          nextWritten[r.scope] = !isVisionContentEmpty(r.content);
-        }
+        for (const [scope] of pairs) nextIcons[scope] = null;
+        for (const r of rows) nextIcons[r.scope] = r.icon;
         for (const [scope, key] of pairs) {
-          metaCacheRef.current.set(`${scope}:${key}`, {
-            icon: nextIcons[scope] ?? null,
-            written: nextWritten[scope] ?? false,
-          });
+          metaCacheRef.current.set(`${scope}:${key}`, nextIcons[scope] ?? null);
         }
         setIcons(nextIcons);
-        setWritten(nextWritten);
       })
       .catch((err) => console.error('[vision] row-meta fetch failed', err));
     return () => {
@@ -190,9 +168,8 @@ export function Vision() {
     };
   }, [userId, yearKey, monthKey, weekKey]);
 
-  // Which level's icon picker is open (null = closed). Opened by tapping a
-  // row's icon tile in VisionLayers — so any level's icon can be set, not
-  // just the active one.
+  // Which level's icon picker is open (null = closed). Opened from the
+  // editor's DateBar icon button for the active level.
   const [iconPickerLevel, setIconPickerLevel] = useState<VisionScope | null>(
     null,
   );
@@ -205,11 +182,7 @@ export function Vision() {
       const key = getPeriodKey(lvl, anchor);
       setIcons((prev) => ({ ...prev, [lvl]: icon }));
       // Keep the cache in sync so leaving and returning shows the new icon.
-      const prevMeta = metaCacheRef.current.get(`${lvl}:${key}`);
-      metaCacheRef.current.set(`${lvl}:${key}`, {
-        icon,
-        written: prevMeta?.written ?? false,
-      });
+      metaCacheRef.current.set(`${lvl}:${key}`, icon);
       if (!userId) return;
       void updateVisionEntryIcon(userId, lvl, key, icon).catch((err) =>
         console.error('[vision] icon save failed', err),
@@ -233,25 +206,10 @@ export function Vision() {
   // Version-history (restore) sheet.
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  // Live-track whether the ACTIVE entry has content as the user types, so the
-  // check-mark appears/disappears instantly (not only after the debounced
-  // save). Wraps scheduleSave — declared AFTER useVisionEntry so scheduleSave
-  // is in scope.
+  // Persist edits (debounced inside useVisionEntry).
   const handleEditorChange = useCallback(
-    (json: unknown) => {
-      const empty = isVisionContentEmpty(json);
-      setWritten((prev) =>
-        prev[level] === !empty ? prev : { ...prev, [level]: !empty },
-      );
-      // Mirror the live "written" state into the cache for this period.
-      const prevMeta = metaCacheRef.current.get(`${level}:${periodKey}`);
-      metaCacheRef.current.set(`${level}:${periodKey}`, {
-        icon: prevMeta?.icon ?? null,
-        written: !empty,
-      });
-      scheduleSave(json);
-    },
-    [level, periodKey, scheduleSave],
+    (json: unknown) => scheduleSave(json),
+    [scheduleSave],
   );
 
   // The DateBar title (scope name + period range) + its quick period stepper.
@@ -267,12 +225,6 @@ export function Vision() {
     level,
     getPeriodKey(level, addAnchor(level, anchor, 1)),
   );
-
-  // Activate a level at a given anchor — centre tap or side step.
-  const pick = (targetLevel: VisionScope, targetAnchor: Date) => {
-    setAnchor(targetAnchor);
-    setLevel(targetLevel);
-  };
 
   // "Jump to now" — always returns to the CURRENT WEEK (which inherently
   // lands on the current month + year too). One consistent "back to today"
@@ -306,8 +258,7 @@ export function Vision() {
     setView('board');
   };
 
-  // The writing surface for the active period — shared by BOTH views (the map
-  // shows it below the grid, the layered view below the navigator).
+  // The writing surface for the active period — shown below the year-map grid.
   //
   // CRITICAL: only mount the editor once `entry` actually belongs to the
   // CURRENT (level, periodKey). When you jump periods — especially from the
@@ -368,46 +319,36 @@ export function Vision() {
         />
       ) : (
         <>
-          {/* Active navigator (layer stack OR year map) — collapses as a
-              drawer. The grid 0fr↔1fr trick animates real content height with
-              no JS measuring; the inner wrapper clips during the fold. */}
+          {/* The year map navigator — collapses as a drawer. The grid 0fr↔1fr
+              trick animates real content height with no JS measuring; the inner
+              wrapper clips during the fold. */}
           <div
             className="grid transition-[grid-template-rows] duration-300 ease-in-out"
             style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden min-h-0">
-              {view === 'board' ? (
-                <VisionYearMap
-                  userId={userId}
-                  year={mapYear}
-                  today={today}
-                  selectedLevel={level}
-                  selectedKey={periodKey}
-                  onStepYear={(delta) => setMapYear((y) => y + delta)}
-                  onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-                  onPickMonth={(monthKey) =>
-                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                  }
-                  onPickWeek={(weekKey) =>
-                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                  }
-                />
-              ) : (
-                <VisionLayers
-                  level={level}
-                  anchor={anchor}
-                  onPick={pick}
-                  icons={icons}
-                  written={written}
-                />
-              )}
+              <VisionYearMap
+                userId={userId}
+                year={mapYear}
+                today={today}
+                selectedLevel={level}
+                selectedKey={periodKey}
+                onStepYear={(delta) => setMapYear((y) => y + delta)}
+                onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+                onPickMonth={(monthKey) =>
+                  goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                }
+                onPickWeek={(weekKey) =>
+                  goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                }
+              />
             </div>
           </div>
 
           {/* The chosen vision, below the navigator. Wrapped in an error
               boundary so a transient editor remount crash self-heals instead
               of black-screening. */}
-          <div className={view === 'board' ? 'mt-4' : ''}>
+          <div className="mt-4">
             <ErrorBoundary
               resetKeys={[level, periodKey, contentVersion]}
               pendingFallback={

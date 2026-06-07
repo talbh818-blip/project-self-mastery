@@ -9,27 +9,26 @@
 //     and down like a drawer. Rotates 180° to signal the open/closed state.
 //   • Jump-to-now (just right of the chevron): returns the active level to the
 //     current period. Moved here out of the editor's DateBar.
-//   • View toggle (physical RIGHT): switches between the layered view and a
-//     second view (the second one is a placeholder until its spec lands).
+//   • View toggle (physical RIGHT): switches between the year map and the
+//     free-scroll feed.
 //
 // This component is purely presentational — all state lives in the Vision
 // screen so the drawer animation and the editor stay in sync.
 // ============================================================================
 import {
   ChevronDown,
-  Rows3,
   LayoutGrid,
   GalleryVertical,
   History,
 } from 'lucide-react';
 
-export type VisionView = 'layers' | 'board' | 'feed';
+export type VisionView = 'board' | 'feed';
 
 type Props = {
   /** Is the layered navigator currently expanded? */
   layersOpen: boolean;
   onToggleLayers: () => void;
-  /** Active view: layered stack, the year map, or the free-scroll feed. */
+  /** Active view: the year map or the free-scroll feed. */
   view: VisionView;
   onViewChange: (view: VisionView) => void;
   /** Open the version-history (restore) sheet for the open vision. */
@@ -45,7 +44,7 @@ export function VisionViewBar({
 }: Props) {
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
-      {/* physical RIGHT (first DOM child): the three view toggles. Map leads
+      {/* physical RIGHT (first DOM child): the two view toggles. Map leads
           (rightmost in RTL); free-scroll is left-most. */}
       <div className="inline-flex items-center gap-0.5 rounded-xl bg-surface-raised p-0.5 ring-1 ring-surface-border">
         <ViewToggle
@@ -54,13 +53,6 @@ export function VisionViewBar({
           onClick={() => onViewChange('board')}
         >
           <LayoutGrid size={16} />
-        </ViewToggle>
-        <ViewToggle
-          active={view === 'layers'}
-          label="תצוגת שכבות"
-          onClick={() => onViewChange('layers')}
-        >
-          <Rows3 size={16} />
         </ViewToggle>
         <ViewToggle
           active={view === 'feed'}
