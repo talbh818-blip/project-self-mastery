@@ -1886,13 +1886,13 @@ function HabitDataCard({
     : 0;
   const totalPoints = stats?.totalPoints ?? 0;
 
-  // Frequency target, shown only when it differs from the default "פעם ביום".
+  // Ultra-compact frequency badge ("2/שבוע"), shown only when it differs from
+  // the default once-per-day. Sits inline on the habit-name row.
   const freqText = (() => {
     const { frequency_period: p, frequency_target: t } = habit;
     if (p === 'daily' && t === 1) return null;
-    const period = p === 'daily' ? 'ביום' : p === 'weekly' ? 'בשבוע' : 'בחודש';
-    const times = t === 1 ? 'פעם' : t === 2 ? 'פעמיים' : `${t} פעמים`;
-    return `${times} ${period}`;
+    const per = p === 'daily' ? 'יום' : p === 'weekly' ? 'שבוע' : 'חודש';
+    return `${t}/${per}`;
   })();
 
   return (
@@ -1907,12 +1907,16 @@ function HabitDataCard({
       >
         <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
       </span>
-      <div className="text-[11px] font-medium text-ink-100 truncate w-full leading-tight">
-        {habit.name}
+      <div className="flex items-center justify-center gap-1 w-full min-w-0">
+        <span className="text-[11px] font-medium text-ink-100 truncate min-w-0 leading-tight">
+          {habit.name}
+        </span>
+        {freqText && (
+          <span className="shrink-0 text-[9px] text-white/50 tabular-nums">
+            {freqText}
+          </span>
+        )}
       </div>
-      {freqText && (
-        <div className="text-[9px] text-white/60 leading-none">{freqText}</div>
-      )}
       {/* How many times the habit was marked done in the selected range —
           with a check icon (right side in RTL), above the success %. */}
       <div className="inline-flex items-center gap-1 text-[10px] text-white/70 leading-none">

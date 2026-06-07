@@ -181,13 +181,7 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
     backgroundColor: hexWithAlpha(habit.color, 0.18),
     color: 'white',
   };
-  const freqText = (() => {
-    const { frequency_period: p, frequency_target: t } = habit;
-    if (p === 'daily' && t === 1) return null;
-    const period = p === 'daily' ? 'ביום' : p === 'weekly' ? 'בשבוע' : 'בחודש';
-    const times = t === 1 ? 'פעם' : t === 2 ? 'פעמיים' : `${t} פעמים`;
-    return `${times} ${period}`;
-  })();
+  const freqText = shortFreq(habit.frequency_period, habit.frequency_target);
   const points = habit.total_points;
 
   return (
@@ -198,12 +192,16 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
       >
         <HabitIcon name={habit.icon} size={20} strokeWidth={1.8} />
       </span>
-      <div className="text-[11px] font-medium text-ink-100 truncate w-full leading-tight">
-        {habit.name}
+      <div className="flex items-center justify-center gap-1 w-full min-w-0">
+        <span className="text-[11px] font-medium text-ink-100 truncate min-w-0 leading-tight">
+          {habit.name}
+        </span>
+        {freqText && (
+          <span className="shrink-0 text-[9px] text-white/50 tabular-nums">
+            {freqText}
+          </span>
+        )}
       </div>
-      {freqText && (
-        <div className="text-[9px] text-white/60 leading-none">{freqText}</div>
-      )}
       <div className="inline-flex items-center gap-1 text-[10px] text-white/70 leading-none">
         <Check size={12} strokeWidth={2.5} className="text-forest-400 shrink-0" />
         סומן {habit.v_count} {habit.v_count === 1 ? 'פעם' : 'פעמים'}
@@ -233,6 +231,17 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
       </div>
     </div>
   );
+}
+
+// Ultra-compact frequency badge, e.g. "2/שבוע", "1/יום". Returns null for the
+// default once-per-day so it isn't shown.
+function shortFreq(
+  period: 'daily' | 'weekly' | 'monthly',
+  target: number,
+): string | null {
+  if (period === 'daily' && target === 1) return null;
+  const per = period === 'daily' ? 'יום' : period === 'weekly' ? 'שבוע' : 'חודש';
+  return `${target}/${per}`;
 }
 
 // "YYYY-MM-DD" → "d.m.yy" (local, no TZ drift).
