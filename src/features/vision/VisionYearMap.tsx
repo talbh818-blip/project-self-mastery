@@ -35,6 +35,12 @@ import {
 
 type WeekCell = { key: string; start: Date };
 
+// The active-month green pill is a UNIFORM width in every month: the span of
+// 5 week squares (5/6 of the row + the 4 gaps between them), regardless of how
+// many weeks the month actually has. Applied as a min-width so a rare long
+// label can still grow rather than truncate.
+const PILL_MIN_WIDTH = 'calc(5 * ((100% - 10px) / 6) + 8px)';
+
 type Props = {
   userId: string | null;
   /** Year currently shown on the map. */
@@ -196,12 +202,6 @@ export function VisionYearMap({
             const isMonthSelected =
               selectedLevel === 'monthly' && selectedKey === mo.key;
             const isFutureMonth = isFuturePeriod('monthly', mo.key, today);
-            // The active-month pill matches the WIDTH of the week-squares row
-            // below it: N squares at 1/6 of the row + the 2px gaps between them.
-            // (min-width, so a rare long label in a narrow 4-week month can
-            // still grow rather than truncate.)
-            const weekCount = mo.weeks.length;
-            const squaresRowWidth = `calc(${weekCount} * ((100% - 10px) / 6) + ${(weekCount - 1) * 2}px)`;
             return (
               <div
                 key={mo.key}
@@ -227,7 +227,7 @@ export function VisionYearMap({
                     below; this is just its label. Future months (not reached
                     yet) are dimmed and the card is inert. */}
                 <span
-                  style={{ minWidth: squaresRowWidth }}
+                  style={{ minWidth: PILL_MIN_WIDTH }}
                   className={`
                     self-center inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
                     text-[12px] font-semibold leading-none
