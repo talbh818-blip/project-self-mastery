@@ -196,6 +196,12 @@ export function VisionYearMap({
             const isMonthSelected =
               selectedLevel === 'monthly' && selectedKey === mo.key;
             const isFutureMonth = isFuturePeriod('monthly', mo.key, today);
+            // The active-month pill matches the WIDTH of the week-squares row
+            // below it: N squares at 1/6 of the row + the 2px gaps between them.
+            // (min-width, so a rare long label in a narrow 4-week month can
+            // still grow rather than truncate.)
+            const weekCount = mo.weeks.length;
+            const squaresRowWidth = `calc(${weekCount} * ((100% - 10px) / 6) + ${(weekCount - 1) * 2}px)`;
             return (
               <div
                 key={mo.key}
@@ -221,8 +227,9 @@ export function VisionYearMap({
                     below; this is just its label. Future months (not reached
                     yet) are dimmed and the card is inert. */}
                 <span
+                  style={{ minWidth: squaresRowWidth }}
                   className={`
-                    self-center inline-flex items-center justify-center gap-1 h-5 px-2 rounded-md
+                    self-center inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
                     text-[12px] font-semibold leading-none
                     ${
                       isMonthSelected
