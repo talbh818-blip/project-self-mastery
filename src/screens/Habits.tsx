@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Archive,
   BarChart3,
+  Check,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
@@ -1912,30 +1913,36 @@ function HabitDataCard({
       {freqText && (
         <div className="text-[9px] text-white/60 leading-none">{freqText}</div>
       )}
+      {/* How many times the habit was marked done in the selected range —
+          with a check icon (right side in RTL), above the success %. */}
+      <div className="inline-flex items-center gap-1 text-[10px] text-white/70 leading-none">
+        <Check size={12} strokeWidth={2.5} className="text-forest-400 shrink-0" />
+        סומן {vCountInRange} {vCountInRange === 1 ? 'פעם' : 'פעמים'}
+      </div>
       <div className="text-base font-bold leading-none text-ink-100">
         <span className="tabular-nums">{successRate}%</span>
         <span className="text-[10px] font-normal text-white/80 mr-1">הצלחה</span>
       </div>
-      {/* How many times the habit was completed within the selected range. */}
-      <div className="text-[10px] text-white/70 leading-none">
-        בוצע {vCountInRange} {vCountInRange === 1 ? 'פעם' : 'פעמים'}
+      {/* Points · start date on a single line. */}
+      <div className="flex items-center gap-1.5 text-[10px] leading-none">
+        <span
+          className={`font-medium tabular-nums ${
+            totalPoints > 0
+              ? 'text-forest-500'
+              : totalPoints < 0
+              ? 'text-red-400'
+              : 'text-white/70'
+          }`}
+        >
+          {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
+        </span>
+        {startDate && (
+          <>
+            <span className="text-ink-500">·</span>
+            <span className="text-white/70">מ-{formatStartDate(startDate)}</span>
+          </>
+        )}
       </div>
-      <div
-        className={`text-[10px] font-medium tabular-nums leading-none ${
-          totalPoints > 0
-            ? 'text-forest-500'
-            : totalPoints < 0
-            ? 'text-red-400'
-            : 'text-white/70'
-        }`}
-      >
-        {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
-      </div>
-      {startDate && (
-        <div className="text-[9px] text-white/70 leading-none">
-          מ-{formatStartDate(startDate)}
-        </div>
-      )}
     </button>
   );
 }
