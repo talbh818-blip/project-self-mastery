@@ -142,15 +142,26 @@ export function scoreHabit(params: {
   // grace/auto_x logic lapses it like any unmet day.
   const quantTarget =
     habit.is_quantitative ? Math.max(1, habit.quantitative_target ?? 1) : 0;
+  // Quantitative days that were logged but BELOW target — "engaged but not
+  // done". These are NEUTRAL: no points, and no auto_x miss penalty either
+  // (the user only asked that partial days not EARN points, not that they be
+  // punished). Tracked separately so the loop can force them to 'blank'.
+  const partialDates = new Set<string>();
   for (const log of habitLogs) {
     if (log.amount !== null && log.amount !== undefined) {
       amountsByDate.set(log.date, log.amount);
     }
     if (habit.is_quantitative && log.status === 'V') {
-      if ((log.amount ?? 0) >= quantTarget) {
+      // A null amount = the day was marked done under the OLD binary model,
+      // before this habit became a counter (e.g. its daily target was raised
+      // above 1). Those are full completions — counting them as partial misses
+      // is exactly the bug that dragged active users' scores deep negative.
+      // An explicit amount at/above target is also complete.
+      if (log.amount == null || log.amount >= quantTarget) {
         logsByDate.set(log.date, 'V');
+      } else {
+        partialDates.add(log.date); // explicit partial → neutral (see loop)
       }
-      // partial → intentionally left unlogged (no logsByDate entry)
     } else {
       logsByDate.set(log.date, log.status);
     }
@@ -180,6 +191,9 @@ export function scoreHabit(params: {
     const explicit = logsByDate.get(dStr);
     if (explicit) {
       s = explicit;
+    } else if (partialDates.has(dStr)) {
+      // Engaged but below target — neutral: no points, no miss penalty.
+      s = 'blank';
     } else if (assignmentDateStrs.has(dStr)) {
       // Within assignment window, no log → may become auto_x after grace.
       const d = dateFromString(dStr);
