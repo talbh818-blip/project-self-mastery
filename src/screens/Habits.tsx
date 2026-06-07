@@ -1885,6 +1885,15 @@ function HabitDataCard({
     : 0;
   const totalPoints = stats?.totalPoints ?? 0;
 
+  // Frequency target, shown only when it differs from the default "פעם ביום".
+  const freqText = (() => {
+    const { frequency_period: p, frequency_target: t } = habit;
+    if (p === 'daily' && t === 1) return null;
+    const period = p === 'daily' ? 'ביום' : p === 'weekly' ? 'בשבוע' : 'בחודש';
+    const times = t === 1 ? 'פעם' : t === 2 ? 'פעמיים' : `${t} פעמים`;
+    return `${times} ${period}`;
+  })();
+
   return (
     <button
       type="button"
@@ -1900,9 +1909,16 @@ function HabitDataCard({
       <div className="text-[11px] font-medium text-ink-100 truncate w-full leading-tight">
         {habit.name}
       </div>
+      {freqText && (
+        <div className="text-[9px] text-white/60 leading-none">{freqText}</div>
+      )}
       <div className="text-base font-bold leading-none text-ink-100">
         <span className="tabular-nums">{successRate}%</span>
-        <span className="text-[10px] font-normal text-ink-300 mr-1">הצלחה</span>
+        <span className="text-[10px] font-normal text-white/80 mr-1">הצלחה</span>
+      </div>
+      {/* How many times the habit was completed within the selected range. */}
+      <div className="text-[10px] text-white/70 leading-none">
+        בוצע {vCountInRange} {vCountInRange === 1 ? 'פעם' : 'פעמים'}
       </div>
       <div
         className={`text-[10px] font-medium tabular-nums leading-none ${
@@ -1910,13 +1926,13 @@ function HabitDataCard({
             ? 'text-forest-500'
             : totalPoints < 0
             ? 'text-red-400'
-            : 'text-ink-300'
+            : 'text-white/70'
         }`}
       >
         {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
       </div>
       {startDate && (
-        <div className="text-[9px] text-ink-500 leading-none">
+        <div className="text-[9px] text-white/70 leading-none">
           מ-{formatStartDate(startDate)}
         </div>
       )}
