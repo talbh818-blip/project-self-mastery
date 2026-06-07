@@ -213,11 +213,11 @@ export function VisionYearMap({
                       }
                 }
                 className={`
-                  rounded-xl bg-surface-card p-1.5 flex flex-col gap-1 border transition-colors
+                  rounded-xl p-1 flex flex-col gap-1
                   ${
                     isFutureMonth
-                      ? 'border-surface-border/40'
-                      : 'border-surface-border cursor-pointer hover:border-forest-600/50 hover:bg-surface-raised/40 active:bg-surface-raised/60'
+                      ? 'bg-surface-card'
+                      : 'bg-surface-border cursor-pointer'
                   }
                 `}
               >
@@ -226,13 +226,13 @@ export function VisionYearMap({
                     yet) are dimmed and the card is inert. */}
                 <span
                   className={`
-                    inline-flex items-center justify-center gap-1 h-5 px-1 rounded-md
-                    text-[10px] font-semibold leading-none
+                    inline-flex items-center justify-center gap-1 h-6 px-1 rounded-md
+                    text-[12px] font-semibold leading-none
                     ${
                       isMonthSelected
-                        ? 'bg-forest-700/30 text-ink-100 ring-1 ring-forest-600'
+                        ? 'bg-forest-700/40 text-ink-100 ring-1 ring-forest-600'
                         : isCurrentMonth
-                          ? 'bg-forest-700/20 text-ink-100'
+                          ? 'bg-forest-700/25 text-ink-100'
                           : isFutureMonth
                             ? 'text-ink-100/55'
                             : 'text-ink-100'
@@ -240,10 +240,10 @@ export function VisionYearMap({
                   `}
                 >
                   {/* White dot to the RIGHT (first child in RTL). */}
-                  {monthHasContent && <WrittenDot size={4} />}
-                  {monthIcon && <HabitIcon name={monthIcon} size={11} className="shrink-0" />}
+                  {monthHasContent && <WrittenDot size={5} />}
+                  {monthIcon && <HabitIcon name={monthIcon} size={13} className="shrink-0" />}
                   <span className="truncate">
-                    {mo.index + 1}·{monthShort(mo.index)}
+                    {`${mo.index + 1} · ${monthShort(mo.index)}`}
                   </span>
                 </span>
 
