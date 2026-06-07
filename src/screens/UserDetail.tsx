@@ -112,7 +112,7 @@ export function UserDetail() {
             <img
               src="/logo.png?v=3"
               alt=""
-              className="w-6 h-6 object-contain"
+              className="w-[22px] h-[22px] object-contain"
             />
           }
           value={
@@ -123,11 +123,11 @@ export function UserDetail() {
               </span>
             </>
           }
-          label="זמן במסע"
+          label="במסע"
         />
-        <Kpi icon={<Emoji emoji="🌳" size={24} />} value={data.trees_planted} label="עצים" />
-        <Kpi icon={<Emoji emoji="✨" size={24} />} value={data.score} label="ניקוד" />
-        <Kpi icon={<Emoji emoji="📖" size={24} />} value={data.vision_count} label="כתיבות חזון" />
+        <Kpi icon={<Emoji emoji="🌳" size={22} />} value={data.trees_planted} label="עצים" />
+        <Kpi icon={<Emoji emoji="✨" size={22} />} value={data.score} label="ניקוד" />
+        <Kpi icon={<Emoji emoji="📖" size={22} />} value={data.vision_count} label="כתיבות חזון" />
       </div>
 
       {/* Habits + heatmap, or a privacy notice */}
@@ -260,10 +260,13 @@ function Kpi({
   label: string;
 }) {
   return (
-    <div className="bg-surface-card rounded-2xl px-1.5 py-3 flex flex-col items-center gap-1 text-center">
-      <span className="shrink-0">{icon}</span>
-      <div className="text-base font-bold text-ink-100 tabular-nums leading-none">
-        {value}
+    <div className="bg-surface-card rounded-2xl px-1.5 py-3 flex flex-col items-center gap-1.5 text-center">
+      {/* Line 1: icon + number side by side. Line 2: the label. */}
+      <div className="flex items-center justify-center gap-1.5">
+        <span className="shrink-0 flex items-center">{icon}</span>
+        <span className="text-base font-bold text-ink-100 tabular-nums leading-none">
+          {value}
+        </span>
       </div>
       <div className="text-[10px] text-ink-300 leading-tight">{label}</div>
     </div>
