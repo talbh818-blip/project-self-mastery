@@ -237,8 +237,8 @@ export function VisionYearMap({
                         : isCurrentMonth
                           ? 'bg-forest-700/20 text-ink-100'
                           : isFutureMonth
-                            ? 'text-ink-100/55'
-                            : 'text-ink-100'
+                            ? 'bg-surface-raised/40 text-ink-100/55'
+                            : 'bg-surface-raised text-ink-100'
                     }
                   `}
                 >
