@@ -19,6 +19,7 @@ import { computeUserStats, type UserStats } from './scoring';
 import {
   computeCombinedStats,
   decayFactor,
+  effectiveQuota,
   filledSlots,
   isV2Date,
   periodOf,
@@ -208,17 +209,20 @@ export function useHabitData(userId: string | null): UseHabitData {
       } else if (status === 'V' && habit && isV2Date(date)) {
         const now = new Date();
         const period = periodOf(habit, date);
+        // Judged against the EFFECTIVE quota (partial weeks can't demand
+        // more marks than they have active days).
+        const quota = effectiveQuota(habit, period, state.data.assignments);
         let prevFilled: number;
         let newFilled: number;
         if (period.kind === 'daily') {
           prevFilled =
             prevRow?.status === 'V'
               ? habit.is_quantitative
-                ? Math.min(period.quota, prevRow.amount ?? 1)
+                ? Math.min(quota, prevRow.amount ?? 1)
                 : 1
               : 0;
           newFilled = habit.is_quantitative
-            ? Math.min(period.quota, amount ?? 1)
+            ? Math.min(quota, amount ?? 1)
             : 1;
         } else {
           // Weekly/monthly: each V day fills one slot; count the OTHER days
@@ -226,14 +230,14 @@ export function useHabitData(userId: string | null): UseHabitData {
           const others = prevLogs.filter(
             (l) => l.habit_id === habitId && l.date !== date,
           );
-          prevFilled = filledSlots(habit, period, others);
+          prevFilled = filledSlots(habit, period, others, quota);
           newFilled =
             prevRow?.status === 'V'
               ? prevFilled
-              : Math.min(period.quota, prevFilled + 1);
+              : Math.min(quota, prevFilled + 1);
         }
         if (newFilled > prevFilled) {
-          const weights = slotWeights(period.quota);
+          const weights = slotWeights(quota);
           const value = periodValue(habit, period, state.data.assignments);
           const decay = decayFactor(date, now);
           let delta = 0;

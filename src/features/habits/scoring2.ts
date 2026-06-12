@@ -217,7 +217,8 @@ function habitActiveOn(
   return false;
 }
 
-/** Base value of ONE habit's single day. 0 when no habit is active. */
+/** RAW value of ONE habit's single day — the full pie share, before the
+ *  bonus reserve is carved out. 0 when no habit is active. */
 export function habitDayValue(
   dateStr: string,
   assignments: SlotAssignment[],
@@ -225,9 +226,17 @@ export function habitDayValue(
   const count = activeHabitCountOn(dateStr, assignments);
   if (count === 0) return 0;
   return (
-    (MONTHLY_PIE * BASE_FACTOR * potentialMultiplier(count)) /
+    (MONTHLY_PIE * potentialMultiplier(count)) /
     (count * daysInMonthOf(dateStr))
   );
+}
+
+/** How much of the raw day value marks can earn, per habit frequency.
+ *  Daily + weekly habits reserve 10% for their streak bonuses; monthly
+ *  habits have NO streak bonus, so their marks earn the full value —
+ *  keeping "perfect month = exactly the full pie" true for any mix. */
+export function baseFactorFor(habit: Habit): number {
+  return habit.frequency_period === 'monthly' ? 1 : BASE_FACTOR;
 }
 
 // ----------------------------------------------------------------------------
@@ -271,8 +280,8 @@ export function periodOf(habit: Habit, dateStr: string): Period {
 
 /** The pooled value of a period for this habit = the sum of the habit's
  *  day-values over the period's days that are (a) in the V2 era and (b)
- *  days the habit was actually assigned. For a daily habit this is just
- *  the single day's value. */
+ *  days the habit was actually assigned — times the habit's base factor
+ *  (the bonus reserve). For a daily habit this is just the single day. */
 export function periodValue(
   habit: Habit,
   period: Period,
@@ -284,7 +293,25 @@ export function periodValue(
     if (!habitActiveOn(habit.id, d, assignments)) continue;
     total += habitDayValue(d, assignments);
   }
-  return total;
+  return total * baseFactorFor(habit);
+}
+
+/** The quota a period is JUDGED against. For weekly/monthly habits a period
+ *  can have fewer active days than the target (the habit was created
+ *  mid-week, the V2 cutover, a swap) — you can't mark 2 days in a 1-day
+ *  week. Earnings, penalties and bonuses all use this effective quota so
+ *  partial periods neither auto-penalize nor block bonuses. */
+export function effectiveQuota(
+  habit: Habit,
+  period: Period,
+  assignments: SlotAssignment[],
+): number {
+  if (period.kind === 'daily') return period.quota;
+  let days = 0;
+  for (let d = period.start; d <= period.end; d = addDaysStr(d, 1)) {
+    if (isV2Date(d) && habitActiveOn(habit.id, d, assignments)) days++;
+  }
+  return Math.max(1, Math.min(period.quota, days));
 }
 
 /** A period "locks" — and gets settled with penalties — once its last day
@@ -305,18 +332,19 @@ export function filledSlots(
   habit: Habit,
   period: Period,
   habitLogs: HabitLog[],
+  quotaCap: number = period.quota,
 ): number {
   if (period.kind === 'daily') {
     const log = habitLogs.find((l) => l.date === period.start && l.status === 'V');
     if (!log) return 0;
-    if (habit.is_quantitative) return Math.min(period.quota, log.amount ?? 1);
+    if (habit.is_quantitative) return Math.min(quotaCap, log.amount ?? 1);
     return 1;
   }
   let n = 0;
   for (const l of habitLogs) {
     if (l.status === 'V' && l.date >= period.start && l.date <= period.end) n++;
   }
-  return Math.min(period.quota, n);
+  return Math.min(quotaCap, n);
 }
 
 // ----------------------------------------------------------------------------
@@ -333,8 +361,9 @@ export function tapEarnedPoints(params: {
   const { habit, dateStr, prevFilled, assignments, today } = params;
   if (!isV2Date(dateStr)) return 0; // v1 territory — old rules, no snapshot
   const period = periodOf(habit, dateStr);
-  const weights = slotWeights(period.quota);
-  if (prevFilled >= period.quota) return 0; // beyond quota — no extra points
+  const quota = effectiveQuota(habit, period, assignments);
+  const weights = slotWeights(quota);
+  if (prevFilled >= quota) return 0; // beyond quota — no extra points
   const value = periodValue(habit, period, assignments);
   return value * weights[prevFilled] * decayFactor(dateStr, today);
 }
@@ -393,26 +422,38 @@ export function scoreHabitV2(params: {
   let penalties = 0;
   for (const p of periodsByKey.values()) {
     if (!periodLocked(p, today)) continue;
-    const filled = filledSlots(habit, p, habitLogs);
-    if (filled >= p.quota) continue;
+    const quota = effectiveQuota(habit, p, allAssignments);
+    const filled = filledSlots(habit, p, habitLogs, quota);
+    if (filled >= quota) continue;
     const value = periodValue(habit, p, allAssignments);
-    const weights = slotWeights(p.quota);
+    const weights = slotWeights(quota);
     let missedWeight = 0;
-    for (let i = filled; i < p.quota; i++) missedWeight += weights[i];
+    for (let i = filled; i < quota; i++) missedWeight += weights[i];
     penalties += MISS_PENALTY * value * missedWeight;
   }
 
-  // ---- streak bonuses (daily-frequency habits only) ------------------------
+  // ---- streak bonuses — by habit frequency ----------------------------------
+  //   daily   → run ≥7 / ≥14 / perfect month (slice/45 + /30 + /18 = 1/9)
+  //   weekly  → ONE bonus: every week of the month met its quota (slice/9)
+  //   monthly → no streak bonus at all (its marks earn the full, un-reserved
+  //             value instead — see baseFactorFor)
   let bonuses = 0;
+  // Group the habit's active v2 days (up to today) by calendar month. The
+  // "slice" of a month = the habit's reserved-base pooled day values there.
+  const byMonth = new Map<string, string[]>();
+  for (const d of Array.from(activeDaySet).sort()) {
+    const k = monthKeyOf(d);
+    const arr = byMonth.get(k) ?? [];
+    arr.push(d);
+    byMonth.set(k, arr);
+  }
+  const sliceOf = (days: string[]): number => {
+    let s = 0;
+    for (const d of days) s += habitDayValue(d, allAssignments);
+    return s * BASE_FACTOR;
+  };
+
   if (habit.frequency_period === 'daily') {
-    // Group the habit's active v2 days (up to today) by calendar month.
-    const byMonth = new Map<string, string[]>();
-    for (const d of Array.from(activeDaySet).sort()) {
-      const k = monthKeyOf(d);
-      const arr = byMonth.get(k) ?? [];
-      arr.push(d);
-      byMonth.set(k, arr);
-    }
     const completed = (d: string): boolean => {
       const log = habitLogs.find((l) => l.date === d && l.status === 'V');
       if (!log) return false;
@@ -421,9 +462,7 @@ export function scoreHabitV2(params: {
       return log.amount == null || log.amount >= target;
     };
     for (const [monthKey, days] of byMonth) {
-      // The habit's base slice of this month (its pooled day values).
-      let slice = 0;
-      for (const d of days) slice += habitDayValue(d, allAssignments);
+      const slice = sliceOf(days);
       if (slice <= 0) continue;
       // Longest run of consecutive completed calendar days within the month.
       let run = 0;
@@ -455,7 +494,36 @@ export function scoreHabitV2(params: {
         bonuses += slice * BONUS_FULL_MONTH;
       }
     }
+  } else if (habit.frequency_period === 'weekly') {
+    // A week belongs to the month its Sunday falls in. The bonus for a month
+    // lands once the month has locked AND every such week met its quota.
+    const weekStarts = new Set<string>();
+    for (const d of activeDaySet) weekStarts.add(weekStartOf(d));
+    for (const [monthKey, days] of byMonth) {
+      const monthOver =
+        daysBetweenStr(monthEndOf(`${monthKey}-01`), todayStr) >= LOCK_AFTER_DAYS;
+      if (!monthOver) continue;
+      const slice = sliceOf(days);
+      if (slice <= 0) continue;
+      const monthWeeks = Array.from(weekStarts).filter(
+        (w) => monthKeyOf(w) === monthKey,
+      );
+      if (monthWeeks.length === 0) continue;
+      let allMet = true;
+      for (const w of monthWeeks) {
+        const p = periodOf(habit, w);
+        const quota = effectiveQuota(habit, p, allAssignments);
+        if (filledSlots(habit, p, habitLogs, quota) < quota) {
+          allMet = false;
+          break;
+        }
+      }
+      // The whole 10% reserve in one bonus — a perfect month of a weekly
+      // habit still lands on exactly its full slice.
+      if (allMet) bonuses += slice / 9;
+    }
   }
+  // monthly — no bonus by design.
 
   return {
     habitId: habit.id,
