@@ -1,15 +1,20 @@
 import { supabase } from '../../lib/supabase';
 import { resizeAvatar } from '../user/mutations';
+import { computeUserStats } from '../habits/scoring';
+import type { Habit, HabitLog, SlotAssignment } from '../habits/types';
 import type { Profile, SupportTicket, TicketStatus, TicketWithSubmitter } from './types';
 
 // Per-user activity totals derived from habit_logs.
 // Returned for every user shown in the admin list.
 export type UserActivity = {
   user_id: string;
-  v_count: number;
+  v_count: number; // raw V marks (taps), partials included — an activity tally
   x_count: number;
   habit_count: number;
-  log_score: number; // V*5 + X*-3 (no streak bonuses — admin overview only)
+  /** Real engine score (computeUserStats): snapshot-aware completion,
+   *  auto-miss penalties and streak bonuses — the same number the user sees
+   *  under their tree, EXCLUDING score_adjustment (the screen adds it). */
+  log_score: number;
 };
 
 export async function fetchAllProfiles(): Promise<Profile[]> {
@@ -33,20 +38,25 @@ export async function fetchAllProfiles(): Promise<Profile[]> {
 // inspectable. Without the assignment filter, a user who has cycled
 // through 14 habits but only tracks 3 right now shows up as 14.
 export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> {
+  // Full rows — the engine needs amounts, target snapshots and assignment
+  // windows. Admin RLS (migration 0012) grants read over every user's rows.
   const [logsRes, habitsRes, assignmentsRes] = await Promise.all([
-    supabase.from('habit_logs').select('user_id,status'),
-    supabase.from('habits').select('id,user_id,archived_at'),
-    supabase.from('habit_slot_assignments').select('habit_id,end_date'),
+    supabase.from('habit_logs').select('*'),
+    supabase.from('habits').select('*'),
+    supabase.from('habit_slot_assignments').select('*'),
   ]);
   if (logsRes.error) throw logsRes.error;
   if (habitsRes.error) throw habitsRes.error;
   if (assignmentsRes.error) throw assignmentsRes.error;
 
+  const logs = (logsRes.data ?? []) as HabitLog[];
+  const habits = (habitsRes.data ?? []) as Habit[];
+  const assignments = (assignmentsRes.data ?? []) as SlotAssignment[];
+
   // Set of habit_ids that currently have an open slot assignment.
   const habitsWithOpenAssignment = new Set<string>();
-  for (const row of assignmentsRes.data ?? []) {
-    const r = row as { habit_id: string; end_date: string | null };
-    if (r.end_date === null) habitsWithOpenAssignment.add(r.habit_id);
+  for (const a of assignments) {
+    if (a.end_date === null) habitsWithOpenAssignment.add(a.habit_id);
   }
 
   const map = new Map<string, UserActivity>();
@@ -59,22 +69,43 @@ export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> 
     return r;
   };
 
-  for (const row of logsRes.data ?? []) {
-    const r = get(row.user_id as string);
+  for (const row of logs) {
+    const r = get(row.user_id);
     if (row.status === 'V') {
       r.v_count++;
-      r.log_score += 5;
     } else if (row.status === 'X' || row.status === 'auto_x') {
       r.x_count++;
-      r.log_score -= 3;
     }
   }
-  for (const row of habitsRes.data ?? []) {
-    const h = row as { id: string; user_id: string; archived_at: string | null };
+  for (const h of habits) {
     if (h.archived_at !== null) continue;
     if (!habitsWithOpenAssignment.has(h.id)) continue;
     const r = get(h.user_id);
     r.habit_count++;
+  }
+
+  // Score each user through the REAL engine — the same computeUserStats the
+  // user's own app runs — so the admin list shows the exact number the user
+  // sees under their tree (server RPCs use the SQL port of the same rules,
+  // migration 0034).
+  const today = new Date();
+  const byUser = new Map<
+    string,
+    { habits: Habit[]; assignments: SlotAssignment[]; logs: HabitLog[] }
+  >();
+  const bucket = (uid: string) => {
+    let b = byUser.get(uid);
+    if (!b) {
+      b = { habits: [], assignments: [], logs: [] };
+      byUser.set(uid, b);
+    }
+    return b;
+  };
+  for (const h of habits) bucket(h.user_id).habits.push(h);
+  for (const a of assignments) bucket(a.user_id).assignments.push(a);
+  for (const l of logs) bucket(l.user_id).logs.push(l);
+  for (const [uid, b] of byUser) {
+    get(uid).log_score = computeUserStats({ ...b, today }).totalScore;
   }
 
   return map;
