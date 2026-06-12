@@ -158,15 +158,26 @@ export function decayFactor(dateStr: string, today: Date): number {
 
 // ----------------------------------------------------------------------------
 // Slot weights — how a period's value splits between its quota marks.
-// The CLOSING mark is always worth the most.
+// The CLOSING mark is always worth the most, but its premium SHRINKS as the
+// target grows (60% of a 2-target is sane; 60% of a 10-target is not):
+//   target 2 → 60%, targets 3-5 → 40%, then −4% per extra slot down to a
+//   20% floor at target 10+. The earlier marks split the remainder equally.
 // ----------------------------------------------------------------------------
+export function closerWeight(quota: number): number {
+  const n = Math.max(1, Math.floor(quota));
+  if (n <= 1) return 1;
+  if (n === 2) return 0.6;
+  if (n <= 5) return 0.4;
+  return Math.max(0.2, 0.4 - 0.04 * (n - 5));
+}
+
 export function slotWeights(quota: number): number[] {
   const n = Math.max(1, Math.floor(quota));
   if (n === 1) return [1];
-  if (n === 2) return [0.4, 0.6];
-  const early = 0.6 / (n - 1);
+  const closer = closerWeight(n);
+  const early = (1 - closer) / (n - 1);
   const w = new Array<number>(n).fill(early);
-  w[n - 1] = 0.4;
+  w[n - 1] = closer;
   return w;
 }
 
