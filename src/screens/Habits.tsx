@@ -871,9 +871,10 @@ function HabitRow({
     color: 'white',
   };
 
+  // Count via the engine's verdict only — a raw log can be status 'V' with a
+  // below-target amount (a partial), which must not count as a completion.
   const weeklyCompletions = days.reduce((acc, d) => {
-    const dateStr = toDateString(d);
-    const m = effectiveFor(dateStr) ?? slot.marks[dateStr];
+    const m = effectiveFor(toDateString(d));
     return m === 'V' ? acc + 1 : acc;
   }, 0);
 
@@ -965,27 +966,33 @@ function HabitRow({
               const future = isFuture(d, today);
               const effective = effectiveFor(dateStr);
               const mark = effective ?? slot.marks[dateStr];
+              // Engine verdict: 'V' means the day is complete per the target
+              // snapshotted ON that day (target_at_log). Quantitative cells
+              // must render by this — comparing the amount to the CURRENT
+              // target would retroactively dim days completed under an older
+              // target.
+              const completed = effective === 'V';
 
               if (habitStart && dateStr < habitStart) {
                 streakCount = 0;
-                return { dateStr, future, mark, streakDepth: -1 };
+                return { dateStr, future, mark, completed, streakDepth: -1 };
               }
               if (future) {
                 streakCount = 0;
-                return { dateStr, future, mark, streakDepth: 0 };
+                return { dateStr, future, mark, completed, streakDepth: 0 };
               }
               if (mark === 'V' || mark === 'X') {
                 // V = success, X = explicit failure — both reset the streak.
                 streakCount = 0;
-                return { dateStr, future, mark, streakDepth: 0 };
+                return { dateStr, future, mark, completed, streakDepth: 0 };
               }
               // Blank (undefined) OR auto_x (virtual, not stored in DB) =
               // missed day → streak grows and cell turns progressively red.
               streakCount++;
-              return { dateStr, future, mark, streakDepth: streakCount };
+              return { dateStr, future, mark, completed, streakDepth: streakCount };
             });
 
-            return cellInfos.map(({ dateStr, future, mark, streakDepth }, i) => {
+            return cellInfos.map(({ dateStr, future, mark, completed, streakDepth }, i) => {
               const isToday = isSameDay(days[i], today);
               const amount = slot.amounts[dateStr] ?? null;
               return (
@@ -994,6 +1001,7 @@ function HabitRow({
                   habit={habit}
                   mark={mark}
                   amount={amount}
+                  completed={completed}
                   isToday={isToday}
                   disabled={future}
                   streakDepth={streakDepth}
@@ -1140,6 +1148,7 @@ function DayCell({
   habit,
   mark,
   amount,
+  completed,
   isToday,
   disabled,
   streakDepth,
@@ -1148,6 +1157,9 @@ function DayCell({
   habit: Habit;
   mark: LogStatus | undefined;
   amount: number | null;
+  /** Engine verdict — the day is complete per ITS OWN target snapshot
+   *  (target_at_log), not the habit's current target. */
+  completed: boolean;
   isToday: boolean;
   disabled: boolean;
   /** -1 = before habit creation (render completely empty)
@@ -1157,7 +1169,6 @@ function DayCell({
   onClick: () => void;
 }) {
   const isQuant = habit.is_quantitative;
-  const target = habit.quantitative_target ?? 0;
 
   // Days before the habit's start_date: render as a regular muted blank
   // tile (same tint as a fresh post-start day), but with NO red streak
@@ -1181,7 +1192,9 @@ function DayCell({
   let style: React.CSSProperties;
   let content: React.ReactNode = null;
   if (isQuant && amount && amount > 0) {
-    const reached = amount >= target;
+    // Judged by the day's own target snapshot (via the scoring engine), so a
+    // later target raise never retroactively dims a day that was complete.
+    const reached = completed;
     style = {
       backgroundColor: reached
         ? habit.color
@@ -1482,13 +1495,16 @@ function MonthCell({
   let bg = hexWithAlpha(habit.color, 0.08);
   let filled = false;
   if (habit.is_quantitative && amount && amount > 0) {
-    const target = habit.quantitative_target ?? 10;
-    const intensity = Math.min(1, amount / target);
-    // Range 0.4–1.0 so even partial days read as a clear colored cell.
-    bg =
-      intensity >= 1
-        ? habit.color
-        : hexWithAlpha(habit.color, 0.4 + intensity * 0.55);
+    // Full color ONLY when the engine judged the day complete (mark === 'V',
+    // per the day's own target snapshot). Partials scale by the current
+    // target but stay visibly below full.
+    if (mark === 'V') {
+      bg = habit.color;
+    } else {
+      const target = habit.quantitative_target ?? 10;
+      const intensity = Math.min(0.9, amount / target);
+      bg = hexWithAlpha(habit.color, 0.4 + intensity * 0.55);
+    }
     filled = true;
   } else if (mark === 'V') {
     bg = habit.color;
