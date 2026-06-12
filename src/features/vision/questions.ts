@@ -1,14 +1,19 @@
 // ============================================================================
-// Vision Assist — static question catalog.
+// Vision guided-writing ("כתיבה מודרכת") — question catalog.
 // ----------------------------------------------------------------------------
 // Per-scope prompts for guided journaling. Picked at random (without repeats
-// within a single entry) by VisionEditor when the user clicks "+ שאלה" or
-// when Assist mode first activates on an empty entry.
+// within a single entry) by VisionEditor when the user taps "+ כתיבה מודרכת".
+//
+// The catalog lives in the `vision_questions` table (migration 0035) so the
+// app owner can manage it from the admin panel. The hardcoded lists below are
+// the FALLBACK used until the fetch resolves (or if it fails) — they mirror
+// the migration's seed.
 //
 // Question IDs are stable strings so old entries that reference a question
 // keep working even if the catalog evolves; the human text is also snapshot
 // onto the node at insertion time so historical entries are self-contained.
 // ============================================================================
+import { supabase } from '../../lib/supabase';
 import type { VisionScope } from './period';
 
 export type VisionQuestion = {
@@ -16,7 +21,13 @@ export type VisionQuestion = {
   text: string;
 };
 
-const YEARLY: VisionQuestion[] = [
+/** Full DB row — used by the admin panel. */
+export type VisionQuestionRow = VisionQuestion & {
+  scope: VisionScope;
+  sort_order: number;
+};
+
+const FALLBACK_YEARLY: VisionQuestion[] = [
   { id: 'y-vision', text: 'מה החזון שלי לשנה הזו? מה הכי חשוב לי להשיג עד סופה?' },
   { id: 'y-person', text: 'איזה בן אדם אני רוצה להיות בסוף השנה הזו, שלא הייתי בתחילתה?' },
   { id: 'y-habits', text: 'אילו 3 הרגלים אם אבנה השנה — ישנו את החיים שלי?' },
@@ -29,7 +40,7 @@ const YEARLY: VisionQuestion[] = [
   { id: 'y-celebrate', text: 'מה ארצה לחגוג בסוף השנה? מה יגרום לי להרגיש שגאה בעצמי?' },
 ];
 
-const MONTHLY: VisionQuestion[] = [
+const FALLBACK_MONTHLY: VisionQuestion[] = [
   { id: 'm-focus', text: 'מה המיקוד המרכזי שלי לחודש הזה? אם אעשה רק דבר אחד — מה זה יהיה?' },
   { id: 'm-progress', text: 'איך החודש הזה מקדם אותי לעבר החזון השנתי שלי?' },
   { id: 'm-last', text: 'מה למדתי על עצמי בחודש שעבר שאני רוצה לקחת איתי החודש?' },
@@ -42,7 +53,7 @@ const MONTHLY: VisionQuestion[] = [
   { id: 'm-month-end', text: 'כשהחודש יסתיים, מה ארצה להגיד על עצמי?' },
 ];
 
-const WEEKLY: VisionQuestion[] = [
+const FALLBACK_WEEKLY: VisionQuestion[] = [
   { id: 'w-week-focus', text: 'מה הדבר הכי חשוב שצריך לקרות השבוע?' },
   { id: 'w-last-week', text: 'מה עבד טוב בשבוע שעבר, ומה אני רוצה להמשיך?' },
   { id: 'w-last-fail', text: 'איפה נפלתי בשבוע שעבר, ומה אעשה אחרת השבוע?' },
@@ -55,14 +66,59 @@ const WEEKLY: VisionQuestion[] = [
   { id: 'w-grateful', text: 'על מה אני אסיר תודה השבוע, גם אם זה דבר קטן?' },
 ];
 
-const BY_SCOPE: Record<VisionScope, VisionQuestion[]> = {
-  yearly: YEARLY,
-  monthly: MONTHLY,
-  weekly: WEEKLY,
+const FALLBACKS: Record<VisionScope, VisionQuestion[]> = {
+  yearly: FALLBACK_YEARLY,
+  monthly: FALLBACK_MONTHLY,
+  weekly: FALLBACK_WEEKLY,
 };
 
+// ─── Live catalog ────────────────────────────────────────────────────────────
+// Starts as the fallback; replaced per-scope once the DB rows arrive. The
+// pick functions stay synchronous (they run inside click handlers / Tiptap
+// commands), so the editor kicks off the load on mount and by tap-time the
+// catalog is fresh. A scope whose fetch comes back empty keeps its fallback —
+// an admin emptying a scope by mistake shouldn't kill guided writing.
+let catalog: Record<VisionScope, VisionQuestion[]> = { ...FALLBACKS };
+let loadPromise: Promise<void> | null = null;
+
+export function ensureQuestionsLoaded(): Promise<void> {
+  if (!loadPromise) {
+    loadPromise = (async () => {
+      const { data, error } = await supabase
+        .from('vision_questions')
+        .select('id, scope, text, sort_order')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      const next: Record<VisionScope, VisionQuestion[]> = {
+        yearly: [],
+        monthly: [],
+        weekly: [],
+      };
+      for (const row of (data ?? []) as VisionQuestionRow[]) {
+        if (row.scope in next) next[row.scope].push({ id: row.id, text: row.text });
+      }
+      catalog = {
+        yearly: next.yearly.length > 0 ? next.yearly : FALLBACKS.yearly,
+        monthly: next.monthly.length > 0 ? next.monthly : FALLBACKS.monthly,
+        weekly: next.weekly.length > 0 ? next.weekly : FALLBACKS.weekly,
+      };
+    })().catch((e) => {
+      // Keep the fallback catalog; allow a later call to retry.
+      console.error('[vision] failed to load question catalog', e);
+      loadPromise = null;
+    });
+  }
+  return loadPromise;
+}
+
+/** Drop the cached catalog so the next ensure() refetches (after admin edits). */
+export function invalidateQuestionCache(): void {
+  loadPromise = null;
+}
+
 export function questionsForScope(scope: VisionScope): VisionQuestion[] {
-  return BY_SCOPE[scope];
+  return catalog[scope];
 }
 
 /**
@@ -75,11 +131,61 @@ export function pickQuestion(
   scope: VisionScope,
   usedIds: ReadonlySet<string>,
 ): VisionQuestion {
-  const all = BY_SCOPE[scope];
+  const all = catalog[scope];
   const fresh = all.filter((q) => !usedIds.has(q.id));
   const pool = fresh.length > 0 ? fresh : all;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/** How many starter questions to auto-inject when Assist first turns on. */
-export const STARTER_QUESTION_COUNT = 3;
+// ─── Admin CRUD ──────────────────────────────────────────────────────────────
+// RLS (migration 0035) restricts writes to is_admin(); reads are open to any
+// authenticated user. Mutations use `.select().maybeSingle()` so a silent RLS
+// denial surfaces as data: null rather than a false success.
+
+export async function fetchVisionQuestionsAdmin(): Promise<VisionQuestionRow[]> {
+  const { data, error } = await supabase
+    .from('vision_questions')
+    .select('id, scope, text, sort_order')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as VisionQuestionRow[];
+}
+
+export async function createVisionQuestion(
+  scope: VisionScope,
+  text: string,
+  sortOrder: number,
+): Promise<VisionQuestionRow> {
+  const { data, error } = await supabase
+    .from('vision_questions')
+    .insert({ scope, text, sort_order: sortOrder })
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('ההוספה נדחתה (אין הרשאת אדמין?)');
+  invalidateQuestionCache();
+  return data as VisionQuestionRow;
+}
+
+export async function updateVisionQuestion(
+  id: string,
+  text: string,
+): Promise<VisionQuestionRow> {
+  const { data, error } = await supabase
+    .from('vision_questions')
+    .update({ text })
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('העדכון נדחה (אין הרשאת אדמין?)');
+  invalidateQuestionCache();
+  return data as VisionQuestionRow;
+}
+
+export async function deleteVisionQuestion(id: string): Promise<void> {
+  const { error } = await supabase.from('vision_questions').delete().eq('id', id);
+  if (error) throw error;
+  invalidateQuestionCache();
+}

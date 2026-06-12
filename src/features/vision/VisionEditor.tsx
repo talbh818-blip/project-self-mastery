@@ -12,9 +12,11 @@
 //   • VisionToolbar (fixed, rides above the keyboard): size / bold / italic /
 //     underline / list / highlight / undo-redo.
 //
-// ASSIST MODE: the DateBar toggle reveals a "הוסף שאלה מנחה" button under the
+// ASSIST MODE: the DateBar toggle reveals a "+ כתיבה מודרכת" button under the
 // title. Questions are inserted ONLY on tap — there is no auto-seeding (it
 // used to re-seed every empty week as you navigated, which was unwanted).
+// The question catalog is admin-managed (vision_questions table); we kick off
+// its fetch on mount so picks are fresh by the time the user taps.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
@@ -39,7 +41,7 @@ import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { uploadVisionImage } from './storage';
 import { useAuth } from '../../hooks/useAuth';
-import { pickQuestion } from './questions';
+import { pickQuestion, ensureQuestionsLoaded } from './questions';
 import type { VisionScope } from './period';
 
 type Props = {
@@ -88,6 +90,12 @@ export function VisionEditor({
 }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+
+  // Warm the guided-writing question catalog (DB-backed, falls back to the
+  // built-in list until/unless the fetch lands). pickQuestion stays sync.
+  useEffect(() => {
+    void ensureQuestionsLoaded();
+  }, []);
   // True while at least one image upload is in flight. Surfaces a soft
   // "uploading" hint so a paste/drop isn't completely silent.
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -209,7 +217,7 @@ export function VisionEditor({
   // questions into any empty doc when on — but because the editor remounts on
   // every period change, navigating week→week with Assist on re-seeded each
   // empty week (unwanted). Questions are now added ONLY when the user taps the
-  // "הוסף שאלה מנחה" button.
+  // "+ כתיבה מודרכת" button.
 
   if (!editor) {
     return (
@@ -283,7 +291,7 @@ export function VisionEditor({
             "
           >
             <Plus size={15} strokeWidth={2.2} />
-            הוסף שאלה מנחה
+            כתיבה מודרכת
           </button>
         )}
         <EditorContent editor={editor} />

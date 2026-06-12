@@ -20,6 +20,7 @@ import type { Profile } from './types';
 import { CompassLoader } from '../../components/CompassLoader';
 import { CourseAdminPanel } from './CourseAdminPanel';
 import { FeedbackAdminPanel } from './FeedbackAdminPanel';
+import { VisionQuestionsAdminPanel } from './VisionQuestionsAdminPanel';
 import { UserEditSheet } from './UserEditSheet';
 
 type Row = {
@@ -27,7 +28,7 @@ type Row = {
   activity: UserActivity | null;
 };
 
-type AdminTab = 'users' | 'feedback' | 'course';
+type AdminTab = 'users' | 'feedback' | 'course' | 'questions';
 
 export function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('users');
@@ -110,7 +111,7 @@ export function AdminScreen() {
 
   return (
     <section className="text-ink-100">
-      {/* Tab switcher: users / feedback / course catalog */}
+      {/* Tab switcher: users / feedback / course catalog / guided questions */}
       <div className="flex gap-2 mb-4">
         <TabBtn active={tab === 'users'} onClick={() => setTab('users')}>
           משתמשים
@@ -121,10 +122,14 @@ export function AdminScreen() {
         <TabBtn active={tab === 'course'} onClick={() => setTab('course')}>
           קורס
         </TabBtn>
+        <TabBtn active={tab === 'questions'} onClick={() => setTab('questions')}>
+          שאלות
+        </TabBtn>
       </div>
 
       {tab === 'course' && <CourseAdminPanel />}
       {tab === 'feedback' && <FeedbackAdminPanel />}
+      {tab === 'questions' && <VisionQuestionsAdminPanel />}
       {tab === 'users' && (
         <>
           {/* Refresh button — sits inside the users panel since the other

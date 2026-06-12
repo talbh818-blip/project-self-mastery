@@ -685,28 +685,41 @@ html {
   .vision-saving-dot { animation: none; opacity: 0.6; }
 }
 
-/* Vision Assist question block — looks like a prompt sticker laid over the
-   notebook. Bold text on the right, two action buttons (↻ swap, ✕ delete)
-   that fade in on hover (always visible on touch devices via the no-hover
-   media query). */
+/* Vision Assist question block — a quiet notebook prompt, not a box: a thin
+   green accent bar hugs the right edge (RTL) and the question text itself is
+   tinted green. Two action buttons (↻ swap, ✕ delete) fade in on hover
+   (always visible on touch devices via the no-hover media query). */
 .vision-editor .vision-question {
+  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  background: var(--color-forest-100);
-  border: 1px solid var(--color-forest-200);
-  border-radius: 0.75rem;
-  padding: 0.65rem 0.85rem;
-  margin: 0.6em 0;
-  color: var(--color-ink-100);
+  padding: 0.1rem 0.95rem 0.1rem 0;
+  margin: 1.1em 0 0.45em;
+}
+.vision-editor .vision-question::before {
+  content: '';
+  position: absolute;
+  top: 0.2em;
+  bottom: 0.2em;
+  right: 0;
+  width: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to bottom,
+    var(--color-forest-500),
+    transparent 160%
+  );
 }
 .vision-editor .vision-question__text {
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.5;
   flex: 1;
   min-width: 0;
   text-align: right;
+  color: var(--color-forest-600);
+  letter-spacing: 0.01em;
 }
 .vision-editor .vision-question__actions {
   display: inline-flex;
