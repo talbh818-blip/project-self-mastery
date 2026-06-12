@@ -73,38 +73,80 @@ const FALLBACKS: Record<VisionScope, VisionQuestion[]> = {
 };
 
 // ─── Live catalog ────────────────────────────────────────────────────────────
-// Starts as the fallback; replaced per-scope once the DB rows arrive. The
-// pick functions stay synchronous (they run inside click handlers / Tiptap
-// commands), so the editor kicks off the load on mount and by tap-time the
-// catalog is fresh. A scope whose fetch comes back empty keeps its fallback —
-// an admin emptying a scope by mistake shouldn't kill guided writing.
-let catalog: Record<VisionScope, VisionQuestion[]> = { ...FALLBACKS };
+// Two layers, merged at pick time:
+//   • adminCatalog — the shared defaults from `vision_questions` (admin-
+//     managed). Starts as the fallback; a scope whose fetch comes back empty
+//     keeps its fallback — an admin emptying a scope by mistake shouldn't
+//     kill guided writing.
+//   • userCatalog — the signed-in user's own questions from
+//     `vision_user_questions`, plus the profile flag `vision_questions_own_only`
+//     that hides the defaults when the user has questions of their own.
+// The pick functions stay synchronous (they run inside click handlers /
+// Tiptap commands), so the editor kicks off the load on mount and by
+// tap-time the catalog is fresh.
+let adminCatalog: Record<VisionScope, VisionQuestion[]> = { ...FALLBACKS };
+let userCatalog: Record<VisionScope, VisionQuestion[]> = {
+  yearly: [],
+  monthly: [],
+  weekly: [],
+};
+let ownOnly = false;
 let loadPromise: Promise<void> | null = null;
+
+function emptyByScope(): Record<VisionScope, VisionQuestion[]> {
+  return { yearly: [], monthly: [], weekly: [] };
+}
 
 export function ensureQuestionsLoaded(): Promise<void> {
   if (!loadPromise) {
     loadPromise = (async () => {
-      const { data, error } = await supabase
-        .from('vision_questions')
-        .select('id, scope, text, sort_order')
-        .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: true });
-      if (error) throw error;
-      const next: Record<VisionScope, VisionQuestion[]> = {
-        yearly: [],
-        monthly: [],
-        weekly: [],
-      };
-      for (const row of (data ?? []) as VisionQuestionRow[]) {
-        if (row.scope in next) next[row.scope].push({ id: row.id, text: row.text });
+      // The profiles query must filter by id explicitly: an admin's RLS lets
+      // them read EVERY profile, so an unfiltered maybeSingle() would throw.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const [adminRes, userRes, prefRes] = await Promise.all([
+        supabase
+          .from('vision_questions')
+          .select('id, scope, text, sort_order')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('vision_user_questions')
+          .select('id, scope, text, sort_order')
+          .order('sort_order', { ascending: true })
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('profiles')
+          .select('vision_questions_own_only')
+          // The nil uuid keeps the filter valid when somehow signed out —
+          // matches nothing, maybeSingle() returns null, pref stays false.
+          .eq('id', user?.id ?? '00000000-0000-0000-0000-000000000000')
+          .maybeSingle(),
+      ]);
+      if (adminRes.error) throw adminRes.error;
+      if (userRes.error) throw userRes.error;
+      if (prefRes.error) throw prefRes.error;
+
+      const admin = emptyByScope();
+      for (const row of (adminRes.data ?? []) as VisionQuestionRow[]) {
+        if (row.scope in admin) admin[row.scope].push({ id: row.id, text: row.text });
       }
-      catalog = {
-        yearly: next.yearly.length > 0 ? next.yearly : FALLBACKS.yearly,
-        monthly: next.monthly.length > 0 ? next.monthly : FALLBACKS.monthly,
-        weekly: next.weekly.length > 0 ? next.weekly : FALLBACKS.weekly,
+      adminCatalog = {
+        yearly: admin.yearly.length > 0 ? admin.yearly : FALLBACKS.yearly,
+        monthly: admin.monthly.length > 0 ? admin.monthly : FALLBACKS.monthly,
+        weekly: admin.weekly.length > 0 ? admin.weekly : FALLBACKS.weekly,
       };
+
+      const own = emptyByScope();
+      for (const row of (userRes.data ?? []) as VisionQuestionRow[]) {
+        if (row.scope in own) own[row.scope].push({ id: row.id, text: row.text });
+      }
+      userCatalog = own;
+
+      ownOnly = prefRes.data?.vision_questions_own_only === true;
     })().catch((e) => {
-      // Keep the fallback catalog; allow a later call to retry.
+      // Keep whatever we have; allow a later call to retry.
       console.error('[vision] failed to load question catalog', e);
       loadPromise = null;
     });
@@ -112,13 +154,32 @@ export function ensureQuestionsLoaded(): Promise<void> {
   return loadPromise;
 }
 
-/** Drop the cached catalog so the next ensure() refetches (after admin edits). */
+/** Drop the cached catalog and refetch in the background (after edits). */
 export function invalidateQuestionCache(): void {
   loadPromise = null;
+  void ensureQuestionsLoaded();
 }
 
+/** The admin defaults for a scope (without the user's own questions). */
+export function defaultQuestionsForScope(scope: VisionScope): VisionQuestion[] {
+  return adminCatalog[scope];
+}
+
+/** Current value of the "only my questions" preference (as last loaded). */
+export function ownOnlyPref(): boolean {
+  return ownOnly;
+}
+
+/**
+ * The pool the picker draws from: the user's own questions, plus the admin
+ * defaults — unless the user opted to use only their own AND actually has
+ * questions in this scope (an empty scope falls back to the defaults so
+ * guided writing never dead-ends).
+ */
 export function questionsForScope(scope: VisionScope): VisionQuestion[] {
-  return catalog[scope];
+  const own = userCatalog[scope];
+  if (ownOnly && own.length > 0) return own;
+  return [...own, ...adminCatalog[scope]];
 }
 
 /**
@@ -131,7 +192,7 @@ export function pickQuestion(
   scope: VisionScope,
   usedIds: ReadonlySet<string>,
 ): VisionQuestion {
-  const all = catalog[scope];
+  const all = questionsForScope(scope);
   const fresh = all.filter((q) => !usedIds.has(q.id));
   const pool = fresh.length > 0 ? fresh : all;
   return pool[Math.floor(Math.random() * pool.length)];
@@ -188,4 +249,78 @@ export async function deleteVisionQuestion(id: string): Promise<void> {
   const { error } = await supabase.from('vision_questions').delete().eq('id', id);
   if (error) throw error;
   invalidateQuestionCache();
+}
+
+// ─── Per-user questions (settings sheet) ─────────────────────────────────────
+// RLS (migration 0038) scopes every operation to the signed-in owner — no
+// explicit user filter needed on reads. Inserts must carry user_id to satisfy
+// the with-check policy.
+
+export async function fetchMyVisionQuestions(): Promise<VisionQuestionRow[]> {
+  const { data, error } = await supabase
+    .from('vision_user_questions')
+    .select('id, scope, text, sort_order')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as VisionQuestionRow[];
+}
+
+export async function createMyVisionQuestion(
+  scope: VisionScope,
+  text: string,
+  sortOrder: number,
+): Promise<VisionQuestionRow> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('לא מחובר');
+  const { data, error } = await supabase
+    .from('vision_user_questions')
+    .insert({ user_id: user.id, scope, text, sort_order: sortOrder })
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('ההוספה נדחתה');
+  invalidateQuestionCache();
+  return data as VisionQuestionRow;
+}
+
+export async function updateMyVisionQuestion(
+  id: string,
+  text: string,
+): Promise<VisionQuestionRow> {
+  const { data, error } = await supabase
+    .from('vision_user_questions')
+    .update({ text })
+    .eq('id', id)
+    .select()
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('העדכון נדחה');
+  invalidateQuestionCache();
+  return data as VisionQuestionRow;
+}
+
+export async function deleteMyVisionQuestion(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('vision_user_questions')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+  invalidateQuestionCache();
+}
+
+/** Persist the "only my questions" preference (optimistic on the module). */
+export async function setOwnOnlyPref(value: boolean): Promise<void> {
+  ownOnly = value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('לא מחובר');
+  const { error } = await supabase
+    .from('profiles')
+    .update({ vision_questions_own_only: value })
+    .eq('id', user.id);
+  if (error) throw error;
 }

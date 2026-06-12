@@ -19,7 +19,7 @@
 // its fetch on mount so picks are fresh by the time the user taps.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Settings2 } from 'lucide-react';
 import {
   useEditor,
   EditorContent,
@@ -35,6 +35,7 @@ import type { SaveStatus } from './useVisionEntry';
 import { useAssistMode } from './useAssistMode';
 import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionNode } from './VisionQuestion';
+import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionImage } from './VisionImage';
 import { VisionToolbar } from './VisionToolbar';
 import { DateBar } from './DateBar';
@@ -99,6 +100,8 @@ export function VisionEditor({
   // True while at least one image upload is in flight. Surfaces a soft
   // "uploading" hint so a paste/drop isn't completely silent.
   const [uploadingCount, setUploadingCount] = useState(0);
+  // "My questions" settings sheet (gear next to the guided-writing button).
+  const [questionSettingsOpen, setQuestionSettingsOpen] = useState(false);
 
   // Live ref to the current editor — kept in sync via setter callback below
   // (NOT useEffect, which lags one render and leaves the ref null on the very
@@ -283,14 +286,14 @@ export function VisionEditor({
             className={`assist-reveal ${assistOn ? 'assist-reveal--open' : ''}`}
             aria-hidden={!assistOn}
           >
-            <div className="assist-reveal__inner pb-2">
+            <div className="assist-reveal__inner pb-2 flex items-stretch gap-1.5">
               <button
                 type="button"
                 tabIndex={assistOn ? 0 : -1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={insertOneQuestion}
                 className="
-                  w-full inline-flex items-center justify-center gap-1.5 h-9
+                  flex-1 inline-flex items-center justify-center gap-1.5 h-9
                   rounded-xl border border-dashed border-surface-border
                   text-[13px] font-medium text-ink-300
                   hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
@@ -299,6 +302,25 @@ export function VisionEditor({
               >
                 <Plus size={15} strokeWidth={2.2} />
                 כתיבה מודרכת
+              </button>
+              {/* My-questions settings — author personal questions and
+                  optionally replace the defaults with them. */}
+              <button
+                type="button"
+                tabIndex={assistOn ? 0 : -1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setQuestionSettingsOpen(true)}
+                aria-label="השאלות שלי"
+                title="השאלות שלי"
+                className="
+                  shrink-0 w-9 h-9 inline-flex items-center justify-center
+                  rounded-xl border border-dashed border-surface-border
+                  text-ink-300
+                  hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
+                  transition-colors
+                "
+              >
+                <Settings2 size={15} strokeWidth={2} />
               </button>
             </div>
           </div>
@@ -315,6 +337,11 @@ export function VisionEditor({
           />
         </ToolbarShell>
       )}
+      <VisionQuestionSettingsSheet
+        open={questionSettingsOpen}
+        initialScope={scope}
+        onClose={() => setQuestionSettingsOpen(false)}
+      />
     </>
   );
 }

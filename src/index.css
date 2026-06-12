@@ -731,6 +731,23 @@ html[data-theme="light"] .vision-editor .vision-question {
   text-align: right;
   color: var(--color-ink-100);
 }
+/* In-place edit field — dressed as the question text itself (no inner box),
+   so editing feels like writing on the same line, not filling a form. */
+.vision-editor .vision-question__input {
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.5;
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  color: var(--color-ink-100);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 0;
+  caret-color: var(--color-forest-500);
+}
 
 /* Collapsible shell for the "+ כתיבה מודרכת" button — always mounted, so
    toggling Assist slides it open/closed instead of popping in and out.
