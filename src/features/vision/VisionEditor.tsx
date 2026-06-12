@@ -275,24 +275,33 @@ export function VisionEditor({
           saveStatus={saveStatus}
         />
         {/* Guided-writing: insert another question. Sits right under the
-            title (top of the writing card), not in the formatting toolbar —
-            only while Assist is on. */}
-        {assistOn && !readOnly && (
-          <button
-            type="button"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={insertOneQuestion}
-            className="
-              mb-3 w-full inline-flex items-center justify-center gap-1.5 h-9
-              rounded-xl border border-dashed border-surface-border
-              text-[13px] font-medium text-ink-300
-              hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
-              transition-colors
-            "
+            title (top of the writing card), not in the formatting toolbar.
+            Always mounted while editable — the .assist-reveal shell slides
+            it open/closed smoothly as the Assist toggle flips. */}
+        {!readOnly && (
+          <div
+            className={`assist-reveal ${assistOn ? 'assist-reveal--open' : ''}`}
+            aria-hidden={!assistOn}
           >
-            <Plus size={15} strokeWidth={2.2} />
-            כתיבה מודרכת
-          </button>
+            <div className="assist-reveal__inner pb-2">
+              <button
+                type="button"
+                tabIndex={assistOn ? 0 : -1}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={insertOneQuestion}
+                className="
+                  w-full inline-flex items-center justify-center gap-1.5 h-9
+                  rounded-xl border border-dashed border-surface-border
+                  text-[13px] font-medium text-ink-300
+                  hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
+                  transition-colors
+                "
+              >
+                <Plus size={15} strokeWidth={2.2} />
+                כתיבה מודרכת
+              </button>
+            </div>
+          </div>
         )}
         <EditorContent editor={editor} />
       </div>

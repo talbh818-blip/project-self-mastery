@@ -6,7 +6,7 @@
 //   • Title        — the vision's name + range ("חזון שבועי · 7–13.6.26"),
 //     the centrepiece, flanked by small chevrons that step the period
 //     (prev / next week-month-year) for quick browsing.
-//   • Assist       — compact 💡 toggle for guided writing (no wide label).
+//   • Assist       — compact 🗺️ toggle for guided writing (no wide label).
 //   • Save status  — "שומר…" / "נשמר" / "שגיאה".
 //
 // (The old document-date picker was dropped — the title shows the period
@@ -83,7 +83,7 @@ export function DateBar({
           )}
         </button>
 
-        {/* Assist — compact 💡 toggle, immediately after the icon picker. */}
+        {/* Assist — compact 🗺️ toggle, immediately after the icon picker. */}
         <button
           type="button"
           onClick={onToggleAssist}
@@ -98,7 +98,7 @@ export function DateBar({
               : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 opacity-70'}
           `}
         >
-          <Emoji emoji="💡" size={15} ariaLabel="" />
+          <Emoji emoji="🗺️" size={15} ariaLabel="" />
         </button>
       </div>
 
