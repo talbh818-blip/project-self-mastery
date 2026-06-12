@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { resizeAvatar } from '../user/mutations';
-import { computeUserStats } from '../habits/scoring';
+import { computeCombinedStats } from '../habits/scoring2';
 import type { Habit, HabitLog, SlotAssignment } from '../habits/types';
 import type { Profile, SupportTicket, TicketStatus, TicketWithSubmitter } from './types';
 
@@ -84,10 +84,10 @@ export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> 
     r.habit_count++;
   }
 
-  // Score each user through the REAL engine — the same computeUserStats the
-  // user's own app runs — so the admin list shows the exact number the user
-  // sees under their tree (server RPCs use the SQL port of the same rules,
-  // migration 0034).
+  // Score each user through the REAL engine — the same combined
+  // (frozen v1 + v2 monthly-pie) computation the user's own app runs — so
+  // the admin list shows the exact number the user sees under their tree
+  // (server RPCs use the SQL port of the same rules).
   const today = new Date();
   const byUser = new Map<
     string,
@@ -105,7 +105,9 @@ export async function fetchActivityRollup(): Promise<Map<string, UserActivity>> 
   for (const a of assignments) bucket(a.user_id).assignments.push(a);
   for (const l of logs) bucket(l.user_id).logs.push(l);
   for (const [uid, b] of byUser) {
-    get(uid).log_score = computeUserStats({ ...b, today }).totalScore;
+    get(uid).log_score = Math.round(
+      computeCombinedStats({ ...b, today }).totalScore,
+    );
   }
 
   return map;

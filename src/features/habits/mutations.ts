@@ -104,8 +104,19 @@ export async function setHabitLog(params: {
   /** Per-day target in effect now; snapshotted so future target changes don't
    *  retroactively re-judge this day. Null for binary habits. */
   targetAtLog?: number | null;
+  /** V2 scoring: the row's accumulated tap-time points snapshot (see
+   *  HabitLog.earned_points). Null on pre-epoch days. */
+  earnedPoints?: number | null;
 }): Promise<void> {
-  const { userId, habitId, date, newStatus, newAmount = null, targetAtLog = null } = params;
+  const {
+    userId,
+    habitId,
+    date,
+    newStatus,
+    newAmount = null,
+    targetAtLog = null,
+    earnedPoints = null,
+  } = params;
 
   if (newStatus === null) {
     const { error } = await supabase
@@ -129,6 +140,7 @@ export async function setHabitLog(params: {
         status: newStatus,
         amount: newAmount,
         target_at_log: targetAtLog,
+        earned_points: earnedPoints,
       },
       { onConflict: 'habit_id,date' },
     );

@@ -16,6 +16,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchAllUserData } from './queries';
 import { computeUserStats, type UserStats } from './scoring';
+import {
+  computeCombinedStats,
+  decayFactor,
+  filledSlots,
+  isV2Date,
+  periodOf,
+  periodValue,
+  slotWeights,
+  type CombinedStats,
+} from './scoring2';
 import { assembleSlots } from './slotAssembly';
 import {
   SLOT_INDEXES,
@@ -56,7 +66,11 @@ export type UseHabitData = {
   error: string | null;
   /** All habits owned by the user, including archived. */
   habits: Habit[];
+  /** V1 engine over ALL days — still drives cell visuals + streak display. */
   stats: UserStats | null;
+  /** The score layer: frozen-v1 (pre-epoch) + v2 (monthly pie). Every number
+   *  shown to the user comes from here. */
+  combined: CombinedStats | null;
   slotsForRange: (range: { start: Date; end: Date }) => SlotView[];
   setLog: (params: {
     habitId: string;
@@ -138,6 +152,16 @@ export function useHabitData(userId: string | null): UseHabitData {
     });
   }, [state, today]);
 
+  const combined = useMemo<CombinedStats | null>(() => {
+    if (state.status !== 'ready') return null;
+    return computeCombinedStats({
+      habits: state.data.habits,
+      assignments: state.data.assignments,
+      logs: state.data.logs,
+      today,
+    });
+  }, [state, today]);
+
   const slotsForRange = useCallback(
     (range: { start: Date; end: Date }) => {
       if (state.status !== 'ready') return [];
@@ -172,6 +196,56 @@ export function useHabitData(userId: string | null): UseHabitData {
       const targetAtLog =
         habit?.is_quantitative ? (habit.quantitative_target ?? null) : null;
 
+      // V2 scoring: points this row's taps have earned, snapshotted AT TAP
+      // TIME (slot value × late-marking decay) and accumulated across taps.
+      // Snapshotting here is what makes the system non-retroactive.
+      const prevRow = prevLogs.find(
+        (l) => l.habit_id === habitId && l.date === date,
+      );
+      let earnedPoints: number | null = prevRow?.earned_points ?? null;
+      if (status === null) {
+        earnedPoints = null; // row is being deleted
+      } else if (status === 'V' && habit && isV2Date(date)) {
+        const now = new Date();
+        const period = periodOf(habit, date);
+        let prevFilled: number;
+        let newFilled: number;
+        if (period.kind === 'daily') {
+          prevFilled =
+            prevRow?.status === 'V'
+              ? habit.is_quantitative
+                ? Math.min(period.quota, prevRow.amount ?? 1)
+                : 1
+              : 0;
+          newFilled = habit.is_quantitative
+            ? Math.min(period.quota, amount ?? 1)
+            : 1;
+        } else {
+          // Weekly/monthly: each V day fills one slot; count the OTHER days
+          // already marked in this period.
+          const others = prevLogs.filter(
+            (l) => l.habit_id === habitId && l.date !== date,
+          );
+          prevFilled = filledSlots(habit, period, others);
+          newFilled =
+            prevRow?.status === 'V'
+              ? prevFilled
+              : Math.min(period.quota, prevFilled + 1);
+        }
+        if (newFilled > prevFilled) {
+          const weights = slotWeights(period.quota);
+          const value = periodValue(habit, period, state.data.assignments);
+          const decay = decayFactor(date, now);
+          let delta = 0;
+          for (let i = prevFilled; i < newFilled; i++) {
+            delta += value * (weights[i] ?? 0) * decay;
+          }
+          earnedPoints = (prevRow?.earned_points ?? 0) + delta;
+        } else {
+          earnedPoints = prevRow?.earned_points ?? 0;
+        }
+      }
+
       // Optimistic: drop any existing log for (habit, date), add the new one
       // if status is not null. Then commit to local state immediately.
       const nextLogs = prevLogs.filter(
@@ -186,6 +260,7 @@ export function useHabitData(userId: string | null): UseHabitData {
           status,
           amount,
           target_at_log: targetAtLog,
+          earned_points: earnedPoints,
         });
       }
       setState({
@@ -203,6 +278,7 @@ export function useHabitData(userId: string | null): UseHabitData {
           newStatus: status,
           newAmount: amount,
           targetAtLog,
+          earnedPoints,
         });
         // Success — make sure no stale offline copy lingers for this cell.
         clearCell(userId, habitId, date);
@@ -212,7 +288,14 @@ export function useHabitData(userId: string | null): UseHabitData {
         if (offline) {
           // OFFLINE: keep the optimistic mark and queue it for later. The
           // 'online' listener (below) flushes it when the network returns.
-          enqueueLog(userId, { habitId, date, status, amount, targetAtLog });
+          enqueueLog(userId, {
+            habitId,
+            date,
+            status,
+            amount,
+            targetAtLog,
+            earnedPoints,
+          });
           return;
         }
         // ONLINE but the write still failed → a real error: roll back so the
@@ -547,6 +630,7 @@ export function useHabitData(userId: string | null): UseHabitData {
     error: state.error,
     habits: state.status === 'ready' ? state.data.habits : [],
     stats,
+    combined,
     slotsForRange,
     setLog,
     createHabit,

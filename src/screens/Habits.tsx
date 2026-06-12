@@ -57,6 +57,12 @@ import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
 import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
 import { ArchiveSheet } from '../features/habits/ArchiveSheet';
 import {
+  displayPoints,
+  isDateLockedV2,
+  isV2Date,
+  type CombinedStats,
+} from '../features/habits/scoring2';
+import {
   nextAmountInCycle,
   nextMarkInCycle,
 } from '../features/habits/mutations';
@@ -139,6 +145,12 @@ export function Habits() {
     currentAmount: number | null | undefined,
   ) => {
     if (!user) return;
+    // V2 scoring: a date older than the marking window is locked for good —
+    // marking it would earn 0 anyway and would blur the period settlement.
+    if (isDateLockedV2(date, new Date())) {
+      setMutationError('היום הזה כבר ננעל — אפשר לסמן עד 3 ימים אחורה.');
+      return;
+    }
     try {
       if (habit.is_quantitative) {
         const target = habit.quantitative_target ?? 10;
@@ -167,7 +179,10 @@ export function Habits() {
 
   // Admin-applied score adjustment is added on top of the computed total so
   // admin edits flow through to the same number the user sees everywhere.
-  const totalScore = (data.stats?.totalScore ?? 0) + (profile?.score_adjustment ?? 0);
+  // The total = frozen v1 (pre-epoch days) + v2 (the monthly-pie system).
+  const totalScore = displayPoints(
+    (data.combined?.totalScore ?? 0) + (profile?.score_adjustment ?? 0),
+  );
 
   // The tree's score math (totalScore − cycle_score_floor) is only meaningful
   // once BOTH the habit data AND the profile have loaded. Until then we hold
@@ -211,6 +226,8 @@ export function Habits() {
       {/* Digital tree — score drives growth; watered on every V */}
       <TreeCard
         totalScore={totalScore}
+        v1Total={data.combined?.v1Total ?? 0}
+        v2Total={data.combined?.v2.totalV2 ?? 0}
         userId={user?.id ?? ''}
         scoreAnim={scoreAnim}
         ready={treeReady}
@@ -351,6 +368,7 @@ export function Habits() {
           days={weekRange.days}
           today={today}
           stats={data.stats}
+          pointsByHabit={data.combined?.pointsByHabit ?? null}
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
           onReorder={data.reorderHabits}
@@ -362,6 +380,7 @@ export function Habits() {
         <DataView
           slots={todaySlots}
           stats={data.stats}
+          combined={data.combined}
           range={dataRange}
           today={today}
           onShowDetail={setDetailHabit}
@@ -412,7 +431,16 @@ export function Habits() {
           habit={detailHabit}
           stats={
             detailHabit && data.stats
-              ? data.stats.byHabit.get(detailHabit.id) ?? null
+              ? (() => {
+                  // The sheet shows totalPoints — override the v1 number with
+                  // the combined (frozen v1 + v2) one the rest of the UI shows.
+                  const s = data.stats.byHabit.get(detailHabit.id);
+                  if (!s) return null;
+                  const pts = data.combined?.pointsByHabit.get(detailHabit.id);
+                  return pts === undefined
+                    ? s
+                    : { ...s, totalPoints: displayPoints(pts) };
+                })()
               : null
           }
           onClose={() => setDetailHabit(null)}
@@ -517,6 +545,7 @@ function HabitsList({
   days,
   today,
   stats,
+  pointsByHabit,
   onShowDetail,
   onMarkCell,
   onReorder,
@@ -527,6 +556,8 @@ function HabitsList({
   days: Date[];
   today: Date;
   stats: UserStats | null;
+  /** Combined (frozen v1 + v2) points per habit — the displayed numbers. */
+  pointsByHabit: Map<string, number> | null;
   onShowDetail: (habit: Habit) => void;
   onMarkCell: (
     habit: Habit,
@@ -597,7 +628,7 @@ function HabitsList({
             today={today}
             effectiveFor={(date) => effectiveFor(slot.habit!.id, date)}
             currentStreak={stats?.byHabit.get(slot.habit!.id)?.currentStreak ?? 0}
-            totalPoints={stats?.byHabit.get(slot.habit!.id)?.totalPoints ?? 0}
+            totalPoints={displayPoints(pointsByHabit?.get(slot.habit!.id) ?? 0)}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
             dragHandleRef={dragHandleRef}
@@ -1558,12 +1589,14 @@ function hexWithAlpha(hex: string, alpha: number): string {
 function DataView({
   slots,
   stats,
+  combined,
   range,
   today,
   onShowDetail,
 }: {
   slots: SlotView[];
   stats: UserStats | null;
+  combined: CombinedStats | null;
   range: DataRange;
   today: Date;
   onShowDetail: (habit: Habit) => void;
@@ -1603,13 +1636,17 @@ function DataView({
     for (const [dateStr, status] of h.effectiveByDate) {
       if (firstDate === null || dateStr < firstDate) firstDate = dateStr;
       if (dateStr < rangeStartStr || dateStr > todayStr) continue;
-      // Base points for the day
+      // Base points for the day. Pre-epoch days use the old (+5/−3 + bonus)
+      // rules; v2-era days get their earnings from the tap-time snapshots,
+      // added once after this loop.
       let pts = 0;
-      if (status === 'V') pts = 5;
-      else if (status === 'X' || status === 'auto_x') pts = -3;
-      // Bonuses earned on this date
-      const bonus = h.bonusesEarned.find((b) => b.earnedOn === dateStr);
-      if (bonus) pts += bonus.threshold.bonus;
+      if (!isV2Date(dateStr)) {
+        if (status === 'V') pts = 5;
+        else if (status === 'X' || status === 'auto_x') pts = -3;
+        // Bonuses earned on this date
+        const bonus = h.bonusesEarned.find((b) => b.earnedOn === dateStr);
+        if (bonus) pts += bonus.threshold.bonus;
+      }
       dailyDelta.set(dateStr, (dailyDelta.get(dateStr) ?? 0) + pts);
       if (status === 'V') {
         totalVInRange += 1;
@@ -1623,6 +1660,14 @@ function DataView({
       }
     }
     if (firstDate) startDateByHabit.set(h.habitId, firstDate);
+  }
+
+  // V2-era earnings come from the tap-time snapshots (per marked date).
+  if (combined) {
+    for (const [dateStr, earned] of combined.v2EarnedByDate) {
+      if (dateStr < rangeStartStr || dateStr > todayStr) continue;
+      dailyDelta.set(dateStr, (dailyDelta.get(dateStr) ?? 0) + earned);
+    }
   }
 
   // Cumulative score series for the line chart — one point per day in range.

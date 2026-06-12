@@ -92,6 +92,10 @@ export type HabitLog = {
    *  target change stay non-retroactive — each day is judged against its own
    *  snapshot. Null for binary habits (and legacy rows treated as complete). */
   target_at_log: number | null;
+  /** V2 scoring: points earned by this row's taps, snapshotted AT TAP TIME
+   *  (slot value × late-marking decay), accumulated across taps. Null on
+   *  pre-epoch rows — those days are scored by the frozen v1 engine. */
+  earned_points: number | null;
 };
 
 // What renders inside a single slot column for a given week.

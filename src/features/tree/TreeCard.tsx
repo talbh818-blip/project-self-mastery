@@ -1,23 +1,23 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { Emoji } from '../../components/Emoji';
 import { useCurrentProfile } from '../admin/ProfileContext';
 import { supabase } from '../../lib/supabase';
 import type { TreePlacement } from '../admin/types';
+import {
+  computeTreeEconomy,
+  TREE_PRICES,
+  type TreePlanting,
+} from '../habits/scoring2';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
-
-/**
- * Cycle-score required to fully grow a tree, by tree index (0-based).
- * First two trees have a "discount" to give early momentum; from the third
- * tree on the cycle stabilises at 650.
- */
-const CYCLE_TARGETS = [200, 400] as const;
-const DEFAULT_CYCLE_TARGET = 650;
-
-function cycleTargetFor(treeIndex: number): number {
-  return CYCLE_TARGETS[treeIndex] ?? DEFAULT_CYCLE_TARGET;
-}
+//
+// V2 economy (scoring2.ts): every calendar month has a ladder of 10 trees
+// with per-tree prices (TREE_PRICES, sum = the 3,000-point monthly pie).
+// Unspent points carry over between months; the ladder position resets each
+// month and at most 10 trees can be planted per month. The legacy
+// cycle_score_floor column is FROZEN — it only feeds the one-time opening
+// bank (v1 points that weren't yet spent at the epoch).
 
 /** Relative stage thresholds as fractions of the cycle target. */
 const STAGE_RATIOS = [0, 100 / 650, 250 / 650, 450 / 650, 1] as const;
@@ -162,6 +162,10 @@ type ScoreAnim = { key: number; delta: number } | null;
 
 type Props = {
   totalScore: number;
+  /** Frozen-v1 part of the score (pre-epoch days, no adjustment). */
+  v1Total: number;
+  /** V2 (monthly-pie) net points. */
+  v2Total: number;
   userId: string;
   /** Forwarded from the parent's score-change detector. */
   scoreAnim: ScoreAnim;
@@ -172,7 +176,14 @@ type Props = {
   ready?: boolean;
 };
 
-export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props) {
+export function TreeCard({
+  totalScore,
+  v1Total,
+  v2Total,
+  userId,
+  scoreAnim,
+  ready = true,
+}: Props) {
   // ── Persistence ──────────────────────────────────────────────────────────
   // trees_planted now lives on the profile row in Supabase so admin can edit
   // it (and so it survives across devices). We mirror it into local state for
@@ -226,60 +237,52 @@ export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props)
     return () => clearTimeout(t);
   }, [scoreAnim]);
 
-  // ── Tree state ───────────────────────────────────────────────────────────
-  /**
-   * Score the user has already spent on PLANTED trees (DB-persisted).
-   * Only the planting action moves this; admin edits to trees_planted
-   * leave it alone, so the progress meter doesn't snap to 0 when an admin
-   * gifts a user some trees. See migration 0014.
-   */
+  // ── Tree state (V2 economy) ──────────────────────────────────────────────
+  // The plantings ledger drives everything: the monthly ladder position, the
+  // 10-trees-a-month cap, and the carryover bank. cycle_score_floor is a
+  // FROZEN legacy value — it only feeds the one-time opening bank (v1 points
+  // not yet spent at the epoch) and must never be rewritten.
   const cycleScoreFloor = profile?.cycle_score_floor ?? 0;
-  const cycleTarget = cycleTargetFor(treesPlanted);
+
+  const [plantings, setPlantings] = useState<TreePlanting[] | null>(null);
+  const loadPlantings = useCallback(async () => {
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from('tree_plantings')
+      .select('id,user_id,planted_at,price')
+      .eq('user_id', userId)
+      .order('planted_at', { ascending: true });
+    if (error) {
+      console.error('[TreeCard] tree_plantings load failed:', error);
+      return;
+    }
+    setPlantings((data ?? []) as TreePlanting[]);
+  }, [userId]);
+  useEffect(() => {
+    void loadPlantings();
+  }, [loadPlantings]);
+
+  const economy = computeTreeEconomy({
+    v1Total,
+    v2Total,
+    scoreAdjustment: profile?.score_adjustment ?? 0,
+    cycleScoreFloor,
+    plantings: plantings ?? [],
+    today: new Date(),
+  });
+
+  /** Monthly cap reached — the meter aims at next month's first tree. */
+  const monthCapped = economy.nextPrice === null;
+  const cycleTarget = economy.nextPrice ?? TREE_PRICES[0];
   const stageThresholds = stageThresholdsFor(cycleTarget);
 
-  // Self-healing floor. The stored floor can become stale after an admin
-  // reset / data cleanup (e.g. score set back to 0, trees set to 0): it then
-  // sits ABOVE the current total, which would peg the meter at 0% forever.
-  // Two invariants restore "just continue from here":
-  //   • 0 planted trees ⇒ nothing has been consumed ⇒ floor must be 0.
-  //   • the floor can never exceed the current total (can't consume more
-  //     score than exists).
-  // We use the corrected value for display immediately, and persist it (below)
-  // so the meter keeps growing as new points come in.
-  const effectiveFloor =
-    treesPlanted === 0 ? 0 : Math.min(cycleScoreFloor, totalScore);
-
-  /** Points accumulated in this planting cycle. */
-  const cycleScore = Math.max(0, totalScore - effectiveFloor);
-  const isMature = cycleScore >= cycleTarget;
-  const stage = stageFor(cycleScore, stageThresholds);
-  const progressPct = isMature ? 100 : Math.round((cycleScore / cycleTarget) * 100);
-
-  // Persist the corrected floor once (when it's stale) so the meter keeps
-  // growing across reloads, not just in this render. Guarded so it fires at
-  // most once per stale value and never loops.
-  const healingRef = useRef(false);
-  useEffect(() => {
-    if (!ready || !profile || !userId) return;
-    if (effectiveFloor === cycleScoreFloor || healingRef.current) return;
-    healingRef.current = true;
-    (async () => {
-      try {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ cycle_score_floor: effectiveFloor })
-          .eq('id', userId)
-          .select()
-          .maybeSingle();
-        if (error) {
-          console.error('[TreeCard] cycle_score_floor self-heal failed:', error);
-        }
-        await refresh();
-      } finally {
-        healingRef.current = false;
-      }
-    })();
-  }, [ready, profile, userId, effectiveFloor, cycleScoreFloor, refresh]);
+  /** Spendable points (carryover included). */
+  const cycleScore = Math.round(economy.bank);
+  const isMature = !monthCapped && economy.bank >= cycleTarget;
+  const stage = stageFor(Math.min(cycleScore, cycleTarget), stageThresholds);
+  const progressPct = isMature
+    ? 100
+    : Math.round(Math.min(1, economy.bank / cycleTarget) * 100);
 
   // Next stage threshold / pts remaining — reserved for future "X more pts" label
   // const nextThreshold = !isMature ? (stageThresholds.find((t) => t > cycleScore) ?? cycleTarget) : cycleTarget;
@@ -306,10 +309,10 @@ export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props)
   // ── Field popup state ────────────────────────────────────────────────────
   const [fieldOpen, setFieldOpen] = useState(false);
 
-  // While the score + profile are still loading, show a quiet skeleton of the
-  // same height instead of computing the tree state from half-loaded data
-  // (which flashed a wrong "ready to plant" meter + a bogus "+N" pop).
-  if (!ready) {
+  // While the score + profile + plantings ledger are still loading, show a
+  // quiet skeleton of the same height instead of computing the tree state
+  // from half-loaded data (which flashed a wrong "ready to plant" meter).
+  if (!ready || plantings === null) {
     return (
       <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3 relative overflow-hidden">
         <div className="flex items-center gap-3 animate-pulse">
@@ -479,8 +482,11 @@ export function TreeCard({ totalScore, userId, scoreAnim, ready = true }: Props)
       cycleTarget={cycleTarget}
       progressPct={progressPct}
       isMature={isMature}
+      monthCapped={monthCapped}
       userId={userId}
-      onPlanted={refresh}
+      onPlanted={async () => {
+        await Promise.all([refresh(), loadPlantings()]);
+      }}
     />
     </>
   );
@@ -1288,6 +1294,7 @@ function TreeFieldModal({
   cycleTarget,
   progressPct,
   isMature,
+  monthCapped,
   userId,
   onPlanted,
 }: {
@@ -1302,6 +1309,8 @@ function TreeFieldModal({
   cycleTarget: number;
   progressPct: number;
   isMature: boolean;
+  /** The 10-trees-a-month cap is hit — planting opens again next month. */
+  monthCapped: boolean;
   userId: string;
   /** Called after trees_planted has been bumped in Supabase so the parent
    *  can refresh the profile. */
@@ -1375,17 +1384,22 @@ function TreeFieldModal({
       ];
       padded.push(cellToPlacement(nextGrid, ni, nj));
 
-      // Planting always resets the meter to 0 — any score above the cycle
-      // target is forfeited (no carry-over). This matches the user's mental
-      // model ("after I plant, I start fresh") and prevents rapid-fire
-      // planting when the user has banked score worth several cycles.
-      const newFloor = totalScore;
+      // V2 economy: record the planting in the ledger with the price paid
+      // (this month's ladder position). The bank math subtracts ledger
+      // prices, so leftover points CARRY OVER to the next tree/month.
+      // cycle_score_floor is frozen (it feeds only the one-time opening
+      // bank) — never touch it here.
+      const { error: ledgerErr } = await supabase
+        .from('tree_plantings')
+        .insert({ user_id: userId, price: cycleTarget });
+      if (ledgerErr) {
+        console.error('[TreeFieldModal] tree_plantings insert failed:', ledgerErr);
+      }
       const { data: updated, error } = await supabase
         .from('profiles')
         .update({
           trees_planted: targetCount,
           tree_placements: padded,
-          cycle_score_floor: newFloor,
         })
         .eq('id', userId)
         .select()
@@ -1562,6 +1576,12 @@ function TreeFieldModal({
               the planting CTA on the right (RTL) and the dismiss "המשך" on
               the left. Once planted (or if the tree wasn't ready) only the
               "המשך" button shows, full-width. */}
+          {monthCapped && (
+            <p className="mt-2 text-[11px] text-ink-300 text-center leading-relaxed">
+              שתלת את כל 10 העצים של החודש 🎉 הנקודות נשמרות — השתילה נפתחת
+              שוב בתחילת החודש הבא.
+            </p>
+          )}
           {isMature && plantingPhase === 'idle' ? (
             <div className="mt-3 flex gap-2">
               <button
