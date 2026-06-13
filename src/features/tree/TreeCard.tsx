@@ -1100,7 +1100,7 @@ function IsometricField({
                 rx={FIELD_CELL_W * 0.62}
                 ry={FIELD_CELL_H * 0.62}
                 fill="#ffffff"
-                opacity={0.1}
+                opacity={0.05}
               />
               {[0, 1, 2].map((ring) => (
                 <ellipse
@@ -1176,8 +1176,10 @@ function IsometricField({
               transform: 'translate(-50%, -88%)',
               transition:
                 'left 200ms ease, top 200ms ease, width 800ms ease',
-              // The growing tree stays on top so it always reads as the hero.
-              zIndex: t.kind === 'current' ? 50 : t.i + t.j,
+              // Depth order: trees closer to the viewer (higher i+j, lower on
+              // screen) sit above farther ones — including over the growing
+              // centre tree, so a tree placed in front of it covers it.
+              zIndex: t.i + t.j,
               touchAction: 'none',
               cursor: draggable ? 'grab' : 'default',
               // Hide (but keep mounted) the tree being dragged.
