@@ -119,8 +119,6 @@ export function YoungTree() {
 export function MatureTree() {
   return (
     <svg viewBox="10 5 100 95" width="100%" height="100%" aria-hidden>
-      {/* ambient glow */}
-      <ellipse cx={60} cy={52} rx={52} ry={48} fill="#4ED371" opacity={0.07} />
       <ellipse cx={60} cy={93} rx={36} ry={7} fill="#3D6B4F" opacity={0.45} />
       {/* trunk */}
       <rect x={51} y={55} width={18} height={39} rx={8} fill="#7C5B2A" />
@@ -659,7 +657,11 @@ function pctToNearestCell(
 }
 
 const MATURE_PERIPHERY_SIZE = 42;
-const PLACEHOLDER_SPROUT_SIZE = 18;
+
+/** Sentinel drag index for the centre (currently-growing) tree. Real planted
+ *  trees use indices 0..n; the growing tree uses -1 so it flows through the
+ *  same pointer machinery without colliding with a placement index. */
+const GROWING_INDEX = -1;
 
 // ── Centre-tree size by growth stage (in viewBox px units) ─────────────────
 // The centre tree ramps from a small seed up to EXACTLY the size of a planted
@@ -680,6 +682,8 @@ function IsometricField({
   currentStage,
   placements,
   onPlacementsChange,
+  growingPlacement = null,
+  onGrowingPlacementChange,
   forcedCenterStage,
   hideCenter = false,
   hideMatureIndex,
@@ -696,6 +700,11 @@ function IsometricField({
    *  can persist it to Supabase. Returns true if the write succeeded so the
    *  field can keep its optimistic update (or false → revert). */
   onPlacementsChange?: (next: TreePlacement[]) => void | Promise<boolean>;
+  /** Offset (relative to centre) of the currently-growing tree. `null` ⇒ it
+   *  sits at the centre (the default for everyone who hasn't dragged it). */
+  growingPlacement?: TreePlacement | null;
+  /** Called when the user drags the growing tree to a new (empty) cell. */
+  onGrowingPlacementChange?: (next: TreePlacement | null) => void;
   /** When set, the centre cell ignores `currentStage` and displays this
    *  stage instead. Used to drive the planting replay 0→1→2→3→4. */
   forcedCenterStage?: Stage;
@@ -712,6 +721,16 @@ function IsometricField({
   // the grid grows because each cell is a smaller % of the (larger) plate.
   const grid = gridSizeFor(treesPlanted);
   const center = gridCenter(grid);
+
+  // Where the currently-growing tree sits. Defaults to the centre; the user
+  // can drag it to any empty cell (the offset is persisted by the parent).
+  // Clamp to the grid in case a stored offset predates the current grid size.
+  const growingCell: [number, number] = growingPlacement
+    ? [
+        Math.max(0, Math.min(grid - 1, center + growingPlacement.di)),
+        Math.max(0, Math.min(grid - 1, center + growingPlacement.dj)),
+      ]
+    : [center, center];
 
   // Optimistic placements: applied INSTANTLY on drop so the tree slides to
   // its new cell without waiting for the Supabase round-trip. Cleared once
@@ -771,11 +790,15 @@ function IsometricField({
   const treesPlantedRef = useRef(treesPlanted);
   const resolvedCellsRef = useRef(resolvedCells);
   const onPlacementsChangeRef = useRef(onPlacementsChange);
+  const growingCellRef = useRef(growingCell);
+  const onGrowingPlacementChangeRef = useRef(onGrowingPlacementChange);
   gridRef.current = grid;
   centerRef.current = center;
   treesPlantedRef.current = treesPlanted;
   resolvedCellsRef.current = resolvedCells;
   onPlacementsChangeRef.current = onPlacementsChange;
+  growingCellRef.current = growingCell;
+  onGrowingPlacementChangeRef.current = onGrowingPlacementChange;
 
   /** Pointer client coords → container-% + nearest grid cell. */
   function pointerToContainerPct(clientX: number, clientY: number) {
@@ -829,7 +852,7 @@ function IsometricField({
       const c = centerRef.current;
       const tp = treesPlantedRef.current;
       const rc = resolvedCellsRef.current;
-      const onChange = onPlacementsChangeRef.current;
+      const gc = growingCellRef.current;
       const sourceIndex = press.treeIndex;
       const [targetI, targetJ] = pctToNearestCell(
         g,
@@ -842,7 +865,20 @@ function IsometricField({
       setDragIndex(null);
       setSnapCell(null);
 
-      if (targetI === c && targetJ === c) return; // centre is reserved
+      // ── Dragging the growing (centre) tree ───────────────────────────────
+      if (sourceIndex === GROWING_INDEX) {
+        if (targetI === gc[0] && targetJ === gc[1]) return; // back on its cell
+        // Only empty ground accepts it — never drop onto a planted tree.
+        const occupied = rc.some(([i, j]) => i === targetI && j === targetJ);
+        if (occupied) return;
+        onGrowingPlacementChangeRef.current?.({ di: targetI - c, dj: targetJ - c });
+        return;
+      }
+
+      // ── Dragging a planted (mature) tree ─────────────────────────────────
+      const onChange = onPlacementsChangeRef.current;
+      // The growing tree's cell is reserved — a planted tree can't land on it.
+      if (targetI === gc[0] && targetJ === gc[1]) return;
 
       const nextArr: TreePlacement[] = [];
       for (let k = 0; k < tp; k++) {
@@ -894,13 +930,22 @@ function IsometricField({
     treeIndex: number,
     e: React.PointerEvent<HTMLDivElement>,
   ) {
-    if (!onPlacementsChange) return; // drag disabled (e.g. during animations)
+    // Drag disabled (e.g. during the planting animation) when the matching
+    // change handler is absent.
+    if (treeIndex === GROWING_INDEX) {
+      if (!onGrowingPlacementChange) return;
+    } else if (!onPlacementsChange) {
+      return;
+    }
     if (pressRef.current) return; // already in a gesture
 
     pressRef.current = { treeIndex, pointerId: e.pointerId };
 
     // Seed the ghost at the tree's current cell, then reveal it.
-    const sourceCell = resolvedCellsRef.current[treeIndex];
+    const sourceCell =
+      treeIndex === GROWING_INDEX
+        ? growingCellRef.current
+        : resolvedCellsRef.current[treeIndex];
     const seed = sourceCell
       ? cellToPctFor(gridRef.current, sourceCell[0], sourceCell[1])
       : { leftPct: 50, topPct: 50 };
@@ -918,10 +963,10 @@ function IsometricField({
 
   // Build the list of things to render.
   type Item = {
-    kind: 'current' | 'mature' | 'sprout';
+    kind: 'current' | 'mature';
     i: number;
     j: number;
-    /** placements index for mature trees; cells index for sprout placeholders */
+    /** placement index for mature trees; GROWING_INDEX for the centre tree */
     keyIndex: number;
     /** Whether this item is the one being dragged (rendered at pointer). */
     isDragging?: boolean;
@@ -930,9 +975,12 @@ function IsometricField({
   if (!hideCenter) {
     items.push({
       kind: 'current',
-      i: center,
-      j: center,
-      keyIndex: -1,
+      i: growingCell[0],
+      j: growingCell[1],
+      keyIndex: GROWING_INDEX,
+      // The dragged tree is rendered as a separate ghost element, so we hide
+      // its in-grid copy.
+      isDragging: dragIndex === GROWING_INDEX,
     });
   }
   // Mature trees from placements.
@@ -949,21 +997,8 @@ function IsometricField({
       isDragging: dragIndex === k,
     });
   }
-  // Placeholder sprouts on cells that are NOT centre and NOT occupied by a
-  // mature tree. Use cellsForGrid as the canonical ordering of "all outer
-  // cells", filtering out any cell currently held by a mature tree.
-  const occupied = new Set(resolvedCells.map(([i, j]) => `${i},${j}`));
-  const defaults = cellsForGrid(grid);
-  for (let k = 0; k < defaults.length; k++) {
-    const [i, j] = defaults[k];
-    if (occupied.has(`${i},${j}`)) continue;
-    items.push({
-      kind: 'sprout',
-      i,
-      j,
-      keyIndex: 1000 + k, // offset to avoid collision with mature keys
-    });
-  }
+  // No placeholder sprouts: empty cells stay as bare grass. A sprout only ever
+  // appears where the user is actually growing a tree (the centre item above).
   // Render back-to-front so closer trees overlap farther ones correctly.
   items.sort((a, b) => a.i + a.j - (b.i + b.j));
 
@@ -1051,27 +1086,54 @@ function IsometricField({
           );
         })}
 
-        {/* Soft pedestal under the centre tree to make it pop. */}
+        {/* Radar ping under the centre (growing) tree: a faint white ground
+            spot plus white rings that expand and fade on a loop — like a
+            location/radar pulse — marking where the user is growing now. */}
         {!hideCenter && (() => {
-          const [x, y] = cellToScreenFor(grid, center, center);
+          const [x, y] = cellToScreenFor(grid, growingCell[0], growingCell[1]);
+          const cy = y - 2;
           return (
-            <ellipse
-              cx={x}
-              cy={y - 2}
-              rx={FIELD_CELL_W * 1.05}
-              ry={FIELD_CELL_H * 1.05}
-              fill="#1d5934"
-              opacity={0.4}
-            />
+            <g>
+              <ellipse
+                cx={x}
+                cy={cy}
+                rx={FIELD_CELL_W * 0.78}
+                ry={FIELD_CELL_H * 0.78}
+                fill="#ffffff"
+                opacity={0.12}
+              />
+              {[0, 1, 2].map((ring) => (
+                <ellipse
+                  key={ring}
+                  className="tree-radar-ring"
+                  cx={x}
+                  cy={cy}
+                  rx={FIELD_CELL_W}
+                  ry={FIELD_CELL_H}
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth={1.4}
+                  style={{
+                    transformBox: 'fill-box',
+                    transformOrigin: 'center',
+                    animationDelay: `${ring}s`,
+                  }}
+                />
+              ))}
+            </g>
           );
         })()}
 
-        {/* Highlight ring on the snap target while dragging. Centre cell
-            (reserved for the growing tree) lights up red to signal "reject". */}
+        {/* Highlight ring on the snap target while dragging. A rejected drop
+            lights up red: a planted tree onto the growing tree's cell, or the
+            growing tree onto a cell already holding a planted tree. */}
         {snapCell && (() => {
           const [si, sj] = snapCell;
           const [x, y] = cellToScreenFor(grid, si, sj);
-          const isRejected = si === center && sj === center;
+          const isRejected =
+            dragIndex === GROWING_INDEX
+              ? resolvedCells.some(([i, j]) => i === si && j === sj)
+              : si === growingCell[0] && sj === growingCell[1];
           return (
             <ellipse
               cx={x}
@@ -1088,29 +1150,26 @@ function IsometricField({
         })()}
       </svg>
 
-      {/* Trees as positioned divs on top of the SVG. */}
+      {/* Trees as positioned divs on top of the SVG. Both the planted trees
+          and the growing centre tree are draggable. */}
       {items.map((t) => {
         const { leftPct, topPct } = cellToPctFor(grid, t.i, t.j);
         const sizePx =
           t.kind === 'current'
             ? CENTER_SIZE_BY_STAGE[centreStage]
-            : t.kind === 'mature'
-              ? MATURE_PERIPHERY_SIZE
-              : PLACEHOLDER_SPROUT_SIZE;
+            : MATURE_PERIPHERY_SIZE;
 
         // The dragged tree's in-grid copy is hidden — the floating ghost
         // below represents it during the drag.
         const isDragged = t.isDragging === true;
+        const draggable =
+          t.kind === 'current' ? !!onGrowingPlacementChange : !!onPlacementsChange;
 
         return (
           <div
             key={`${t.kind}-${t.keyIndex}`}
             className="absolute"
-            onPointerDown={
-              t.kind === 'mature'
-                ? (e) => handleTreePointerDown(t.keyIndex, e)
-                : undefined
-            }
+            onPointerDown={(e) => handleTreePointerDown(t.keyIndex, e)}
             style={{
               left: `${leftPct}%`,
               top: `${topPct}%`,
@@ -1119,11 +1178,10 @@ function IsometricField({
               transform: 'translate(-50%, -88%)',
               transition:
                 'left 200ms ease, top 200ms ease, width 800ms ease',
-              zIndex: t.kind === 'current' ? 5 : t.i + t.j,
-              touchAction: t.kind === 'mature' ? 'none' : 'auto',
-              cursor:
-                t.kind === 'mature' && onPlacementsChange ? 'grab' : 'default',
-              pointerEvents: t.kind === 'sprout' ? 'none' : 'auto',
+              // The growing tree stays on top so it always reads as the hero.
+              zIndex: t.kind === 'current' ? 50 : t.i + t.j,
+              touchAction: 'none',
+              cursor: draggable ? 'grab' : 'default',
               // Hide (but keep mounted) the tree being dragged.
               visibility: isDragged ? 'hidden' : 'visible',
             }}
@@ -1136,24 +1194,34 @@ function IsometricField({
       {/* Floating drag ghost — positioned imperatively via ghostRef so the
           drag is smooth and never blocked by React re-renders. Mounted only
           while a tree is being dragged. */}
-      {dragIndex !== null && (
-        <div
-          ref={ghostRef}
-          className="absolute pointer-events-none"
-          style={{
-            left: `${liveRef.current.leftPct}%`,
-            top: `${liveRef.current.topPct}%`,
-            width: `${(MATURE_PERIPHERY_SIZE / PLATE_W) * 100}%`,
-            aspectRatio: '1 / 1',
-            transform: 'translate(-50%, -88%) scale(1.12)',
-            zIndex: 100,
-            filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
-            opacity: 0.95,
-          }}
-        >
-          <MatureTree />
-        </div>
-      )}
+      {dragIndex !== null && (() => {
+        const draggingGrowing = dragIndex === GROWING_INDEX;
+        const ghostSize = draggingGrowing
+          ? CENTER_SIZE_BY_STAGE[centreStage]
+          : MATURE_PERIPHERY_SIZE;
+        return (
+          <div
+            ref={ghostRef}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${liveRef.current.leftPct}%`,
+              top: `${liveRef.current.topPct}%`,
+              width: `${(ghostSize / PLATE_W) * 100}%`,
+              aspectRatio: '1 / 1',
+              transform: 'translate(-50%, -88%) scale(1.12)',
+              zIndex: 100,
+              filter: 'drop-shadow(0 8px 10px rgba(0,0,0,0.45))',
+              opacity: 0.95,
+            }}
+          >
+            {draggingGrowing ? (
+              <FieldTreeArt kind="current" currentStage={centreStage} />
+            ) : (
+              <MatureTree />
+            )}
+          </div>
+        );
+      })()}
 
       {/* Overlay layer (planting confetti, etc) — same coordinate space. */}
       {children}
@@ -1165,15 +1233,14 @@ function FieldTreeArt({
   kind,
   currentStage,
 }: {
-  kind: 'current' | 'mature' | 'sprout';
+  kind: 'current' | 'mature';
   currentStage: Stage;
 }) {
   if (kind === 'current') {
     const CurrentTree = TREE_BY_STAGE[currentStage];
     return <CurrentTree />;
   }
-  if (kind === 'mature') return <MatureTree />;
-  return <Sprout />;
+  return <MatureTree />;
 }
 
 // ── Bottom-rise confetti ────────────────────────────────────────────────────
@@ -1287,6 +1354,41 @@ const PLANT_CELEBRATION_MS = 1800;
 
 type PlantingPhase = 'idle' | 'celebrating';
 
+// ── Growing-tree position (client-persisted) ────────────────────────────────
+// The currently-growing centre tree can be dragged onto any empty cell. Its
+// offset-from-centre is stored per-user in localStorage — it's soft, cosmetic
+// state that resets to the centre on every planting, so it doesn't warrant a
+// DB column or a migration.
+function growingPosKey(userId: string) {
+  return `tree-growing-pos:${userId}`;
+}
+function readGrowingPos(userId: string): TreePlacement | null {
+  if (!userId) return null;
+  try {
+    const raw = localStorage.getItem(growingPosKey(userId));
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (p && typeof p.di === 'number' && typeof p.dj === 'number') {
+      return { di: p.di, dj: p.dj };
+    }
+  } catch {
+    /* ignore malformed value */
+  }
+  return null;
+}
+function writeGrowingPos(userId: string, p: TreePlacement | null) {
+  if (!userId) return;
+  try {
+    if (!p || (p.di === 0 && p.dj === 0)) {
+      localStorage.removeItem(growingPosKey(userId));
+    } else {
+      localStorage.setItem(growingPosKey(userId), JSON.stringify(p));
+    }
+  } catch {
+    /* ignore quota / disabled storage */
+  }
+}
+
 function TreeFieldModal({
   open,
   onClose,
@@ -1339,6 +1441,16 @@ function TreeFieldModal({
   /** Timer tracking the active celebration so we can cancel it on unmount. */
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Position of the growing centre tree (offset from centre, or null = centre).
+  // Persisted in localStorage; resets to the centre on each planting.
+  const [growingPlacement, setGrowingPlacement] = useState<TreePlacement | null>(
+    () => readGrowingPos(userId),
+  );
+  const persistGrowing = (next: TreePlacement | null) => {
+    writeGrowingPos(userId, next);
+    setGrowingPlacement(next);
+  };
+
   // Clean up any pending timer on unmount.
   useEffect(() => {
     return () => {
@@ -1381,10 +1493,15 @@ function TreeFieldModal({
         const [i, j] = placementToCell(nextGrid, k, treePlacements);
         padded.push(cellToPlacement(nextGrid, i, j));
       }
-      const [ni, nj] = defaults[treesPlanted] ?? [
-        gridCenter(nextGrid),
-        gridCenter(nextGrid),
-      ];
+      // Plant the new tree where the user has been growing it. If they never
+      // dragged the growing tree off-centre, fall back to the next default
+      // cell — the centre is reserved for the *next* seed, never a planted
+      // tree.
+      const off = growingPlacement;
+      const [ni, nj] =
+        off && (off.di !== 0 || off.dj !== 0)
+          ? [gridCenter(nextGrid) + off.di, gridCenter(nextGrid) + off.dj]
+          : defaults[treesPlanted] ?? [gridCenter(nextGrid), gridCenter(nextGrid)];
       padded.push(cellToPlacement(nextGrid, ni, nj));
 
       // V2 economy: record the planting in the ledger with the price paid
@@ -1411,6 +1528,10 @@ function TreeFieldModal({
         console.error('[TreeFieldModal] failed to bump trees_planted:', error);
       } else if (updated) {
         await onPlanted();
+        // The new tree now occupies the growing spot; the next seed starts
+        // back at the centre. Reset after success (covered by the confetti).
+        writeGrowingPos(userId, null);
+        setGrowingPlacement(null);
       }
     }
 
@@ -1522,6 +1643,8 @@ function TreeFieldModal({
             currentStage={stage}
             placements={treePlacements}
             onPlacementsChange={isAnimating ? undefined : persistPlacements}
+            growingPlacement={growingPlacement}
+            onGrowingPlacementChange={isAnimating ? undefined : persistGrowing}
           />
         </div>
 

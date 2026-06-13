@@ -403,6 +403,29 @@ html[data-theme="light"] {
 }
 
 /* ---------------------------------------------------------------------------
+ * Tree plot — radar ping under the growing centre tree. White rings scale up
+ * from the tree base and fade out on a loop (like a location/radar pulse).
+ * Each ring is an SVG <ellipse> with transform-box:fill-box so it scales
+ * around its own centre; the component staggers them via animation-delay.
+ * --------------------------------------------------------------------------*/
+@keyframes tree-radar-ping {
+  0% {
+    transform: scale(0.25);
+    opacity: 0.55;
+  }
+  70% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+.tree-radar-ring {
+  animation: tree-radar-ping 3s ease-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
  * Confetti — a single particle's trajectory. The component supplies the
  * final (dx, dy) offset in pixels and the final rotation via CSS custom
  * properties. Each particle:
