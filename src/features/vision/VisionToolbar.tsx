@@ -15,6 +15,8 @@
 // keyboard).
 // ============================================================================
 import {
+  createContext,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -46,11 +48,25 @@ const HIGHLIGHT_COLORS = [
   { label: 'אדום', color: '#fecaca' },
 ];
 
+// Layout knobs shared by every button/popover in the bar, supplied once by the
+// VisionToolbar so its inner primitives don't each need the props threaded:
+//   • fitWidth — mobile bottom bar spreads buttons across the FULL width
+//     (flex-1); the desktop top bar packs them at natural width (w-10).
+//   • placement — which way the size/list/highlight popovers open: 'up' for the
+//     bottom bar (panel above the trigger), 'down' for the top bar.
+type ToolbarConfig = { fitWidth: boolean; placement: 'up' | 'down' };
+const ToolbarConfigContext = createContext<ToolbarConfig>({
+  fitWidth: true,
+  placement: 'up',
+});
+
 export function VisionToolbar({
   editor,
   onPickImage,
   uploadingCount,
   canUpload,
+  fitWidth = true,
+  popoverPlacement = 'up',
 }: {
   editor: Editor;
   /** Called with the file the user picked / dropped via the "+" button. */
@@ -60,6 +76,10 @@ export function VisionToolbar({
   /** False until auth resolves — disables the "+" button so we never try to
    *  upload anonymously. */
   canUpload: boolean;
+  /** Spread buttons full-width (mobile) vs natural width (desktop top bar). */
+  fitWidth?: boolean;
+  /** Direction the size/list/highlight popovers open. */
+  popoverPlacement?: 'up' | 'down';
 }) {
   // Re-render on every editor transaction so the active states (bold / italic /
   // underline / heading / list / highlight) and the undo/redo enablement always
@@ -102,6 +122,9 @@ export function VisionToolbar({
     editor.isActive('taskList');
 
   return (
+    <ToolbarConfigContext.Provider
+      value={{ fitWidth, placement: popoverPlacement }}
+    >
     <div
       dir="rtl"
       className="
@@ -307,6 +330,7 @@ export function VisionToolbar({
         )}
       />
     </div>
+    </ToolbarConfigContext.Provider>
   );
 }
 
@@ -338,6 +362,7 @@ function ToolButton({
   label: string;
   children: ReactNode;
 }) {
+  const { fitWidth } = useContext(ToolbarConfigContext);
   return (
     <button
       type="button"
@@ -346,7 +371,7 @@ function ToolButton({
       disabled={disabled}
       aria-label={label}
       aria-pressed={active}
-      className={`flex-1 ${toolBtnClass(active)}`}
+      className={`${fitWidth ? 'flex-1' : 'w-10'} ${toolBtnClass(active)}`}
     >
       {children}
     </button>
@@ -376,11 +401,15 @@ function Popover({
   active?: boolean;
   renderPanel: (close: () => void) => ReactNode;
 }) {
+  const { fitWidth, placement } = useContext(ToolbarConfigContext);
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const [anchor, setAnchor] = useState<{ cx: number; top: number } | null>(
-    null,
-  );
+  // Remember the trigger's top AND bottom so the panel can open either way.
+  const [anchor, setAnchor] = useState<{
+    cx: number;
+    top: number;
+    bottom: number;
+  } | null>(null);
 
   const toggle = () => {
     if (open) {
@@ -388,7 +417,7 @@ function Popover({
       return;
     }
     const r = triggerRef.current?.getBoundingClientRect();
-    if (r) setAnchor({ cx: r.left + r.width / 2, top: r.top });
+    if (r) setAnchor({ cx: r.left + r.width / 2, top: r.top, bottom: r.bottom });
     setOpen(true);
   };
 
@@ -414,7 +443,7 @@ function Popover({
         onClick={toggle}
         aria-label={label}
         aria-expanded={open}
-        className={`flex-1 ${toolBtnClass(!!active || open)}`}
+        className={`${fitWidth ? 'flex-1' : 'w-10'} ${toolBtnClass(!!active || open)}`}
       >
         {trigger}
       </button>
@@ -434,11 +463,19 @@ function Popover({
                 absolute bg-surface-card border border-surface-border
                 rounded-2xl shadow-xl p-1.5
               "
-              style={{
-                left: anchor.cx,
-                top: anchor.top,
-                transform: 'translate(-50%, calc(-100% - 8px))',
-              }}
+              style={
+                placement === 'down'
+                  ? {
+                      left: anchor.cx,
+                      top: anchor.bottom,
+                      transform: 'translate(-50%, 8px)',
+                    }
+                  : {
+                      left: anchor.cx,
+                      top: anchor.top,
+                      transform: 'translate(-50%, calc(-100% - 8px))',
+                    }
+              }
             >
               {renderPanel(() => setOpen(false))}
             </div>

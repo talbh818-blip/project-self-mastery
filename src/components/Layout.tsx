@@ -5,6 +5,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { ProfileProvider } from '../features/admin/ProfileContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
 import { ThemeProvider } from '../hooks/useTheme';
+import { VisionLayoutProvider } from '../features/vision/useVisionLayoutPref';
 
 // Routes where the brand header (compass + app name) is hidden. Content-dense
 // screens omit it to claim the vertical space — Habits (home) and Vision (the
@@ -16,6 +17,12 @@ export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname);
+  // Vision ships a wide desktop layout; give its route the FULL width so the
+  // navigation rail can sit flush against the screen's right edge and the
+  // writing page can centre in the whole viewport. Every other screen stays
+  // phone-width (max-w-md). The Vision screen re-constrains its MOBILE layout to
+  // max-w-md itself, so phones are unaffected.
+  const wideContainer = pathname === '/vision';
 
   // On initial load and on every route change, start the viewport just past
   // the brand header so the screen content is what the user sees first.
@@ -80,6 +87,7 @@ export function Layout() {
     <ProfileProvider>
     <ThemeProvider>
     <BlockedGate>
+    <VisionLayoutProvider>
     <div className="min-h-screen flex flex-col bg-surface-base">
       {showBrandHeader && (
         <header ref={headerRef} className="bg-surface-base">
@@ -97,7 +105,9 @@ export function Layout() {
       )}
       <main
         ref={mainRef}
-        className="flex-1 pb-24 max-w-md mx-auto w-full px-3 sm:px-4 pt-5 min-h-screen"
+        className={`flex-1 pb-24 mx-auto w-full px-3 sm:px-4 pt-5 min-h-screen ${
+          wideContainer ? 'max-w-none' : 'max-w-md'
+        }`}
       >
         {/* App-wide safety net: a crash on any screen shows a recoverable
             notice instead of a black page. Resets on route change. */}
@@ -125,6 +135,7 @@ export function Layout() {
       </main>
       <BottomNav />
     </div>
+    </VisionLayoutProvider>
     </BlockedGate>
     </ThemeProvider>
     </ProfileProvider>

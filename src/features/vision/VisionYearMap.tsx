@@ -60,6 +60,10 @@ type Props = {
    *  reachable via a scrollbar on the right. Off = compact mode (future rows
    *  hidden, no inner scroll). */
   scrollable?: boolean;
+  /** Desktop sidebar: show the WHOLE year (future dimmed) like `scrollable`,
+   *  but WITHOUT the internal 2-row height cap — the surrounding sidebar is the
+   *  scroll container, so the month grid flows naturally to full height. */
+  fillHeight?: boolean;
   /** "חודשי" view: same map style, but only TWO month cards in one row —
    *  the reference month + the one before it — under the year header. */
   recentMonths?: boolean;
@@ -99,6 +103,7 @@ export function VisionYearMap({
   onPickMonth,
   onPickWeek,
   scrollable = false,
+  fillHeight = false,
   recentMonths = false,
   monthAnchor,
   onStepMonths,
@@ -132,13 +137,13 @@ export function VisionYearMap({
   // the WHOLE year (future months dimmed + inert) so you can scroll it end to
   // end.
   const visibleMonths = useMemo(() => {
-    if (recentMonths || scrollable) return months;
+    if (recentMonths || scrollable || fillHeight) return months;
     const cy = today.getFullYear();
     if (year < cy) return months;
     if (year > cy) return [];
     const rowEnd = Math.ceil((today.getMonth() + 1) / 3) * 3; // 3, 6, 9 or 12
     return months.slice(0, rowEnd);
-  }, [months, year, today, scrollable, recentMonths]);
+  }, [months, year, today, scrollable, recentMonths, fillHeight]);
 
   const allKeys = useMemo(() => {
     const keys = new Set<string>([String(year)]);
@@ -187,7 +192,8 @@ export function VisionYearMap({
   const gridRef = useRef<HTMLDivElement | null>(null);
   const [maxH, setMaxH] = useState<number | null>(null);
   useLayoutEffect(() => {
-    if (!scrollable) {
+    // fillHeight (desktop sidebar) skips the cap entirely — the sidebar scrolls.
+    if (!scrollable || fillHeight) {
       setMaxH(null);
       return;
     }
@@ -202,7 +208,7 @@ export function VisionYearMap({
     const ro = new ResizeObserver(measure);
     ro.observe(first);
     return () => ro.disconnect();
-  }, [scrollable, loading, visibleMonths.length]);
+  }, [scrollable, fillHeight, loading, visibleMonths.length]);
 
   const currentMonthKey = getPeriodKey('monthly', today);
   const currentWeekKey = getWeekKey(today);
@@ -263,6 +269,7 @@ export function VisionYearMap({
         <MonthsLayout
           recentMonths={recentMonths}
           scrollable={scrollable}
+          fillHeight={fillHeight}
           maxH={maxH}
           gridRef={gridRef}
           onStepMonths={onStepMonths}
@@ -363,6 +370,7 @@ export function VisionYearMap({
 function MonthsLayout({
   recentMonths,
   scrollable,
+  fillHeight,
   maxH,
   gridRef,
   onStepMonths,
@@ -371,6 +379,7 @@ function MonthsLayout({
 }: {
   recentMonths: boolean;
   scrollable: boolean;
+  fillHeight: boolean;
   maxH: number | null;
   gridRef: React.RefObject<HTMLDivElement | null>;
   onStepMonths?: (delta: number) => void;
@@ -406,7 +415,9 @@ function MonthsLayout({
     );
   }
 
-  if (!scrollable) return grid;
+  // Desktop sidebar (fillHeight) or compact mode: no internal scroller — the
+  // bare grid flows to its natural height (the sidebar / page scrolls).
+  if (fillHeight || !scrollable) return grid;
   return (
     <div
       dir="ltr"
