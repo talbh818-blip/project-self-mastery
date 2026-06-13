@@ -6,17 +6,26 @@
 // colored RING per active habit, filled by that habit's success level for the
 // period, with the habit's icon in the middle.
 //
-// SUCCESS METRIC — goal-relative, the same spirit as the Habits screen:
-//   • Days are grouped into the habit's frequency buckets (day / week / month).
-//   • Each active bucket "expects" min(target, active-days-in-bucket) marks
-//     (the effective quota — a partial bucket can't demand more than its days).
+// SUCCESS METRIC — completion of the WHOLE open period (not "since you
+// started"). The ring answers "how much of THIS week / month / year have I
+// filled in?", so the SAME habit reads ~100% on a strong week but only a few
+// percent on the year (most of the year is still unlived/unfilled).
+//   • Every day from period-start → today is bucketed by the habit's frequency
+//     (day / week / month). Days BEFORE the habit existed, or in an unassigned
+//     gap, still count toward the period's "expected" total (they're unfilled)
+//     but do NOT count as completed — that's what keeps a freshly-started habit
+//     LOW at the month/year scale.
+//   • Each bucket "expects" min(target, days-in-bucket) marks (effective quota).
 //   • "done" = Σ min(V-days-in-bucket, expected); ratio = done / Σ expected.
-//   So a 3×/week habit done 3× reads 100% (not 3/7), and a daily habit reads
-//   simply V-days / tracked-days. Clamped to [0, 1].
+//     So a 3×/week habit that hit its 3 every week reads ~100% at every scope.
+//   • 'blank' days (today / within grace / quantitative partials) are NEUTRAL —
+//     skipped from both done and expected, matching how the habit cells treat
+//     them, so an unfinished today never drags the number down.
 //
-// The habit verdict per day is the ENGINE's `effectiveByDate` ('V' only counts
-// a genuinely-complete day — a quantitative partial logged as 'V' does not), so
-// the strip agrees with the cells and the data dashboard.
+// The per-day verdict is the ENGINE's `effectiveByDate` ('V' only counts a
+// genuinely-complete day — a quantitative partial logged as 'V' does not), so
+// the strip agrees with the cells and the data dashboard. A habit with no real
+// activity in the period (e.g. it didn't exist yet for a past year) is hidden.
 //
 // Self-contained: it loads its own habit data via useHabitData. The vision
 // editor persists across cached period steps, so this fetch happens once and
@@ -54,26 +63,36 @@ function periodBounds(scope: VisionScope, key: string): { start: Date; end: Date
 }
 
 /**
- * Goal-relative success of a habit over [windowStart, windowEnd] (inclusive,
- * already clamped to ≤ today). Returns null when the habit had no active day
- * in the window. See the file header for the exact metric.
+ * Completion of the open period for a habit, over [windowStart, windowEnd]
+ * (inclusive, windowEnd already clamped to ≤ today). Measures the WHOLE period
+ * — un-lived / un-done days count as unfilled — so the value shrinks as the
+ * scope widens. Returns null when the habit had no real activity in the period
+ * (so it's hidden rather than shown at 0% for a period it didn't exist in).
+ * See the file header for the exact metric.
  */
 function successRatio(
   habit: Habit,
-  habitStart: string | null,
   eff: HabitScoreResult['effectiveByDate'] | undefined,
   windowStart: Date,
   windowEnd: Date,
 ): number | null {
+  if (!eff) return null;
   const target = Math.max(1, habit.frequency_target);
   const cap = habit.frequency_period === 'daily' ? 1 : target;
-  // bucketKey → { v: completed days, days: active days in the bucket }
+  // bucketKey → { v: completed days, days: counted (non-neutral) days }
   const buckets = new Map<string, { v: number; days: number }>();
+  // Did the habit genuinely exist / get judged at all in this window? Only a
+  // real verdict (V / X / auto_x) counts — undefined days (pre-existence / gap)
+  // do not, so a period the habit never lived in stays hidden.
+  let active = false;
 
   const d = new Date(windowStart);
   while (d <= windowEnd) {
     const ds = toDateString(d);
-    if (!habitStart || ds >= habitStart) {
+    const st = eff.get(ds);
+    // 'blank' = today / within grace / quantitative partial → neutral: skip
+    // entirely (neither expected nor done), matching the habit cells.
+    if (st !== 'blank') {
       const key =
         habit.frequency_period === 'daily'
           ? ds
@@ -81,14 +100,19 @@ function successRatio(
             ? toDateString(startOfWeek(d))
             : `${d.getFullYear()}-${d.getMonth()}`;
       const b = buckets.get(key) ?? { v: 0, days: 0 };
-      b.days += 1;
-      if (eff?.get(ds) === 'V') b.v += 1;
+      b.days += 1; // counts toward "expected" even when undefined (unfilled)
+      if (st === 'V') {
+        b.v += 1;
+        active = true;
+      } else if (st === 'X' || st === 'auto_x') {
+        active = true;
+      }
       buckets.set(key, b);
     }
     d.setDate(d.getDate() + 1);
   }
 
-  if (buckets.size === 0) return null;
+  if (!active) return null; // habit didn't exist in this period → hide it
   let done = 0;
   let expected = 0;
   for (const b of buckets.values()) {
@@ -97,24 +121,6 @@ function successRatio(
     expected += exp;
   }
   return expected > 0 ? done / expected : null;
-}
-
-/**
- * The habit's TRUE first active day — the earliest key in effectiveByDate,
- * which the engine builds from ALL of the habit's assignment windows plus every
- * logged day (scoring.ts). We use this (not the current slot's assignment date)
- * as the success window's start, so a recent slot re-assignment doesn't shrink
- * the month/year window down to roughly the current week.
- */
-function firstActiveDay(
-  eff: HabitScoreResult['effectiveByDate'] | undefined,
-): string | null {
-  if (!eff) return null;
-  let min: string | null = null;
-  for (const ds of eff.keys()) {
-    if (min === null || ds < min) min = ds;
-  }
-  return min;
 }
 
 type Item = { habit: Habit; ratio: number };
@@ -138,7 +144,7 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
       const habit = slot.habit;
       if (!habit) continue;
       const eff = stats?.byHabit.get(habit.id)?.effectiveByDate;
-      const ratio = successRatio(habit, firstActiveDay(eff), eff, start, windowEnd);
+      const ratio = successRatio(habit, eff, start, windowEnd);
       if (ratio === null) continue;
       out.push({ habit, ratio });
     }
