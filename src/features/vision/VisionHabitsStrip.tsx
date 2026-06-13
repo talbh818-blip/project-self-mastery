@@ -99,6 +99,24 @@ function successRatio(
   return expected > 0 ? done / expected : null;
 }
 
+/**
+ * The habit's TRUE first active day — the earliest key in effectiveByDate,
+ * which the engine builds from ALL of the habit's assignment windows plus every
+ * logged day (scoring.ts). We use this (not the current slot's assignment date)
+ * as the success window's start, so a recent slot re-assignment doesn't shrink
+ * the month/year window down to roughly the current week.
+ */
+function firstActiveDay(
+  eff: HabitScoreResult['effectiveByDate'] | undefined,
+): string | null {
+  if (!eff) return null;
+  let min: string | null = null;
+  for (const ds of eff.keys()) {
+    if (min === null || ds < min) min = ds;
+  }
+  return min;
+}
+
 type Item = { habit: Habit; ratio: number };
 
 export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
@@ -120,7 +138,7 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
       const habit = slot.habit;
       if (!habit) continue;
       const eff = stats?.byHabit.get(habit.id)?.effectiveByDate;
-      const ratio = successRatio(habit, slot.habitStartDate, eff, start, windowEnd);
+      const ratio = successRatio(habit, firstActiveDay(eff), eff, start, windowEnd);
       if (ratio === null) continue;
       out.push({ habit, ratio });
     }
@@ -140,7 +158,7 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
       dir="rtl"
       className="overflow-x-auto vision-habits-scroll pt-3 mt-3 border-t border-surface-border"
     >
-      <div className="flex items-center gap-2.5 w-max">
+      <div className="flex items-center justify-center gap-2.5 min-w-max">
         {items.map((it) => (
           <SuccessRing key={it.habit.id} habit={it.habit} ratio={it.ratio} />
         ))}
