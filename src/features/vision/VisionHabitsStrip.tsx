@@ -199,8 +199,8 @@ export function VisionHabitsStrip({
             key={it.habit.id}
             habit={it.habit}
             ratio={it.ratio}
-            size={inline ? 45 : 46}
-            iconSize={22}
+            size={inline ? 36 : 46}
+            iconSize={inline ? 18 : 22}
           />
         ))}
       </div>
