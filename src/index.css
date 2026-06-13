@@ -403,18 +403,18 @@ html[data-theme="light"] {
 }
 
 /* ---------------------------------------------------------------------------
- * Tree plot — radar ping under the growing centre tree. White rings scale up
- * from the tree base and fade out on a loop (like a location/radar pulse).
- * Each ring is an SVG <ellipse> with transform-box:fill-box so it scales
- * around its own centre; the component staggers them via animation-delay.
+ * Tree plot — radar ping under the growing centre tree. Filled white discs
+ * scale up from the tree base and fade out on a slow loop (like a location/
+ * radar pulse). Each disc is an SVG <ellipse> with transform-box:fill-box so
+ * it scales around its own centre; the component staggers them via delay.
  * --------------------------------------------------------------------------*/
 @keyframes tree-radar-ping {
   0% {
     transform: scale(0.25);
-    opacity: 0.55;
+    opacity: 0.45;
   }
   70% {
-    opacity: 0.12;
+    opacity: 0.1;
   }
   100% {
     transform: scale(1.45);
@@ -422,7 +422,11 @@ html[data-theme="light"] {
   }
 }
 .tree-radar-ring {
-  animation: tree-radar-ping 3s ease-out infinite;
+  animation: tree-radar-ping 6s ease-out infinite;
+  /* backwards: during a disc's start delay it sits at the 0% keyframe (small,
+     faint) instead of its default full-size/opaque state. Without this the
+     delayed discs flash as a bold static ring for the first seconds on open. */
+  animation-fill-mode: backwards;
 }
 
 /* ---------------------------------------------------------------------------

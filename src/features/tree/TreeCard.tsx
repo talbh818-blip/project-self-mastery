@@ -1097,10 +1097,10 @@ function IsometricField({
               <ellipse
                 cx={x}
                 cy={cy}
-                rx={FIELD_CELL_W * 0.78}
-                ry={FIELD_CELL_H * 0.78}
+                rx={FIELD_CELL_W * 0.62}
+                ry={FIELD_CELL_H * 0.62}
                 fill="#ffffff"
-                opacity={0.12}
+                opacity={0.1}
               />
               {[0, 1, 2].map((ring) => (
                 <ellipse
@@ -1108,15 +1108,13 @@ function IsometricField({
                   className="tree-radar-ring"
                   cx={x}
                   cy={cy}
-                  rx={FIELD_CELL_W}
-                  ry={FIELD_CELL_H}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth={1.4}
+                  rx={FIELD_CELL_W * 0.8}
+                  ry={FIELD_CELL_H * 0.8}
+                  fill="#ffffff"
                   style={{
                     transformBox: 'fill-box',
                     transformOrigin: 'center',
-                    animationDelay: `${ring}s`,
+                    animationDelay: `${ring * 2}s`,
                   }}
                 />
               ))}
