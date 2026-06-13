@@ -282,10 +282,6 @@ export function VisionEditor({
           onIconClick={onIconClick}
           saveStatus={saveStatus}
         />
-        {/* SECOND header row: per-habit success rings for the open period
-            (week / month / year). Self-hides when the user has no habits, and
-            carries the divider below the header. */}
-        <VisionHabitsStrip userId={userId} scope={scope} periodKey={periodKey} />
         {/* Guided writing — revealed by the DateBar's 🗺️ toggle. The slide
             shell (grid-rows 0fr↔1fr) opens/closes it smoothly; "+ כתיבה
             מודרכת" inserts a fresh guiding question, the gear opens the
@@ -335,6 +331,10 @@ export function VisionEditor({
           </div>
         )}
         <EditorContent editor={editor} />
+        {/* Per-habit success rings for the open period (week / month / year),
+            at the BOTTOM of the vision — below the writing. Self-hides when the
+            user has no habits; carries its own divider above. */}
+        <VisionHabitsStrip userId={userId} scope={scope} periodKey={periodKey} />
       </div>
       {/* Scroll runway: extra space below the card so the last lines of a long
           vision scroll clear of the fixed formatting toolbar (which would

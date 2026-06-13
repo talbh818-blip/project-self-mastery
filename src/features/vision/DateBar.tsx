@@ -11,9 +11,9 @@
 //   • Save status  — "שומר…" / "נשמר" / "שגיאה".
 //   • Back-to-now  — jump to the current week.
 //
-// A per-habit success summary lives in a SECOND row below this one (owned by
-// VisionEditor); this bar draws no bottom divider so the two rows read as one
-// header block, with the single divider under row 2.
+// A per-habit success summary lives at the BOTTOM of the vision (below the
+// writing, owned by VisionEditor); this bar keeps its own bottom divider that
+// separates the header from the writing surface.
 // ============================================================================
 import {
   ChevronRight,
@@ -62,7 +62,7 @@ export function DateBar({
     // side controls are.
     <div
       dir="rtl"
-      className="grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 pb-2"
+      className="grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 pb-2 mb-3 border-b border-surface-border"
     >
       {/* RIGHT cluster: icon picker + assist toggle (RTL → start = right). */}
       <div className="flex items-center gap-1.5 justify-self-start">
