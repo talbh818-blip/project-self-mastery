@@ -1,7 +1,8 @@
 // ============================================================================
 // UsersDirectory — list of active users with a quick stats overview.
-// Each row shows: avatar, name + coloured gender glyph, an "אני" / "שותף
-// למסע" tag, the join date, and four numbers (trees, habits, score, visions).
+// Each row shows: avatar, name + coloured gender glyph, the join date, a
+// visibility tag ("אני" / "פומבי" / "שותף למסע"; private shows none), and four
+// numbers (trees, habits, score, visions).
 // Tapping a row opens /user/:id for the full dashboard.
 // ============================================================================
 import { useEffect, useState } from 'react';
@@ -11,6 +12,7 @@ import {
   ChevronLeft,
   CalendarDays,
   Handshake,
+  Globe,
   MessageCirclePlus,
 } from 'lucide-react';
 import { fetchActiveProfiles } from './queries';
@@ -50,7 +52,7 @@ export function UsersDirectory() {
         <button
           type="button"
           onClick={inviteOnWhatsApp}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-forest-700/15 text-forest-400 hover:bg-forest-700/25 active:scale-95 px-3 py-1.5 text-[11px] font-semibold transition"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-forest-700/20 text-cream-50/90 hover:bg-forest-700/30 active:scale-95 px-3 py-1.5 text-[11px] font-semibold transition"
         >
           <MessageCirclePlus size={14} className="shrink-0" />
           הזמינו חברים
@@ -84,29 +86,33 @@ export function UsersDirectory() {
                 <Avatar url={row.avatar_url} />
 
                 <div className="flex-1 min-w-0">
-                  {/* Name + gender + identity tag + join date — one line */}
+                  {/* Name + gender + join date, THEN the visibility tag — one line */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-sm text-ink-100 font-semibold truncate">
                       {row.display_name || 'משתמש'}
                     </span>
                     <GenderIcon gender={row.gender} size={14} />
+                    <span className="inline-flex items-center gap-1 text-[11px] text-ink-100/70">
+                      <CalendarDays size={11} />
+                      <span dir="ltr">{formatJoinDate(row.created_at)}</span>
+                    </span>
                     {row.is_me ? (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/30 text-forest-400">
                         אני
                       </span>
+                    ) : row.habits_visibility === 'public' ? (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/20 text-forest-400">
+                        <Globe size={10} />
+                        פומבי
+                      </span>
                     ) : (
-                      row.shared_with_me &&
-                      row.habits_visibility !== 'public' && (
+                      row.shared_with_me && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-400">
                           <Handshake size={10} />
                           שותף למסע
                         </span>
                       )
                     )}
-                    <span className="inline-flex items-center gap-1 text-[11px] text-ink-100/70">
-                      <CalendarDays size={11} />
-                      <span dir="ltr">{formatJoinDate(row.created_at)}</span>
-                    </span>
                   </div>
 
                   {/* Stats — packed 2×2 grid: trees · score / habits · vision */}
