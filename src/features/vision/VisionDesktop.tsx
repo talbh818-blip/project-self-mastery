@@ -5,25 +5,28 @@
 //
 //   ┌──────────────────────────────┬─────────────────────────┐
 //   │  CENTRE — wide writing page  │  RIGHT — navigation rail │
-//   │  (Google-Docs style)         │  • view switch (שבוע/    │
-//   │   ┌── sticky toolbar ──┐     │    חודש/שנה + feed)       │
-//   │   │ B i U  H  • ...     │     │  • hierarchy navigator   │
-//   │   ├────────────────────┤     │    (year → months → weeks)│
-//   │   │ title · ‹ › · save │     │  • version history       │
+//   │  (Google-Docs style)         │  • מפת השנה / גלילה /     │
+//   │   ┌── sticky toolbar ──┐     │    גרסאות קודמות          │
+//   │   │ B i U  H  • ...     │     │  • the YEAR map: every   │
+//   │   ├────────────────────┤     │    month + week, click to │
+//   │   │ title · ‹ › · save │     │    open it in the editor  │
 //   │   │  writing …          │     │                          │
 //   └──────────────────────────────┴─────────────────────────┘
 //
-// The right rail holds ALL vision-to-vision navigation; clicking a period opens
-// it in the centre editor (the rail stays put). The shared `ctl` controller
-// owns which vision is open + its persistence — this layout only owns its own
-// navigator chrome (which view the rail shows, the map year, the month window).
+// The rail is YEARLY-ONLY: it always shows the whole year (no monthly/weekly
+// view modes), opening on it by default — clicking any month or week inside the
+// map opens that period in the centre editor. The three top controls are the
+// year map, the free-scroll feed, and version history.
+//
+// The shared `ctl` controller owns which vision is open + its persistence; this
+// layout only owns its own navigator chrome (feed on/off, the map's year).
 // ============================================================================
 import { useState } from 'react';
 import {
   Lock,
-  Hammer,
   History,
   GalleryVertical,
+  CalendarDays,
   Search,
   X,
 } from 'lucide-react';
@@ -34,7 +37,6 @@ import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { CompassLoader } from '../../components/CompassLoader';
-import type { VisionView, VisionLevelView } from './VisionViewBar';
 import {
   VISION_PLACEHOLDERS,
   type VisionController,
@@ -42,17 +44,9 @@ import {
 import {
   addAnchor,
   getPeriodKey,
-  isFuturePeriod,
   parsePeriodStart,
   type VisionScope,
 } from './period';
-
-// The rail's level options, in the order the user reads them (broad → fine).
-const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
-  { value: 'yearly', label: 'שנתי' },
-  { value: 'monthly', label: 'חודשי' },
-  { value: 'weekly', label: 'שבועי' },
-];
 
 export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const {
@@ -83,37 +77,17 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     canStepNext,
   } = ctl;
 
-  // Rail navigator chrome — independent of the mobile layout on purpose.
-  const [levelView, setLevelView] = useState<VisionLevelView>('yearly');
+  // Rail chrome — independent of the mobile layout. Only two surfaces exist:
+  // the year map (default) and the free-scroll feed.
   const [feedActive, setFeedActive] = useState(false);
-  const view: VisionView = feedActive ? 'feed' : levelView;
   const [feedQuery, setFeedQuery] = useState('');
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
-  const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
 
-  const pickLevelView = (v: VisionLevelView) => {
-    setLevelView(v);
+  // Open the year map (the default surface), lined up with the open year.
+  const showYearMap = () => {
     setFeedActive(false);
-    if (v === 'yearly') setMapYear(anchor.getFullYear());
-    else if (v === 'monthly') {
-      setMonthlyAnchor(today);
-      setMapYear(today.getFullYear());
-    }
+    setMapYear(anchor.getFullYear());
   };
-
-  const stepMonthlyWindow = (delta: number) => {
-    const next = new Date(
-      monthlyAnchor.getFullYear(),
-      monthlyAnchor.getMonth() + delta,
-      1,
-    );
-    setMonthlyAnchor(next);
-    setMapYear(next.getFullYear());
-  };
-  const monthlyCanStepNext = !isFuturePeriod(
-    'monthly',
-    getPeriodKey('monthly', addAnchor('monthly', monthlyAnchor, 1)),
-  );
 
   // Editor period stepper (prev/next within the open level) — also nudges the
   // map's year so a year-crossing step repaints the rail.
@@ -132,7 +106,6 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       setAnchor(today);
       setLevel('weekly');
       setMapYear(today.getFullYear());
-      setMonthlyAnchor(today);
     },
   };
 
@@ -140,13 +113,12 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const goToPeriod = (targetLevel: VisionScope, targetAnchor: Date) =>
     ctlGoToPeriod(targetLevel, targetAnchor);
 
-  // Feed → tap a vision: open it and return the rail to the yearly map.
+  // Feed → tap a vision: open it and return the rail to the year map.
   const openFromFeed = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
     setMapYear(targetAnchor.getFullYear());
     setFeedActive(false);
-    setLevelView('yearly');
   };
 
   const centre = locked ? (
@@ -174,57 +146,30 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   );
 
   return (
-    <section dir="rtl" className="-mt-4">
+    <section dir="rtl" className="-mt-1">
       {/* RTL flex row: rail (right) · centre writing column · balancer (left).
           The balancer is an empty spacer the SAME width as the rail, so the
           centre column is centred in the WHOLE viewport — not just in the space
           left of the rail. */}
       <div className="flex items-start">
         {/* ── RIGHT RAIL — first child = rightmost in RTL, flush to the edge ── */}
-        <aside className="vision-desktop-rail shrink-0 w-[340px] sticky top-3 self-start">
-          {/* View switch: level segmented control + a separate feed button. */}
+        <aside className="vision-desktop-rail shrink-0 w-[440px] sticky top-3 self-start">
+          {/* Top controls: year-map view · free-scroll view · version history. */}
           <div className="flex items-center gap-2 mb-3">
             <div className="flex-1 inline-flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
-              {LEVEL_OPTIONS.map((opt) => {
-                const active = view === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => pickLevelView(opt.value)}
-                    aria-pressed={active}
-                    className={`
-                      flex-1 h-8 rounded-lg text-[13px] font-semibold transition-colors
-                      ${
-                        active
-                          ? 'bg-forest-700 text-on-accent shadow-sm'
-                          : 'text-ink-300 hover:text-ink-100'
-                      }
-                    `}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
+              <RailViewButton
+                active={!feedActive}
+                onClick={showYearMap}
+                icon={<CalendarDays size={16} />}
+                label="מפת השנה"
+              />
+              <RailViewButton
+                active={feedActive}
+                onClick={() => setFeedActive(true)}
+                icon={<GalleryVertical size={16} />}
+                label="גלילה חופשית"
+              />
             </div>
-            <button
-              type="button"
-              onClick={() => setFeedActive(true)}
-              aria-pressed={view === 'feed'}
-              aria-label="גלילה חופשית בין החזונות"
-              title="גלילה חופשית בין החזונות"
-              className={`
-                shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl
-                transition-colors
-                ${
-                  view === 'feed'
-                    ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
-                    : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
-                }
-              `}
-            >
-              <GalleryVertical size={17} />
-            </button>
             <button
               type="button"
               onClick={() => setHistoryOpen(true)}
@@ -240,9 +185,9 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
             </button>
           </div>
 
-          {/* The rail's body: a hierarchy navigator (or a feed search box). */}
-          <div className="vision-desktop-rail-body rounded-2xl bg-surface-card ring-1 ring-surface-border p-2.5 overflow-y-auto vision-feed-scroll">
-            {view === 'feed' ? (
+          {/* The rail's body: the whole-year map (or the feed's search box). */}
+          <div className="vision-desktop-rail-body rounded-2xl bg-surface-card ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
+            {feedActive ? (
               <div className="relative">
                 <Search
                   size={15}
@@ -273,14 +218,6 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                   הגלילה החופשית מוצגת במרכז. בחר חזון כדי לפתוח אותו.
                 </p>
               </div>
-            ) : view === 'weekly' ? (
-              <div className="text-center py-10">
-                <Hammer size={22} className="text-forest-500 mx-auto mb-2.5" />
-                <p className="text-ink-100 font-semibold text-sm">
-                  התצוגה השבועית בדרך
-                </p>
-                <p className="text-ink-300 text-[12px] mt-1">בקרוב כאן.</p>
-              </div>
             ) : (
               <VisionYearMap
                 userId={userId}
@@ -288,11 +225,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                 today={today}
                 selectedLevel={level}
                 selectedKey={periodKey}
-                fillHeight={view === 'yearly'}
-                recentMonths={view === 'monthly'}
-                monthAnchor={monthlyAnchor}
-                onStepMonths={stepMonthlyWindow}
-                canStepMonthsNext={monthlyCanStepNext}
+                fillHeight
                 onStepYear={(delta) => setMapYear((y) => y + delta)}
                 onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
                 onPickMonth={(monthKey) =>
@@ -308,9 +241,9 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
 
         {/* ── CENTRE — the wide writing page (or the free-scroll feed),
             centred in the viewport via the balancer below ── */}
-        <div className="flex-1 min-w-0 px-6">
-          {view === 'feed' ? (
-            <div className="max-w-[760px] mx-auto">
+        <div className="flex-1 min-w-0 px-4">
+          {feedActive ? (
+            <div className="max-w-[820px] mx-auto">
               <VisionScrollFeed
                 userId={userId}
                 today={today}
@@ -347,7 +280,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
 
         {/* ── LEFT BALANCER — empty, same width as the rail, so the centre
             column lands dead-centre in the viewport ── */}
-        <div aria-hidden className="shrink-0 w-[340px]" />
+        <div aria-hidden className="shrink-0 w-[440px]" />
       </div>
 
       <VisionIconPicker
@@ -366,6 +299,39 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
         onClose={() => setHistoryOpen(false)}
       />
     </section>
+  );
+}
+
+/** One option in the rail's view segmented control (year map / free scroll). */
+function RailViewButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`
+        flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg
+        text-[13px] font-semibold transition-colors
+        ${
+          active
+            ? 'bg-forest-700 text-on-accent shadow-sm'
+            : 'text-ink-300 hover:text-ink-100'
+        }
+      `}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 

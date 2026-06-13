@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   Target,
   BookOpen,
@@ -33,7 +33,6 @@ const ADMIN_ITEM: NavItem = {
 
 export function BottomNav() {
   const { isAdmin } = useCurrentProfile();
-  const { pathname } = useLocation();
   const { mode, isWide, setMode } = useVisionLayoutPref();
   // In RTL the first DOM child renders rightmost. "משתמש" is the last BASE
   // item, and the spec asks for "ניהול" to sit to the LEFT of it, so we
@@ -41,9 +40,10 @@ export function BottomNav() {
   const items = isAdmin ? [...BASE_ITEMS, ADMIN_ITEM] : BASE_ITEMS;
 
   // The desktop/mobile layout toggle lives in the dock — pinned to the RIGHT of
-  // the nav items (RTL → the start edge). Only on the Vision screen, only on a
-  // wide viewport (where a desktop layout exists at all).
-  const showLayoutToggle = isWide && pathname === '/vision';
+  // the nav items (RTL → the start edge). Shown on EVERY page on a wide viewport
+  // so "מחשב" is a consistent, always-reachable choice — even though, for now,
+  // the only screen that actually changes layout is Vision.
+  const showLayoutToggle = isWide;
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-20 bg-surface-card/95 backdrop-blur border-t border-surface-border pb-safe">
