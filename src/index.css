@@ -470,7 +470,20 @@ html[data-theme="light"] {
 .vision-page {
   background-color: var(--color-surface-card);
   border-radius: 0 0 1rem 1rem;
-  padding: 1rem 1.1rem;
+  padding: 1rem 1.1rem 0.6rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Scroll runway under the editor card. The formatting toolbar is fixed ABOVE
+ * the bottom-nav dock; <main>'s pb-24 only clears the dock, not the toolbar
+ * stacked on top of it. Without extra runway the last lines of a long vision
+ * stay hidden behind the toolbar no matter how far you scroll. This spacer
+ * lives BELOW the card (page background, not the writing surface), so it adds
+ * scroll room without reopening a gap inside the editor. Height ≈ toolbar +
+ * a little breathing room above it.
+ * --------------------------------------------------------------------------*/
+.vision-editor-runway {
+  height: 3.5rem;
 }
 
 /* ---------------------------------------------------------------------------
@@ -510,16 +523,18 @@ html[data-theme="light"] {
  * (not a thin strip), but is modest enough that one or two lines of text
  * don't leave a huge unused void below them.
  *
- * padding-bottom is intentionally tight (~one line). The job of keeping
- * the cursor visible above the fixed toolbar on a long document is done
- * by `scroll-padding-bottom` on <html> below — that lets the browser's
- * native scrollIntoView do the right thing automatically.
+ * padding-bottom hugs the last line — the card ends just below the text with
+ * only a hair of breathing room, no full-line void. Keeping content clear of
+ * the fixed toolbar at the bottom of a long document is handled separately by
+ * two mechanisms: `scroll-padding-bottom` on <html> (caret auto-scroll while
+ * typing) and the `.vision-editor-runway` spacer below the card (manual
+ * scroll runway).
  * --------------------------------------------------------------------------*/
 .vision-editor .ProseMirror {
   direction: rtl;
   text-align: right;
   min-height: 30vh;
-  padding-bottom: 1.5rem;
+  padding-bottom: 0.25rem;
   outline: none;
   color: var(--color-ink-100);
   /* Keep the everyday typing caret white (theme text colour), not tinted.

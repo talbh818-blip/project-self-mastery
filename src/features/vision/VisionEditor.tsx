@@ -327,6 +327,11 @@ export function VisionEditor({
         )}
         <EditorContent editor={editor} />
       </div>
+      {/* Scroll runway: extra space below the card so the last lines of a long
+          vision scroll clear of the fixed formatting toolbar (which would
+          otherwise cover them at the bottom of the page). Only when the
+          toolbar is present (editable). */}
+      {!readOnly && <div aria-hidden className="vision-editor-runway" />}
       {!readOnly && (
         <ToolbarShell>
           <VisionToolbar

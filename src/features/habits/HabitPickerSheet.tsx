@@ -513,8 +513,9 @@ export function HabitPickerSheet({
                 ?
               </SectionTitle>
               <div className="flex items-center gap-2">
-                {/* Period selector — segmented, takes the remaining width */}
-                <div className="grid grid-cols-3 gap-1 flex-1">
+                {/* Period selector — tight segmented pill (joined, dense) so
+                    the number stepper gets more breathing room. */}
+                <div className="flex gap-0.5 bg-surface-raised rounded-xl p-0.5 flex-1">
                   {(
                     [
                       { v: 'daily' as const, label: 'יומי' },
@@ -526,10 +527,10 @@ export function HabitPickerSheet({
                       key={opt.v}
                       type="button"
                       onClick={() => setFrequencyPeriod(opt.v)}
-                      className={`py-2.5 rounded-xl text-sm transition-colors ${
+                      className={`flex-1 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
                         frequencyPeriod === opt.v
                           ? 'bg-forest-700 text-on-accent'
-                          : 'bg-surface-raised text-ink-300 hover:text-ink-100'
+                          : 'text-ink-300 hover:text-ink-100'
                       }`}
                     >
                       {opt.label}
@@ -548,8 +549,8 @@ export function HabitPickerSheet({
               {/* When the daily target is >1, the cell becomes a tap counter
                   (1→target) and only "completes" at the target. */}
               {frequencyPeriod === 'daily' && frequencyTarget > 1 && (
-                <p className="text-xs text-ink-500 mt-2 leading-snug">
-                  כל לחיצה על המשבצת תספור 1 עד {frequencyTarget} — ההרגל נחשב
+                <p className="text-xs text-ink-300 mt-2 leading-snug">
+                  כל לחיצה על המשבצת תספור 1 עד {frequencyTarget} - ההרגל נחשב
                   כבוצע ביום רק כשמגיעים ל-{frequencyTarget}.
                 </p>
               )}
@@ -575,7 +576,7 @@ export function HabitPickerSheet({
                     />
                     <span
                       className={`text-sm transition-colors ${
-                        maxEnabled ? 'text-ink-100' : 'text-ink-500'
+                        maxEnabled ? 'text-ink-100' : 'text-ink-300'
                       }`}
                     >
                       תקרת ספירה מעל היעד (לא חובה)
@@ -583,7 +584,7 @@ export function HabitPickerSheet({
                   </label>
                   {maxEnabled && (
                     <div className="mt-2.5 flex items-center gap-2">
-                      <span className="text-xs text-ink-500 shrink-0">עד</span>
+                      <span className="text-xs text-ink-300 shrink-0">עד</span>
                       <NumberStepper
                         value={Math.max(maxCount, frequencyTarget + 1)}
                         onChange={setMaxCount}
@@ -591,17 +592,13 @@ export function HabitPickerSheet({
                         max={99}
                         compact
                       />
-                      <span className="text-xs text-ink-500 shrink-0">
+                      <span className="text-xs text-ink-300 shrink-0">
                         פעמים ביום
                       </span>
                     </div>
                   )}
-                  <p
-                    className={`text-xs mt-1.5 leading-snug ${
-                      maxEnabled ? 'text-ink-500' : 'text-ink-500/60'
-                    }`}
-                  >
-                    מאפשר לסמן מעבר ליעד לצורך ספירה בלבד — היעד והניקוד נשארים
+                  <p className="text-xs mt-1.5 leading-snug text-ink-300">
+                    מאפשר לסמן מעבר ליעד לצורך ספירה בלבד - היעד והניקוד נשארים
                     לפי {frequencyTarget > 1 ? frequencyTarget : 'היעד'}, והלחיצות
                     הנוספות רק נספרות.
                   </p>
@@ -638,7 +635,7 @@ export function HabitPickerSheet({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs uppercase tracking-wider text-ink-500 mb-2">
+    <h3 className="text-xs uppercase tracking-wider text-ink-300 mb-2">
       {children}
     </h3>
   );
@@ -840,13 +837,17 @@ function NumberStepper({
   compact?: boolean;
 }) {
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
+  // Compact = small +/− chevrons hugging a prominent number; default = full row.
+  const btn = compact
+    ? 'w-6 h-9 shrink-0 rounded-lg bg-surface-raised text-ink-300 hover:text-ink-100 hover:bg-surface-border disabled:opacity-30 text-base'
+    : 'w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg';
   return (
-    <div className={`flex items-center gap-1.5 ${compact ? 'shrink-0' : ''}`}>
+    <div className={`flex items-center ${compact ? 'gap-1 shrink-0' : 'gap-1.5'}`}>
       <button
         type="button"
         onClick={() => onChange(clamp(value - step))}
         disabled={value <= min}
-        className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
+        className={btn}
       >
         −
       </button>
@@ -861,15 +862,17 @@ function NumberStepper({
           const n = Number(raw);
           if (!Number.isNaN(n)) onChange(clamp(n));
         }}
-        className={`text-center py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500 ${
-          compact ? 'w-12 px-1' : 'flex-1 px-3'
+        className={`text-center rounded-xl bg-surface-raised border border-surface-border text-ink-100 focus:outline-none focus:border-forest-500 ${
+          compact
+            ? 'w-12 px-1 py-2 text-base font-semibold'
+            : 'flex-1 px-3 py-2 text-sm'
         }`}
       />
       <button
         type="button"
         onClick={() => onChange(clamp(value + step))}
         disabled={value >= max}
-        className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
+        className={btn}
       >
         +
       </button>
