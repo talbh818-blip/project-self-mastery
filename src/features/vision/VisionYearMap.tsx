@@ -214,14 +214,13 @@ export function VisionYearMap({
 
   return (
     <div dir="rtl" className="pt-1">
-      {/* ── Year header — the yearly vision. Full year view: flanked by the
-          year-step arrows. "Recent months" view: flanked by spacers the SAME
-          width as the month-step arrows below, so the header lines up exactly
-          with the two month cards (and doesn't bleed to the screen edges). ── */}
+      {/* ── Year header — the yearly vision. Full-width in the "recent months"
+          view; the year-step arrows show only in the full year view. The
+          selection ring is `ring-inset` so a full-width header's ring is drawn
+          INSIDE the box (the overflow-hidden drawer would clip an outset one,
+          which read as the header bleeding past the screen edge). ── */}
       <div className="flex items-center gap-1.5 mb-3">
-        {recentMonths ? (
-          <span aria-hidden className="w-7 shrink-0" />
-        ) : (
+        {!recentMonths && (
           <MapArrow dir="prev" aria-label="שנה קודמת" onClick={() => onStepYear(-1)} />
         )}
         <button
@@ -232,7 +231,7 @@ export function VisionYearMap({
             text-[13px] font-bold transition-colors
             ${
               isYearSelected
-                ? 'bg-forest-700/20 text-ink-100 ring-2 ring-forest-500'
+                ? 'bg-forest-700/20 text-ink-100 ring-2 ring-inset ring-forest-500'
                 : isCurrentYear
                   ? 'bg-forest-700/15 text-ink-100'
                   : 'bg-surface-card text-ink-100 hover:bg-surface-raised'
@@ -245,9 +244,7 @@ export function VisionYearMap({
           )}
           <span>{year}</span>
         </button>
-        {recentMonths ? (
-          <span aria-hidden className="w-7 shrink-0" />
-        ) : (
+        {!recentMonths && (
           <MapArrow
             dir="next"
             aria-label="שנה הבאה"
