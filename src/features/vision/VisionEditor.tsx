@@ -153,7 +153,18 @@ export function VisionEditor({
     {
       extensions: [
         // Limit headings to H1/H2 — the size menu only offers those two.
-        StarterKit.configure({ heading: { levels: [1, 2] } }),
+        // trailingNode.notAfter: don't auto-append an empty paragraph after a
+        // list. StarterKit's TrailingNode adds one after any non-paragraph last
+        // block, which read as an undeletable blank line when a vision ended on
+        // bullets. We keep it after other blocks (images/headings) where it's a
+        // useful "type here" affordance; Gapcursor still lets you type below a
+        // list.
+        StarterKit.configure({
+          heading: { levels: [1, 2] },
+          trailingNode: {
+            notAfter: ['paragraph', 'bulletList', 'orderedList', 'taskList'],
+          },
+        }),
         Highlight.configure({ multicolor: true }),
         Placeholder.configure({
           placeholder: placeholder ?? 'התחל לכתוב…',
