@@ -23,6 +23,7 @@ import {
   getMonthKey,
   getWeekKey,
   getYearKey,
+  parsePeriodStart,
   type VisionScope,
 } from './period';
 
@@ -32,13 +33,32 @@ type Props = {
   onClose: () => void;
 };
 
-type Period = { scope: VisionScope; key: string };
+type Period = {
+  scope: VisionScope;
+  key: string;
+  /** Main heading for the card. */
+  title: string;
+  /** Smaller line under the title (e.g. the week's date range). */
+  subtitle?: string;
+};
 
 const TABS: { scope: VisionScope; label: string }[] = [
   { scope: 'yearly', label: 'שנתי' },
   { scope: 'monthly', label: 'חודשי' },
   { scope: 'weekly', label: 'שבועי' },
 ];
+
+// Relative heading for each of the 4 recent weeks (last week … 4 weeks ago).
+const WEEK_REL = ['שבוע שעבר', 'לפני שבועיים', 'לפני 3 שבועות', 'לפני 4 שבועות'];
+
+/** Compact numeric date range for a week, e.g. "24.5 – 30.5" (no month name /
+ *  year). Crossing a month reads naturally, e.g. "31.5 – 6.6". */
+function weekRange(key: string): string {
+  const start = parsePeriodStart('weekly', key);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  return `${start.getDate()}.${start.getMonth() + 1} – ${end.getDate()}.${end.getMonth() + 1}`;
+}
 
 // The chosen tab is remembered per-user; חודשי is the first-time default.
 const TAB_LS_PREFIX = 'vision-reminisce-tab:';
@@ -65,12 +85,28 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         today.getMonth(),
         today.getDate() - 7 * i,
       );
-      weekly.push({ scope: 'weekly', key: getWeekKey(d) });
+      const key = getWeekKey(d);
+      weekly.push({
+        scope: 'weekly',
+        key,
+        title: WEEK_REL[i - 1],
+        subtitle: weekRange(key),
+      });
     }
+    const monthKey = getMonthKey(today);
+    const yearKey = getYearKey(today);
     return {
       weekly,
-      monthly: [{ scope: 'monthly', key: getMonthKey(today) }],
-      yearly: [{ scope: 'yearly', key: getYearKey(today) }],
+      monthly: [
+        {
+          scope: 'monthly',
+          key: monthKey,
+          title: `חזון חודשי - ${formatPeriodLabel('monthly', monthKey)}`,
+        },
+      ],
+      yearly: [
+        { scope: 'yearly', key: yearKey, title: `חזון שנתי - ${yearKey}` },
+      ],
     };
   }, [today]);
 
@@ -166,14 +202,14 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         </button>
       </div>
 
-      {/* Tabs — a sliding-pill toggle: the green pill GLIDES to the choice
-          instead of snapping, the labels sit on top. */}
+      {/* Tabs — a glowing sliding-pill toggle: the green pill GLIDES (with a
+          little spring) to the choice, the active label brightens + bolds. */}
       <div dir="rtl" className="px-3 pb-3 shrink-0">
-        <div className="relative flex items-center p-1 rounded-xl bg-surface-raised ring-1 ring-surface-border">
-          {/* the gliding pill */}
+        <div className="relative flex items-center p-1 rounded-2xl bg-surface-raised ring-1 ring-surface-border">
+          {/* the gliding, glowing pill */}
           <div
             aria-hidden
-            className="absolute top-1 bottom-1 right-1 rounded-lg bg-forest-700 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out"
+            className="absolute top-1 bottom-1 right-1 rounded-xl bg-gradient-to-b from-forest-500 to-forest-700 ring-1 ring-forest-400/50 shadow-[0_3px_14px_-2px_rgba(86,170,112,0.55)] transition-transform duration-300 ease-[cubic-bezier(0.34,1.45,0.5,1)]"
             style={{
               width: 'calc((100% - 0.5rem) / 3)',
               transform: `translateX(${activeIndex * -100}%)`,
@@ -188,8 +224,12 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                 onClick={() => pickTab(t.scope)}
                 aria-pressed={active}
                 className={`
-                  relative z-10 flex-1 h-8 rounded-lg text-[13px] font-semibold transition-colors
-                  ${active ? 'text-on-accent' : 'text-ink-300 hover:text-ink-100'}
+                  relative z-10 flex-1 h-9 rounded-xl text-[13px] transition-all duration-200
+                  ${
+                    active
+                      ? 'text-on-accent font-extrabold scale-[1.04] drop-shadow-sm'
+                      : 'text-ink-300 font-semibold hover:text-ink-100'
+                  }
                 `}
               >
                 {t.label}
@@ -215,8 +255,8 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
               return (
                 <MemoryCard
                   key={`${p.scope}:${p.key}`}
-                  scope={p.scope}
-                  periodKey={p.key}
+                  title={p.title}
+                  subtitle={p.subtitle}
                   icon={m?.icon ?? null}
                   content={m?.content ?? null}
                 />
@@ -230,25 +270,35 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
 }
 
 function MemoryCard({
-  scope,
-  periodKey,
+  title,
+  subtitle,
   icon,
   content,
 }: {
-  scope: VisionScope;
-  periodKey: string;
+  title: string;
+  subtitle?: string;
   icon: string | null;
   content: unknown;
 }) {
   const empty = isVisionContentEmpty(content);
-  const label = formatPeriodLabel(scope, periodKey);
   return (
     <article className="border-s-2 border-forest-700 rounded-xl bg-surface-card/70 p-3.5">
-      <header className="flex items-center gap-1.5 mb-2">
-        {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
-        <span className="text-[13px] font-bold text-ink-100 truncate">
-          {label}
-        </span>
+      <header className="mb-2">
+        <div className="flex items-center gap-1.5">
+          {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
+          <span className="text-[13px] font-bold text-ink-100 truncate">
+            {title}
+          </span>
+        </div>
+        {subtitle && (
+          <div
+            dir="ltr"
+            className="text-[11px] text-ink-300 mt-0.5"
+            style={{ textAlign: 'right' }}
+          >
+            {subtitle}
+          </div>
+        )}
       </header>
       {empty ? (
         <p className="text-[13px] text-ink-500 italic">
