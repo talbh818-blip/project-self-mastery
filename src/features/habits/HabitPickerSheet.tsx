@@ -514,11 +514,10 @@ export function HabitPickerSheet({
                   : 'בחודש'}
                 ?
               </SectionTitle>
-              <div className="flex items-center justify-between gap-3">
-                {/* Period selector — segmented pill whose buttons HUG their
-                    text (no flex-1 stretch), so there's no wasted padding and
-                    the number stepper gets the freed room. */}
-                <div className="inline-flex gap-0.5 bg-surface-raised rounded-xl p-0.5">
+              <div className="flex items-center gap-2">
+                {/* Period selector — segmented pill, hugs its text (shrink-0)
+                    so the number stepper can take ALL the remaining width. */}
+                <div className="inline-flex gap-0.5 bg-surface-raised rounded-xl p-0.5 shrink-0">
                   {(
                     [
                       { v: 'daily' as const, label: 'יומי' },
@@ -540,23 +539,14 @@ export function HabitPickerSheet({
                     </button>
                   ))}
                 </div>
-                {/* Amount — compact stepper on the same row */}
+                {/* Amount — fills the rest of the row */}
                 <NumberStepper
                   value={frequencyTarget}
                   onChange={setFrequencyTarget}
                   min={1}
                   max={frequencyPeriod === 'daily' ? 24 : frequencyPeriod === 'weekly' ? 7 : 31}
-                  compact
                 />
               </div>
-              {/* When the daily target is >1, the cell becomes a tap counter
-                  (1→target) and only "completes" at the target. */}
-              {frequencyPeriod === 'daily' && frequencyTarget > 1 && (
-                <p className="text-xs text-ink-300 mt-2 leading-snug">
-                  כל לחיצה על המשבצת תספור 1 עד {frequencyTarget} - ההרגל נחשב
-                  כבוצע ביום רק כשמגיעים ל-{frequencyTarget}.
-                </p>
-              )}
 
               {/* Optional count cap ABOVE the target — daily only. The whole
                   block slides open/closed (grid-rows 0fr↔1fr) when switching
@@ -622,7 +612,6 @@ export function HabitPickerSheet({
                       onChange={setMaxCount}
                       min={frequencyTarget + 1}
                       max={99}
-                      compact
                       disabled={!maxEnabled}
                     />
                     <span className="text-xs text-ink-300 shrink-0">
@@ -858,7 +847,6 @@ function NumberStepper({
   min,
   max,
   step = 1,
-  compact = false,
   disabled = false,
 }: {
   value: number;
@@ -866,15 +854,13 @@ function NumberStepper({
   min: number;
   max: number;
   step?: number;
-  /** Compact = fixed-width (sits beside other controls); default = full row. */
-  compact?: boolean;
   /** Inert + non-interactive (parent dims it). */
   disabled?: boolean;
 }) {
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
   return (
     <div
-      className={`flex items-center gap-1.5 ${compact ? 'shrink-0' : ''} ${
+      className={`flex items-center gap-1.5 flex-1 min-w-0 ${
         disabled ? 'pointer-events-none' : ''
       }`}
     >
@@ -898,9 +884,7 @@ function NumberStepper({
           const n = Number(raw);
           if (!Number.isNaN(n)) onChange(clamp(n));
         }}
-        className={`text-center py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500 ${
-          compact ? 'w-14 px-1' : 'flex-1 px-3'
-        }`}
+        className="flex-1 min-w-0 text-center px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500"
       />
       <button
         type="button"
