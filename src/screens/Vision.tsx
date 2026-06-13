@@ -106,6 +106,10 @@ export function Vision() {
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
+  // The "חודשי" view's window: the LATER of the two months it shows (the pair
+  // is [monthlyAnchor−1, monthlyAnchor]). Stepped by the flanking arrows;
+  // independent of the editor's open period below.
+  const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
 
   const persistView = useCallback(
     (v: VisionView) => {
@@ -140,13 +144,36 @@ export function Vision() {
     (v: VisionLevelView) => {
       setLevelView(v);
       setFeedActive(false);
-      // Yearly: line the map up with the open period's year. Monthly: its two
-      // cards are today-based, so the year header reflects the current year.
+      // Yearly: line the map up with the open period's year. Monthly: open on
+      // the current pair (this month + last), header on the current year.
       if (v === 'yearly') setMapYear(anchor.getFullYear());
-      else if (v === 'monthly') setMapYear(today.getFullYear());
+      else if (v === 'monthly') {
+        setMonthlyAnchor(today);
+        setMapYear(today.getFullYear());
+      }
       persistView(v);
     },
     [anchor, today, persistView],
+  );
+
+  // Step the "חודשי" window a month back/forward; keep the year header (mapYear)
+  // in sync with the window's later month.
+  const stepMonthlyWindow = useCallback(
+    (delta: number) => {
+      const next = new Date(
+        monthlyAnchor.getFullYear(),
+        monthlyAnchor.getMonth() + delta,
+        1,
+      );
+      setMonthlyAnchor(next);
+      setMapYear(next.getFullYear());
+    },
+    [monthlyAnchor],
+  );
+  // Forward is allowed only while the next window's later month isn't future.
+  const monthlyCanStepNext = !isFuturePeriod(
+    'monthly',
+    getPeriodKey('monthly', addAnchor('monthly', monthlyAnchor, 1)),
   );
 
   // Switch to the (separate) free-scroll feed.
@@ -287,6 +314,7 @@ export function Vision() {
       setAnchor(today);
       setLevel('weekly');
       setMapYear(today.getFullYear());
+      setMonthlyAnchor(today);
     },
   };
 
@@ -397,6 +425,9 @@ export function Vision() {
                 selectedKey={periodKey}
                 scrollable={view === 'yearly'}
                 recentMonths={view === 'monthly'}
+                monthAnchor={monthlyAnchor}
+                onStepMonths={stepMonthlyWindow}
+                canStepMonthsNext={monthlyCanStepNext}
                 onStepYear={(delta) => setMapYear((y) => y + delta)}
                 onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
                 onPickMonth={(monthKey) =>

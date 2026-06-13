@@ -61,8 +61,15 @@ type Props = {
    *  hidden, no inner scroll). */
   scrollable?: boolean;
   /** "חודשי" view: same map style, but only TWO month cards in one row —
-   *  this month + last month (today-based) — under the year header. */
+   *  the reference month + the one before it — under the year header. */
   recentMonths?: boolean;
+  /** Reference (later) month for `recentMonths`; the pair shown is
+   *  [monthAnchor−1, monthAnchor]. Defaults to today's month. */
+  monthAnchor?: Date;
+  /** Step the recent-months window by ±1 month (the flanking arrows). */
+  onStepMonths?: (delta: number) => void;
+  /** Whether stepping the window FORWARD stays in the past/present. */
+  canStepMonthsNext?: boolean;
 };
 
 /** Enumerate the weeks (Sundays) that OVERLAP a calendar month, in order —
@@ -93,14 +100,19 @@ export function VisionYearMap({
   onPickWeek,
   scrollable = false,
   recentMonths = false,
+  monthAnchor,
+  onStepMonths,
+  canStepMonthsNext = true,
 }: Props) {
   const months = useMemo(() => {
     if (recentMonths) {
-      // This month + last month (today-based; may cross a year boundary).
-      // Current month first → rightmost in RTL; previous to its left.
-      const cur = new Date(today.getFullYear(), today.getMonth(), 1);
-      const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      return [cur, prev].map((d) => ({
+      // The reference month + the month before it (may cross a year boundary).
+      // Order is [prev, cur]: in RTL the FIRST item is rightmost, so the
+      // EARLIER month sits on the right and the timeline reads right→left.
+      const ref = monthAnchor ?? today;
+      const cur = new Date(ref.getFullYear(), ref.getMonth(), 1);
+      const prev = new Date(ref.getFullYear(), ref.getMonth() - 1, 1);
+      return [prev, cur].map((d) => ({
         index: d.getMonth(),
         key: getPeriodKey('monthly', d),
         weeks: monthWeeks(d.getFullYear(), d.getMonth()),
@@ -111,7 +123,7 @@ export function VisionYearMap({
       key: getPeriodKey('monthly', new Date(year, m, 1)),
       weeks: monthWeeks(year, m),
     }));
-  }, [year, recentMonths, today]);
+  }, [year, recentMonths, today, monthAnchor]);
 
   // Compact mode hides whole FUTURE rows: in the current year we only show
   // months up to the end of the row that holds the current month (rows are
@@ -245,13 +257,13 @@ export function VisionYearMap({
           <CompassLoader size="md" />
         </div>
       ) : (
-        // Scrollable "שנתי": dir=ltr parks the scrollbar on the RIGHT (the inner
-        // grid flips back to rtl); the height cap shows 2 rows. Compact mode
-        // renders the grid bare.
-        <ScrollWrap scrollable={scrollable} maxH={maxH}>
-        <div
-          ref={gridRef}
-          className={`grid gap-1.5 items-start ${recentMonths ? 'grid-cols-2' : 'grid-cols-3'}`}
+        <MonthsLayout
+          recentMonths={recentMonths}
+          scrollable={scrollable}
+          maxH={maxH}
+          gridRef={gridRef}
+          onStepMonths={onStepMonths}
+          canStepMonthsNext={canStepMonthsNext}
         >
           {visibleMonths.map((mo) => {
             const monthHasContent = contentKeys.has(mo.key);
@@ -330,8 +342,7 @@ export function VisionYearMap({
               </div>
             );
           })}
-        </div>
-        </ScrollWrap>
+        </MonthsLayout>
       )}
     </div>
   );
@@ -339,26 +350,98 @@ export function VisionYearMap({
 
 // ─── Pieces ─────────────────────────────────────────────────────────────────
 
-/** Wraps the month grid: in scrollable mode, a height-capped scroller with the
- *  bar on the RIGHT (dir=ltr outer → rtl inner); otherwise a pass-through. */
-function ScrollWrap({
+/** Lays out the month grid per view:
+ *   • recentMonths ("חודשי") → two columns flanked by full-height arrows that
+ *     step the window a month at a time.
+ *   • scrollable ("שנתי")    → a height-capped scroller, bar on the RIGHT
+ *     (dir=ltr outer → rtl inner).
+ *   • otherwise (compact)    → the bare grid.
+ */
+function MonthsLayout({
+  recentMonths,
   scrollable,
   maxH,
+  gridRef,
+  onStepMonths,
+  canStepMonthsNext,
   children,
 }: {
+  recentMonths: boolean;
   scrollable: boolean;
   maxH: number | null;
+  gridRef: React.RefObject<HTMLDivElement | null>;
+  onStepMonths?: (delta: number) => void;
+  canStepMonthsNext: boolean;
   children: React.ReactNode;
 }) {
-  if (!scrollable) return <>{children}</>;
+  const grid = (
+    <div
+      ref={gridRef}
+      className={`grid gap-1.5 items-start ${recentMonths ? 'grid-cols-2' : 'grid-cols-3'}`}
+    >
+      {children}
+    </div>
+  );
+
+  if (recentMonths) {
+    return (
+      <div className="flex items-stretch gap-1.5">
+        {/* RTL: prev arrow (back in time) is the first child → rightmost. */}
+        <SideStepArrow
+          dir="prev"
+          aria-label="חודש אחורה"
+          onClick={() => onStepMonths?.(-1)}
+        />
+        <div className="flex-1 min-w-0">{grid}</div>
+        <SideStepArrow
+          dir="next"
+          aria-label="חודש קדימה"
+          disabled={!canStepMonthsNext}
+          onClick={() => onStepMonths?.(1)}
+        />
+      </div>
+    );
+  }
+
+  if (!scrollable) return grid;
   return (
     <div
       dir="ltr"
       className="vision-feed-scroll overflow-y-auto overscroll-contain pl-1.5"
       style={{ maxHeight: maxH ?? undefined }}
     >
-      <div dir="rtl">{children}</div>
+      <div dir="rtl">{grid}</div>
     </div>
+  );
+}
+
+/** Full-height month-step arrow flanking the "חודשי" view. */
+function SideStepArrow({
+  dir,
+  disabled = false,
+  onClick,
+  ...rest
+}: {
+  dir: 'prev' | 'next';
+  disabled?: boolean;
+  onClick: () => void;
+  'aria-label': string;
+}) {
+  const Chevron = dir === 'prev' ? ChevronRight : ChevronLeft;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="
+        shrink-0 inline-flex items-center justify-center w-7 rounded-xl
+        bg-surface-raised text-forest-500 hover:text-forest-300
+        disabled:opacity-25 transition-colors
+      "
+      {...rest}
+    >
+      <Chevron size={18} />
+    </button>
   );
 }
 
