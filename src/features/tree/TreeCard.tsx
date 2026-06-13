@@ -478,7 +478,6 @@ export function TreeCard({
       treePlacements={treePlacements}
       stage={stage}
       stageLabel={STAGE_LABELS[stage]}
-      cycleScore={cycleScore}
       cycleTarget={cycleTarget}
       progressPct={progressPct}
       isMature={isMature}
@@ -587,10 +586,16 @@ function cellsForGrid(grid: number): ReadonlyArray<[number, number]> {
 // As the user plants more trees the plot expands and cells visually shrink
 // (zoom-out). Each tier's `maxTrees` is the LAST tree count that fits in
 // that grid; once the user crosses it we step up to the next size.
+//
+// The early game starts heavily zoomed IN: the first few trees sit on a tight
+// 3×3 plot so the growing tree looks big and the plot feels small. As the
+// collection grows the plot keeps zooming out — 5×5 around the 6th tree (the
+// "established" look), 7×7 as the 5×5 fills toward 25, then 9×9 beyond.
 const GRID_TIERS = [
-  { maxTrees: 24, grid: 5 }, // 24 outer cells in a 5×5
-  { maxTrees: 48, grid: 7 }, // 48 outer cells in a 7×7
-  { maxTrees: Infinity, grid: 9 },
+  { maxTrees: 5, grid: 3 },  // first ~6 trees — tight 3×3, zoomed in
+  { maxTrees: 19, grid: 5 }, // up to ~20 — the established 5×5 view
+  { maxTrees: 39, grid: 7 }, // ~20–40 — zoom out to 7×7
+  { maxTrees: Infinity, grid: 9 }, // 40+ — widest 9×9 view
 ] as const;
 
 function gridSizeFor(treesPlanted: number): number {
@@ -1290,7 +1295,6 @@ function TreeFieldModal({
   treePlacements,
   stage,
   stageLabel,
-  cycleScore,
   cycleTarget,
   progressPct,
   isMature,
@@ -1305,7 +1309,6 @@ function TreeFieldModal({
   treePlacements: TreePlacement[];
   stage: Stage;
   stageLabel: string;
-  cycleScore: number;
   cycleTarget: number;
   progressPct: number;
   isMature: boolean;
@@ -1524,7 +1527,11 @@ function TreeFieldModal({
 
         {/* Stats */}
         <div className="px-5 pb-5 pt-1 space-y-3">
-          {/* Trees planted + stage label */}
+          {/* Trees planted + stage label + progress %.
+              The raw point cost of the next tree (cycleScore / cycleTarget) is
+              intentionally NOT shown — users shouldn't see how "expensive" a
+              tree is, only their progress toward it. The % now lives on the
+              same row as the stage label ("זרע"). */}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-1.5 text-ink-100">
               <span className="text-xs text-ink-300">עצים שתולים:</span>
@@ -1532,35 +1539,30 @@ function TreeFieldModal({
                 {treesPlanted}
               </span>
             </div>
-            <span className="text-xs font-semibold text-ink-100 tracking-wide">
-              {stageLabel}
-            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs font-semibold text-ink-100 tracking-wide">
+                {stageLabel}
+              </span>
+              {isMature ? (
+                <span className="text-[11px] font-bold text-forest-400 inline-flex items-center gap-1">
+                  מוכן לשתילה! <Emoji emoji="🎉" size={12} />
+                </span>
+              ) : (
+                <span className="text-[11px] tabular-nums font-semibold text-ink-300">
+                  {progressPct}%
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Progress bar for the current tree */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px] tabular-nums text-ink-300">
-              <span>
-                {cycleScore} / {cycleTarget}
-              </span>
-              <span>
-                {isMature ? (
-                  <span className="text-forest-400 font-bold inline-flex items-center gap-1">
-                    מוכן לשתילה! <Emoji emoji="🎉" size={13} />
-                  </span>
-                ) : (
-                  `${progressPct}%`
-                )}
-              </span>
-            </div>
-            <div className="relative h-2.5 rounded-full bg-surface-raised overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-700 ${
-                  isMature ? 'bg-forest-400' : 'bg-forest-600'
-                }`}
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+          {/* Progress bar for the current tree — no numeric target shown. */}
+          <div className="relative h-2.5 rounded-full bg-surface-raised overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${
+                isMature ? 'bg-forest-400' : 'bg-forest-600'
+              }`}
+              style={{ width: `${progressPct}%` }}
+            />
           </div>
 
           {/* Total score */}
