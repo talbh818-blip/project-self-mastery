@@ -22,7 +22,7 @@
 // layout only owns its own navigator chrome (view, feed, the map year, the
 // monthly window, the collapse state).
 // ============================================================================
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Lock,
   Hammer,
@@ -59,6 +59,25 @@ const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
   { value: 'weekly', label: 'שבועי' },
 ];
 
+// The desktop's last-chosen LEVEL view is remembered per-user so reopening the
+// app lands on it (שנתי / חודשי / שבועי). The free-scroll feed is deliberately
+// NEVER persisted — it's never an entry default. A SEPARATE key from mobile's
+// `vision-view:` keeps the two layouts' preferences independent.
+const DESKTOP_VIEW_LS_PREFIX = 'vision-view-desktop:';
+
+function readSavedDesktopLevelView(userId: string | null): VisionLevelView {
+  if (!userId) return 'yearly';
+  try {
+    const saved = localStorage.getItem(`${DESKTOP_VIEW_LS_PREFIX}${userId}`);
+    if (saved === 'yearly' || saved === 'monthly' || saved === 'weekly') {
+      return saved;
+    }
+  } catch {
+    // ignore — fall through to default
+  }
+  return 'yearly';
+}
+
 export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const {
     today,
@@ -88,8 +107,11 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     canStepNext,
   } = ctl;
 
-  // Rail chrome — independent of the mobile layout.
-  const [levelView, setLevelView] = useState<VisionLevelView>('yearly');
+  // Rail chrome — independent of the mobile layout. The level view is restored
+  // from the saved default; the feed always starts OFF (never restored).
+  const [levelView, setLevelView] = useState<VisionLevelView>(() =>
+    readSavedDesktopLevelView(userId),
+  );
   const [feedActive, setFeedActive] = useState(false);
   const view: VisionView = feedActive ? 'feed' : levelView;
   const [feedQuery, setFeedQuery] = useState('');
@@ -97,6 +119,29 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
   // Whether the navigator body (map / months) is expanded.
   const [navOpen, setNavOpen] = useState(true);
+
+  // Persist only the LEVEL view (never the feed), per-user.
+  const persistLevelView = useCallback(
+    (v: VisionLevelView) => {
+      if (!userId) return;
+      try {
+        localStorage.setItem(`${DESKTOP_VIEW_LS_PREFIX}${userId}`, v);
+      } catch {
+        // private-mode / quota — preference just won't persist.
+      }
+    },
+    [userId],
+  );
+
+  // Once auth resolves, apply this user's saved level-view default (the lazy
+  // initializer above may have run before userId was known). Feed stays off.
+  const viewLoadedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userId || viewLoadedForRef.current === userId) return;
+    viewLoadedForRef.current = userId;
+    setLevelView(readSavedDesktopLevelView(userId));
+    setFeedActive(false);
+  }, [userId]);
 
   const pickLevelView = (v: VisionLevelView) => {
     setLevelView(v);
@@ -106,6 +151,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       setMonthlyAnchor(today);
       setMapYear(today.getFullYear());
     }
+    persistLevelView(v);
   };
 
   // Step the "חודשי" window a month back/forward; keep the year header in sync.
@@ -287,32 +333,37 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                   like the mobile year map. */}
               <div className="vision-desktop-rail-body rounded-2xl bg-surface-base ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
                 {view === 'feed' ? (
-                  <div className="relative">
-                    <Search
-                      size={15}
-                      className="absolute top-1/2 right-3 -translate-y-1/2 text-ink-300 pointer-events-none"
-                    />
-                    <input
-                      type="text"
-                      value={feedQuery}
-                      onChange={(e) => setFeedQuery(e.target.value)}
-                      placeholder="חיפוש מילה בחזונות…"
-                      className="
-                        w-full h-9 rounded-xl bg-surface-raised text-ink-100 text-sm
-                        pr-9 pl-9 ring-1 ring-surface-border focus:ring-forest-600
-                        outline-none transition placeholder:text-ink-500
-                      "
-                    />
-                    {feedQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setFeedQuery('')}
-                        aria-label="נקה חיפוש"
-                        className="absolute top-1/2 left-2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-surface-raised"
-                      >
-                        <X size={15} />
-                      </button>
-                    )}
+                  <div>
+                    {/* The icon/clear button are positioned against THIS wrapper
+                        (input height only) — the helper text below is a sibling,
+                        so top-1/2 lands on the input, not the whole block. */}
+                    <div className="relative">
+                      <Search
+                        size={15}
+                        className="absolute top-1/2 right-3 -translate-y-1/2 text-ink-300 pointer-events-none"
+                      />
+                      <input
+                        type="text"
+                        value={feedQuery}
+                        onChange={(e) => setFeedQuery(e.target.value)}
+                        placeholder="חיפוש מילה בחזונות…"
+                        className="
+                          w-full h-9 rounded-xl bg-surface-raised text-ink-100 text-sm
+                          pr-9 pl-9 ring-1 ring-surface-border focus:ring-forest-600
+                          outline-none transition placeholder:text-ink-500
+                        "
+                      />
+                      {feedQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setFeedQuery('')}
+                          aria-label="נקה חיפוש"
+                          className="absolute top-1/2 left-2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-surface-raised"
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
                     <p className="mt-2 text-[12px] text-ink-300 leading-relaxed">
                       הגלילה החופשית מוצגת במרכז. בחר חזון כדי לפתוח אותו.
                     </p>

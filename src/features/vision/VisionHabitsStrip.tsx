@@ -191,7 +191,7 @@ export function VisionHabitsStrip({
     >
       <div
         className={`flex items-center min-w-max ${
-          inline ? 'gap-2 justify-start' : 'gap-3 justify-center'
+          inline ? 'gap-2.5 justify-start' : 'gap-3 justify-center'
         }`}
       >
         {items.map((it) => (
@@ -199,8 +199,8 @@ export function VisionHabitsStrip({
             key={it.habit.id}
             habit={it.habit}
             ratio={it.ratio}
-            size={inline ? 30 : 46}
-            iconSize={inline ? 15 : 22}
+            size={inline ? 45 : 46}
+            iconSize={22}
           />
         ))}
       </div>
