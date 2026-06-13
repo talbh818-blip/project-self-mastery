@@ -131,11 +131,19 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
 
   if (items.length === 0) return null;
 
+  // Owns its own header row: the bottom divider + spacing live here so that a
+  // user with no habits gets no empty strip (the component returns null above).
+  // Scrolls horizontally (no visible scrollbar) when the rings overflow.
   return (
-    <div dir="rtl" className="flex items-center gap-2.5 w-max pl-1">
-      {items.map((it) => (
-        <SuccessRing key={it.habit.id} habit={it.habit} ratio={it.ratio} />
-      ))}
+    <div
+      dir="rtl"
+      className="overflow-x-auto vision-habits-scroll pb-2.5 mb-3 border-b border-surface-border"
+    >
+      <div className="flex items-center gap-2.5 w-max">
+        {items.map((it) => (
+          <SuccessRing key={it.habit.id} habit={it.habit} ratio={it.ratio} />
+        ))}
+      </div>
     </div>
   );
 }

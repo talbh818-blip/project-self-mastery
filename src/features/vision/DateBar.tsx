@@ -1,17 +1,19 @@
 // ============================================================================
 // DateBar — top row of the open vision's header.
 // ----------------------------------------------------------------------------
-// Layout (RTL): [icon picker] · ‹ TITLE › · [save] [back-to-now]
+// Layout (RTL): [icon picker] [assist] · ‹ TITLE › · [save] [back-to-now]
 //   • Icon picker  — pick the per-period icon (right-most).
+//   • Assist       — compact 🗺️ toggle that reveals the "+ כתיבה מודרכת"
+//     inserter below (guided-writing). Kept small so the header stays tidy.
 //   • Title        — the vision's name + range ("חזון שבועי · 7–13.6.26"),
 //     the centrepiece, flanked by small chevrons that step the period
 //     (prev / next week-month-year) for quick browsing.
 //   • Save status  — "שומר…" / "נשמר" / "שגיאה".
 //   • Back-to-now  — jump to the current week.
 //
-// The guided-writing button + per-habit summary live in a SECOND row below
-// this one (owned by VisionEditor); this bar draws no bottom divider so the
-// two rows read as one header block, with the single divider under row 2.
+// A per-habit success summary lives in a SECOND row below this one (owned by
+// VisionEditor); this bar draws no bottom divider so the two rows read as one
+// header block, with the single divider under row 2.
 // ============================================================================
 import {
   ChevronRight,
@@ -20,6 +22,7 @@ import {
   AlertCircle,
   SmilePlus,
 } from 'lucide-react';
+import { Emoji } from '../../components/Emoji';
 import { HabitIcon } from '../habits/HabitIcon';
 import type { SaveStatus } from './useVisionEntry';
 
@@ -32,6 +35,9 @@ type Props = {
   canStepNext: boolean;
   /** "Back to current week" control — inactive when already there. */
   jumpToNow: { label: string; enabled: boolean; onJump: () => void };
+  /** Assist toggle state + handler (reveals the guided-writing inserter). */
+  assistOn: boolean;
+  onToggleAssist: () => void;
   /** Current level's icon (Lucide name or emoji char), or null. */
   icon: string | null;
   onIconClick: () => void;
@@ -44,6 +50,8 @@ export function DateBar({
   onStepPeriod,
   canStepNext,
   jumpToNow,
+  assistOn,
+  onToggleAssist,
   icon,
   onIconClick,
   saveStatus,
@@ -56,7 +64,7 @@ export function DateBar({
       dir="rtl"
       className="grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 pb-2"
     >
-      {/* RIGHT cluster: icon picker (RTL → justify-self-start = right). */}
+      {/* RIGHT cluster: icon picker + assist toggle (RTL → start = right). */}
       <div className="flex items-center gap-1.5 justify-self-start">
         <button
           type="button"
@@ -76,6 +84,24 @@ export function DateBar({
           ) : (
             <SmilePlus size={15} strokeWidth={1.9} />
           )}
+        </button>
+
+        {/* Assist — compact 🗺️ toggle, immediately after the icon picker. */}
+        <button
+          type="button"
+          onClick={onToggleAssist}
+          aria-label="מצב כתיבה מודרכת"
+          aria-pressed={assistOn}
+          title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
+          className={`
+            shrink-0 inline-flex items-center justify-center
+            h-7 w-7 rounded-lg transition-all
+            ${assistOn
+              ? 'bg-forest-700/25 ring-1 ring-forest-700'
+              : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 opacity-70'}
+          `}
+        >
+          <Emoji emoji="🗺️" size={15} ariaLabel="" />
         </button>
       </div>
 
