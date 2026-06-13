@@ -62,6 +62,9 @@ const DEFAULTS = {
   frequency_target: 1,
 };
 
+// Hard ceiling for the daily target AND the optional count cap.
+const COUNT_CEILING = 15;
+
 export function HabitPickerSheet({
   open,
   slotIndex,
@@ -213,10 +216,11 @@ export function HabitPickerSheet({
     // The per-cell click counter is driven by a daily target > 1 (each tap
     // counts 1→target, completing at the target) OR by an explicit count cap
     // above the target (e.g. target 1, but you want to tally up to 10).
-    // Clamp the cap to stay strictly above the target (it may have been set
-    // before the target was raised).
-    const effMax = Math.max(maxCount, frequencyTarget + 1);
-    const wantsCap = frequencyPeriod === 'daily' && maxEnabled;
+    // Clamp the cap strictly above the target and under the ceiling. If the
+    // target is already at the ceiling there's no room for a cap.
+    const effMax = Math.min(COUNT_CEILING, Math.max(maxCount, frequencyTarget + 1));
+    const wantsCap =
+      frequencyPeriod === 'daily' && maxEnabled && effMax > frequencyTarget;
     const isCounting =
       frequencyPeriod === 'daily' && (frequencyTarget > 1 || wantsCap);
     const input: CreateHabitInput = {
@@ -544,7 +548,7 @@ export function HabitPickerSheet({
                   value={frequencyTarget}
                   onChange={setFrequencyTarget}
                   min={1}
-                  max={frequencyPeriod === 'daily' ? 24 : frequencyPeriod === 'weekly' ? 7 : 31}
+                  max={frequencyPeriod === 'daily' ? COUNT_CEILING : frequencyPeriod === 'weekly' ? 7 : 31}
                 />
               </div>
 
@@ -570,8 +574,8 @@ export function HabitPickerSheet({
                       onChange={(e) => {
                         const on = e.target.checked;
                         setMaxEnabled(on);
-                        // Seed the default cap (daily target + 2) when ticked.
-                        if (on) setMaxCount(frequencyTarget + 2);
+                        // Seed the default cap (daily target + 2, capped) when ticked.
+                        if (on) setMaxCount(Math.min(frequencyTarget + 2, COUNT_CEILING));
                       }}
                       className="sr-only"
                     />
@@ -604,12 +608,12 @@ export function HabitPickerSheet({
                     <NumberStepper
                       value={
                         maxEnabled
-                          ? Math.max(maxCount, frequencyTarget + 1)
-                          : frequencyTarget + 2
+                          ? Math.min(COUNT_CEILING, Math.max(maxCount, frequencyTarget + 1))
+                          : Math.min(frequencyTarget + 2, COUNT_CEILING)
                       }
                       onChange={setMaxCount}
-                      min={frequencyTarget + 1}
-                      max={99}
+                      min={Math.min(frequencyTarget + 1, COUNT_CEILING)}
+                      max={COUNT_CEILING}
                       disabled={!maxEnabled}
                     />
                     <span className="text-xs text-ink-300 shrink-0">
