@@ -5,28 +5,30 @@
 //
 //   ┌──────────────────────────────┬─────────────────────────┐
 //   │  CENTRE — wide writing page  │  RIGHT — navigation rail │
-//   │  (Google-Docs style)         │  • מפת השנה / גלילה /     │
-//   │   ┌── sticky toolbar ──┐     │    גרסאות קודמות          │
-//   │   │ B i U  H  • ...     │     │  • the YEAR map: every   │
-//   │   ├────────────────────┤     │    month + week, click to │
-//   │   │ title · ‹ › · save │     │    open it in the editor  │
-//   │   │  writing …          │     │                          │
+//   │  (Google-Docs style)         │  header (mirrors mobile):│
+//   │   ┌── sticky toolbar ──┐     │   [שנתי·חודשי·שבועי][feed]│
+//   │   │ B i U  H  • ...     │     │              [hist][▾]   │
+//   │   ├────────────────────┤     │  body: year map / month  │
+//   │   │ title · ‹ › · save │     │   cards / weekly soon /   │
+//   │   │  writing …          │     │   feed search             │
 //   └──────────────────────────────┴─────────────────────────┘
 //
-// The rail is YEARLY-ONLY: it always shows the whole year (no monthly/weekly
-// view modes), opening on it by default — clicking any month or week inside the
-// map opens that period in the centre editor. The three top controls are the
-// year map, the free-scroll feed, and version history.
+// The rail header echoes the mobile VisionViewBar: a view switcher (שנתי /
+// חודשי / שבועי) + a free-scroll button on the RIGHT, and version-history + a
+// collapse chevron on the LEFT. The chevron folds the whole navigator away.
+// Clicking any month/week inside the map opens that period in the centre editor.
 //
 // The shared `ctl` controller owns which vision is open + its persistence; this
-// layout only owns its own navigator chrome (feed on/off, the map's year).
+// layout only owns its own navigator chrome (view, feed, the map year, the
+// monthly window, the collapse state).
 // ============================================================================
 import { useState } from 'react';
 import {
   Lock,
+  Hammer,
   History,
   GalleryVertical,
-  CalendarDays,
+  ChevronDown,
   Search,
   X,
 } from 'lucide-react';
@@ -37,6 +39,7 @@ import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { CompassLoader } from '../../components/CompassLoader';
+import type { VisionView, VisionLevelView } from './VisionViewBar';
 import {
   VISION_PLACEHOLDERS,
   type VisionController,
@@ -44,9 +47,17 @@ import {
 import {
   addAnchor,
   getPeriodKey,
+  isFuturePeriod,
   parsePeriodStart,
   type VisionScope,
 } from './period';
+
+// The level views, right→left in RTL (broad → fine), matching the user's order.
+const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
+  { value: 'yearly', label: 'שנתי' },
+  { value: 'monthly', label: 'חודשי' },
+  { value: 'weekly', label: 'שבועי' },
+];
 
 export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const {
@@ -77,17 +88,40 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     canStepNext,
   } = ctl;
 
-  // Rail chrome — independent of the mobile layout. Only two surfaces exist:
-  // the year map (default) and the free-scroll feed.
+  // Rail chrome — independent of the mobile layout.
+  const [levelView, setLevelView] = useState<VisionLevelView>('yearly');
   const [feedActive, setFeedActive] = useState(false);
+  const view: VisionView = feedActive ? 'feed' : levelView;
   const [feedQuery, setFeedQuery] = useState('');
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
+  const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
+  // Whether the navigator body (map / months) is expanded.
+  const [navOpen, setNavOpen] = useState(true);
 
-  // Open the year map (the default surface), lined up with the open year.
-  const showYearMap = () => {
+  const pickLevelView = (v: VisionLevelView) => {
+    setLevelView(v);
     setFeedActive(false);
-    setMapYear(anchor.getFullYear());
+    if (v === 'yearly') setMapYear(anchor.getFullYear());
+    else if (v === 'monthly') {
+      setMonthlyAnchor(today);
+      setMapYear(today.getFullYear());
+    }
   };
+
+  // Step the "חודשי" window a month back/forward; keep the year header in sync.
+  const stepMonthlyWindow = (delta: number) => {
+    const next = new Date(
+      monthlyAnchor.getFullYear(),
+      monthlyAnchor.getMonth() + delta,
+      1,
+    );
+    setMonthlyAnchor(next);
+    setMapYear(next.getFullYear());
+  };
+  const monthlyCanStepNext = !isFuturePeriod(
+    'monthly',
+    getPeriodKey('monthly', addAnchor('monthly', monthlyAnchor, 1)),
+  );
 
   // Editor period stepper (prev/next within the open level) — also nudges the
   // map's year so a year-crossing step repaints the rail.
@@ -106,6 +140,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       setAnchor(today);
       setLevel('weekly');
       setMapYear(today.getFullYear());
+      setMonthlyAnchor(today);
     },
   };
 
@@ -119,6 +154,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     setLevel(targetLevel);
     setMapYear(targetAnchor.getFullYear());
     setFeedActive(false);
+    setLevelView('yearly');
   };
 
   const centre = locked ? (
@@ -154,98 +190,172 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       <div className="flex items-start">
         {/* ── RIGHT RAIL — first child = rightmost in RTL, flush to the edge ── */}
         <aside className="vision-desktop-rail shrink-0 w-[440px] sticky top-3 self-start">
-          {/* Top controls — icon-only, clustered at the top-RIGHT (RTL start):
-              year-map view · free-scroll view · version history. */}
-          <div className="flex items-center gap-2 mb-3">
-            <div className="inline-flex items-center p-1 rounded-xl bg-surface-raised ring-1 ring-surface-border">
-              <RailViewButton
-                active={!feedActive}
-                onClick={showYearMap}
-                icon={<CalendarDays size={20} />}
-                label="מפת השנה"
-              />
-              <RailViewButton
-                active={feedActive}
+          {/* Header — mirrors the mobile bar: views + feed on the RIGHT,
+              history + collapse on the LEFT. */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            {/* RIGHT group (RTL start): level switch + free-scroll. */}
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
+                {LEVEL_OPTIONS.map((opt) => {
+                  const active = view === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => pickLevelView(opt.value)}
+                      aria-pressed={active}
+                      className={`
+                        h-9 px-3 rounded-lg text-[13px] font-semibold transition-colors
+                        ${
+                          active
+                            ? 'bg-forest-700 text-on-accent shadow-sm'
+                            : 'text-ink-300 hover:text-ink-100'
+                        }
+                      `}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
                 onClick={() => setFeedActive(true)}
-                icon={<GalleryVertical size={20} />}
-                label="גלילה חופשית"
-              />
+                aria-pressed={view === 'feed'}
+                aria-label="גלילה חופשית בין החזונות"
+                title="גלילה חופשית בין החזונות"
+                className={`
+                  shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
+                  transition-colors
+                  ${
+                    view === 'feed'
+                      ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                      : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
+                  }
+                `}
+              >
+                <GalleryVertical size={20} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setHistoryOpen(true)}
-              aria-label="גרסאות קודמות"
-              title="גרסאות קודמות"
-              className="
-                shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
-                bg-surface-raised ring-1 ring-surface-border
-                text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
-              "
-            >
-              <History size={20} />
-            </button>
+
+            {/* LEFT group (RTL end): version history + collapse chevron. */}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(true)}
+                aria-label="גרסאות קודמות"
+                title="גרסאות קודמות"
+                className="
+                  shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
+                  bg-surface-raised ring-1 ring-surface-border
+                  text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
+                "
+              >
+                <History size={20} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setNavOpen((v) => !v)}
+                aria-label={navOpen ? 'מזער ניווט' : 'פתח ניווט'}
+                aria-expanded={navOpen}
+                title={navOpen ? 'מזער ניווט' : 'פתח ניווט'}
+                className="
+                  shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
+                  bg-surface-raised ring-1 ring-surface-border
+                  text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
+                "
+              >
+                <ChevronDown
+                  size={20}
+                  className={`transition-transform duration-300 ease-in-out ${
+                    navOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+            </div>
           </div>
 
-          {/* The rail's body. Background is the PAGE base (darker than the
-              month cards) so each month's surface-card reads as its own
-              container — exactly like the mobile year map. */}
-          <div className="vision-desktop-rail-body rounded-2xl bg-surface-base ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
-            {feedActive ? (
-              <div className="relative">
-                <Search
-                  size={15}
-                  className="absolute top-1/2 right-3 -translate-y-1/2 text-ink-300 pointer-events-none"
-                />
-                <input
-                  type="text"
-                  value={feedQuery}
-                  onChange={(e) => setFeedQuery(e.target.value)}
-                  placeholder="חיפוש מילה בחזונות…"
-                  className="
-                    w-full h-9 rounded-xl bg-surface-raised text-ink-100 text-sm
-                    pr-9 pl-9 ring-1 ring-surface-border focus:ring-forest-600
-                    outline-none transition placeholder:text-ink-500
-                  "
-                />
-                {feedQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setFeedQuery('')}
-                    aria-label="נקה חיפוש"
-                    className="absolute top-1/2 left-2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-surface-raised"
-                  >
-                    <X size={15} />
-                  </button>
+          {/* Collapsible navigator body — the grid 0fr↔1fr trick folds it away
+              with no JS measuring; the inner wrapper clips during the fold. */}
+          <div
+            className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+            style={{ gridTemplateRows: navOpen ? '1fr' : '0fr' }}
+          >
+            <div className="overflow-hidden min-h-0">
+              {/* Background is the PAGE base (darker than the month cards) so
+                  each month's surface-card reads as its own container — exactly
+                  like the mobile year map. */}
+              <div className="vision-desktop-rail-body rounded-2xl bg-surface-base ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
+                {view === 'feed' ? (
+                  <div className="relative">
+                    <Search
+                      size={15}
+                      className="absolute top-1/2 right-3 -translate-y-1/2 text-ink-300 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      value={feedQuery}
+                      onChange={(e) => setFeedQuery(e.target.value)}
+                      placeholder="חיפוש מילה בחזונות…"
+                      className="
+                        w-full h-9 rounded-xl bg-surface-raised text-ink-100 text-sm
+                        pr-9 pl-9 ring-1 ring-surface-border focus:ring-forest-600
+                        outline-none transition placeholder:text-ink-500
+                      "
+                    />
+                    {feedQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setFeedQuery('')}
+                        aria-label="נקה חיפוש"
+                        className="absolute top-1/2 left-2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-md text-ink-300 hover:text-ink-100 hover:bg-surface-raised"
+                      >
+                        <X size={15} />
+                      </button>
+                    )}
+                    <p className="mt-2 text-[12px] text-ink-300 leading-relaxed">
+                      הגלילה החופשית מוצגת במרכז. בחר חזון כדי לפתוח אותו.
+                    </p>
+                  </div>
+                ) : view === 'weekly' ? (
+                  <div className="text-center py-10">
+                    <Hammer size={22} className="text-forest-500 mx-auto mb-2.5" />
+                    <p className="text-ink-100 font-semibold text-sm">
+                      התצוגה השבועית בדרך
+                    </p>
+                    <p className="text-ink-300 text-[12px] mt-1">בקרוב כאן.</p>
+                  </div>
+                ) : (
+                  <VisionYearMap
+                    userId={userId}
+                    year={mapYear}
+                    today={today}
+                    selectedLevel={level}
+                    selectedKey={periodKey}
+                    fillHeight={view === 'yearly'}
+                    recentMonths={view === 'monthly'}
+                    monthAnchor={monthlyAnchor}
+                    onStepMonths={stepMonthlyWindow}
+                    canStepMonthsNext={monthlyCanStepNext}
+                    onStepYear={(delta) => setMapYear((y) => y + delta)}
+                    onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+                    onPickMonth={(monthKey) =>
+                      goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                    }
+                    onPickWeek={(weekKey) =>
+                      goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                    }
+                  />
                 )}
-                <p className="mt-2 text-[12px] text-ink-300 leading-relaxed">
-                  הגלילה החופשית מוצגת במרכז. בחר חזון כדי לפתוח אותו.
-                </p>
               </div>
-            ) : (
-              <VisionYearMap
-                userId={userId}
-                year={mapYear}
-                today={today}
-                selectedLevel={level}
-                selectedKey={periodKey}
-                fillHeight
-                onStepYear={(delta) => setMapYear((y) => y + delta)}
-                onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-                onPickMonth={(monthKey) =>
-                  goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                }
-                onPickWeek={(weekKey) =>
-                  goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                }
-              />
-            )}
+            </div>
           </div>
         </aside>
 
         {/* ── CENTRE — the wide writing page (or the free-scroll feed),
             centred in the viewport via the balancer below ── */}
         <div className="flex-1 min-w-0 px-4">
-          {feedActive ? (
+          {view === 'feed' ? (
             <div className="max-w-[820px] mx-auto">
               <VisionScrollFeed
                 userId={userId}
@@ -302,40 +412,6 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
         onClose={() => setHistoryOpen(false)}
       />
     </section>
-  );
-}
-
-/** One option in the rail's view control — ICON-ONLY (year map / free scroll). */
-function RailViewButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      aria-label={label}
-      title={label}
-      className={`
-        inline-flex items-center justify-center h-10 w-11 rounded-lg
-        transition-colors
-        ${
-          active
-            ? 'bg-forest-700 text-on-accent shadow-sm'
-            : 'text-ink-300 hover:text-ink-100'
-        }
-      `}
-    >
-      {icon}
-    </button>
   );
 }
 

@@ -48,6 +48,10 @@ type Props = {
   scope: VisionScope;
   /** The open period's key (e.g. "2026-06-07" / "2026-06" / "2026"). */
   periodKey: string;
+  /** 'bottom' (default) = the full-size strip below the writing (mobile).
+   *  'inline' = compact rings for the desktop document header (no divider,
+   *  smaller, start-aligned). */
+  variant?: 'bottom' | 'inline';
 };
 
 /** [start, end] (local midnight) of the period a (scope, key) names. */
@@ -128,7 +132,12 @@ function successRatio(
 
 type Item = { habit: Habit; ratio: number };
 
-export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
+export function VisionHabitsStrip({
+  userId,
+  scope,
+  periodKey,
+  variant = 'bottom',
+}: Props) {
   const data = useHabitData(userId);
   const { status, stats, slotsForRange } = data;
 
@@ -166,27 +175,52 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
 
   if (items.length === 0) return null;
 
-  // Sits at the BOTTOM of the vision (below the writing). The TOP divider +
-  // spacing live here so a user with no habits gets no empty strip (the
-  // component returns null above). Scrolls horizontally (no visible scrollbar)
-  // when the rings overflow.
+  const inline = variant === 'inline';
+
+  // 'bottom' sits below the writing (mobile) with its own top divider + spacing
+  // and centred 46px rings. 'inline' is a bare, start-aligned strip of smaller
+  // rings for the desktop document header.
   return (
     <div
       dir="rtl"
-      className="overflow-x-auto vision-habits-scroll pt-3 mt-3 border-t border-surface-border"
+      className={
+        inline
+          ? 'overflow-x-auto vision-habits-scroll'
+          : 'overflow-x-auto vision-habits-scroll pt-3 mt-3 border-t border-surface-border'
+      }
     >
-      <div className="flex items-center justify-center gap-3 min-w-max">
+      <div
+        className={`flex items-center min-w-max ${
+          inline ? 'gap-2 justify-start' : 'gap-3 justify-center'
+        }`}
+      >
         {items.map((it) => (
-          <SuccessRing key={it.habit.id} habit={it.habit} ratio={it.ratio} />
+          <SuccessRing
+            key={it.habit.id}
+            habit={it.habit}
+            ratio={it.ratio}
+            size={inline ? 30 : 46}
+            iconSize={inline ? 15 : 22}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function SuccessRing({ habit, ratio }: { habit: Habit; ratio: number }) {
-  const SIZE = 46;
-  const STROKE = 4;
+function SuccessRing({
+  habit,
+  ratio,
+  size = 46,
+  iconSize = 22,
+}: {
+  habit: Habit;
+  ratio: number;
+  size?: number;
+  iconSize?: number;
+}) {
+  const SIZE = size;
+  const STROKE = size >= 40 ? 4 : 3;
   const R = (SIZE - STROKE) / 2;
   const C = 2 * Math.PI * R;
   const clamped = Math.max(0, Math.min(1, ratio));
@@ -224,7 +258,7 @@ function SuccessRing({ habit, ratio }: { habit: Habit; ratio: number }) {
         </g>
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-ink-100">
-        <HabitIcon name={habit.icon} size={22} strokeWidth={1.9} />
+        <HabitIcon name={habit.icon} size={iconSize} strokeWidth={1.9} />
       </span>
     </div>
   );

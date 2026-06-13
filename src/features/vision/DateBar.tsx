@@ -22,6 +22,7 @@ import {
   AlertCircle,
   SmilePlus,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Emoji } from '../../components/Emoji';
 import { HabitIcon } from '../habits/HabitIcon';
 import type { SaveStatus } from './useVisionEntry';
@@ -44,8 +45,13 @@ type Props = {
   /** Save indicator state — driven by useVisionEntry. */
   saveStatus: SaveStatus;
   /** 'desktop' bumps the chrome icons/buttons a notch (consistency with the
-   *  desktop toolbar). Default 'mobile' leaves the phone layout untouched. */
+   *  desktop toolbar) AND moves the back-to-now button into the RIGHT cluster,
+   *  freeing the LEFT cluster for `leftSlot`. Default 'mobile' leaves the phone
+   *  layout untouched. */
   variant?: 'mobile' | 'desktop';
+  /** Desktop only: content for the LEFT cluster (where back-to-now used to be)
+   *  — e.g. the per-period habit rings. Ignored on mobile. */
+  leftSlot?: ReactNode;
 };
 
 export function DateBar({
@@ -59,6 +65,7 @@ export function DateBar({
   onIconClick,
   saveStatus,
   variant = 'mobile',
+  leftSlot,
 }: Props) {
   // Desktop sizes the chrome icons to match the formatting toolbar (~20px);
   // mobile keeps its original compact sizing.
@@ -69,6 +76,36 @@ export function DateBar({
   const assistGlyph = big ? 18 : 15;
   const nowBtn = big ? 'h-9 px-3 text-[12px]' : 'h-7 px-2.5 text-[11px]';
   const nowGlyph = big ? 16 : 13;
+
+  // "Back to current week" — on mobile it lives in the LEFT cluster; on desktop
+  // it moves to the RIGHT cluster (right of the icon picker) so the left can
+  // host the habit rings.
+  const backToNowBtn = (
+    <button
+      type="button"
+      onClick={jumpToNow.enabled ? jumpToNow.onJump : undefined}
+      disabled={!jumpToNow.enabled}
+      aria-label={
+        jumpToNow.enabled
+          ? `חזרה ל${jumpToNow.label}`
+          : `כבר ב${jumpToNow.label}`
+      }
+      className={`
+        shrink-0 inline-flex items-center gap-1 ${nowBtn} rounded-lg
+        font-semibold transition-colors
+        ${
+          jumpToNow.enabled
+            ? // Soft green tint instead of a loud solid fill.
+              'bg-forest-700/15 text-forest-300 hover:bg-forest-700/25'
+            : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
+        }
+      `}
+    >
+      <RotateCcw size={nowGlyph} className="shrink-0" />
+      {jumpToNow.label}
+    </button>
+  );
+
   return (
     // 3-column grid with equal-width flanks (1fr each) so the TITLE in the
     // middle column is truly centred in the row regardless of how wide the
@@ -77,8 +114,10 @@ export function DateBar({
       dir="rtl"
       className="grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 pb-2 mb-3 border-b border-surface-border"
     >
-      {/* RIGHT cluster: icon picker + assist toggle (RTL → start = right). */}
+      {/* RIGHT cluster (RTL → start = right): on desktop, back-to-now sits
+          rightmost, then the icon picker + assist toggle. */}
       <div className="flex items-center gap-1.5 justify-self-start">
+        {big && backToNowBtn}
         <button
           type="button"
           onClick={onIconClick}
@@ -136,33 +175,12 @@ export function DateBar({
         />
       </div>
 
-      {/* LEFT cluster (RTL → justify-self-end = left): "back to now" button,
-          with a minimal save indicator to its right. */}
-      <div className="justify-self-end flex items-center gap-1.5">
+      {/* LEFT cluster (RTL → justify-self-end = left): mobile shows back-to-now;
+          desktop shows the leftSlot (habit rings). A minimal save indicator sits
+          to its right (usually invisible — error only). */}
+      <div className="justify-self-end flex items-center gap-1.5 min-w-0">
         <SaveBadge status={saveStatus} />
-        <button
-          type="button"
-          onClick={jumpToNow.enabled ? jumpToNow.onJump : undefined}
-          disabled={!jumpToNow.enabled}
-          aria-label={
-            jumpToNow.enabled
-              ? `חזרה ל${jumpToNow.label}`
-              : `כבר ב${jumpToNow.label}`
-          }
-          className={`
-            shrink-0 inline-flex items-center gap-1 ${nowBtn} rounded-lg
-            font-semibold transition-colors
-            ${
-              jumpToNow.enabled
-                ? // Soft green tint instead of a loud solid fill.
-                  'bg-forest-700/15 text-forest-300 hover:bg-forest-700/25'
-                : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
-            }
-          `}
-        >
-          <RotateCcw size={nowGlyph} className="shrink-0" />
-          {jumpToNow.label}
-        </button>
+        {big ? leftSlot : backToNowBtn}
       </div>
     </div>
   );

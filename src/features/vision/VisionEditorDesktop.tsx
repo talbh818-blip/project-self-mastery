@@ -97,6 +97,16 @@ export function VisionEditorDesktop({
       onIconClick={onIconClick}
       saveStatus={saveStatus}
       variant="desktop"
+      // The per-period habit rings move up into the header's LEFT cluster
+      // (where back-to-now used to be) instead of sitting at the bottom.
+      leftSlot={
+        <VisionHabitsStrip
+          userId={userId}
+          scope={scope}
+          periodKey={periodKey}
+          variant="inline"
+        />
+      }
     />
   );
 
@@ -178,8 +188,9 @@ export function VisionEditorDesktop({
           </div>
         )}
 
+        {/* The habit rings live in the header (leftSlot) on desktop, not at the
+            bottom — so nothing here below the writing. */}
         <EditorContent editor={editor} />
-        <VisionHabitsStrip userId={userId} scope={scope} periodKey={periodKey} />
       </div>
 
       <VisionQuestionSettingsSheet

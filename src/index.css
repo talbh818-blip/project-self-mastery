@@ -887,8 +887,8 @@ html[data-theme="light"] .vision-editor .vision-question {
    rules, so they win by source order on the shared element. */
 .vision-page-desktop .ProseMirror {
   min-height: 56vh;
-  font-size: 1.06rem;
-  line-height: 1.7;
+  font-size: 1rem;
+  line-height: 1.65;
 }
 
 /* The right navigation rail's scroll body — caps to the viewport so a long
