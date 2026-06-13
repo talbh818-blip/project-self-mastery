@@ -255,12 +255,14 @@ function MemoryCard({
           עוד לא נכתב חזון לתקופה זו.
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-0.5">
+          {/* Tight gap between consecutive lines (single-Enter) — normal prose;
+              the bigger paragraph break comes ONLY from the blank-line markers. */}
           {lines.map((line, i) =>
             line === '' ? (
-              // A blank line the writer left between paragraphs — show it as a
-              // clear gap so the original paragraph breaks read through.
-              <div key={i} aria-hidden className="h-3" />
+              // A blank line the writer left between paragraphs (double-Enter) —
+              // shown as a clear gap so the original breaks read through.
+              <div key={i} aria-hidden className="h-2.5" />
             ) : (
               <p
                 key={i}
