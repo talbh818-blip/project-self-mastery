@@ -155,8 +155,11 @@ export function Habits() {
     }
     try {
       if (habit.is_quantitative) {
+        // The tap counter cycles up to the MAX cap when one is set (lets you
+        // record above the points target), otherwise up to the target itself.
         const target = habit.quantitative_target ?? 10;
-        const nextAmount = nextAmountInCycle(currentAmount, target);
+        const cap = habit.quantitative_max ?? target;
+        const nextAmount = nextAmountInCycle(currentAmount, cap);
         await data.setLog({
           habitId: habit.id,
           date,

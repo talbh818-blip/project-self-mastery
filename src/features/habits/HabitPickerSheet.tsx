@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
   HabitIcon,
@@ -90,13 +90,15 @@ export function HabitPickerSheet({
   );
   const [color, setColor] = useState<string>(DEFAULTS.color);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULTS.difficulty);
-  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
   const [frequencyPeriod, setFrequencyPeriod] = useState<FrequencyPeriod>(
     DEFAULTS.frequency_period,
   );
   const [frequencyTarget, setFrequencyTarget] = useState<number>(
     DEFAULTS.frequency_target,
   );
+  // Optional per-day tap cap ABOVE the points target (daily counters only).
+  const [maxEnabled, setMaxEnabled] = useState<boolean>(false);
+  const [maxCount, setMaxCount] = useState<number>(DEFAULTS.frequency_target + 5);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,25 +120,23 @@ export function HabitPickerSheet({
       setDescriptionFormat(editingHabit.description_format ?? 'text');
       setColor(editingHabit.color);
       setDifficulty(editingHabit.difficulty ?? DEFAULTS.difficulty);
-      // Show advanced when any non-default value is set.
-      setShowAdvanced(
-        editingHabit.frequency_period !== 'daily' ||
-          editingHabit.frequency_target !== 1 ||
-          editingHabit.is_quantitative,
-      );
       // Legacy quantitative habits map onto the unified model: a daily target
       // equal to the old per-day count. The per-cell counter is now driven
       // purely by "daily target > 1".
+      const seededTarget = editingHabit.is_quantitative
+        ? editingHabit.quantitative_target ??
+          Math.max(2, editingHabit.frequency_target)
+        : editingHabit.frequency_target;
       if (editingHabit.is_quantitative) {
         setFrequencyPeriod('daily');
-        setFrequencyTarget(
-          editingHabit.quantitative_target ??
-            Math.max(2, editingHabit.frequency_target),
-        );
+        setFrequencyTarget(seededTarget);
       } else {
         setFrequencyPeriod(editingHabit.frequency_period);
-        setFrequencyTarget(editingHabit.frequency_target);
+        setFrequencyTarget(seededTarget);
       }
+      // Optional count cap above the target.
+      setMaxEnabled(editingHabit.quantitative_max != null);
+      setMaxCount(editingHabit.quantitative_max ?? seededTarget + 5);
     } else {
       setType(DEFAULTS.type);
       setIcon(DEFAULTS.icon);
@@ -146,9 +146,10 @@ export function HabitPickerSheet({
       setDescriptionFormat(DEFAULTS.description_format);
       setColor(DEFAULTS.color);
       setDifficulty(DEFAULTS.difficulty);
-      setShowAdvanced(false);
       setFrequencyPeriod(DEFAULTS.frequency_period);
       setFrequencyTarget(DEFAULTS.frequency_target);
+      setMaxEnabled(false);
+      setMaxCount(DEFAULTS.frequency_target + 5);
     }
     setSubmitting(false);
     setError(null);
@@ -207,10 +208,15 @@ export function HabitPickerSheet({
             .map((l) => l.trim())
             .filter(Boolean)
             .join('\n');
-    // The per-cell click counter (formerly the separate "ספירה כמותית"
-    // toggle) is now driven purely by a daily target greater than 1: each
-    // tap counts 1→target, and the day only "completes" at the target.
-    const isCounting = frequencyPeriod === 'daily' && frequencyTarget > 1;
+    // The per-cell click counter is driven by a daily target > 1 (each tap
+    // counts 1→target, completing at the target) OR by an explicit count cap
+    // above the target (e.g. target 1, but you want to tally up to 10).
+    // Clamp the cap to stay strictly above the target (it may have been set
+    // before the target was raised).
+    const effMax = Math.max(maxCount, frequencyTarget + 1);
+    const wantsCap = frequencyPeriod === 'daily' && maxEnabled;
+    const isCounting =
+      frequencyPeriod === 'daily' && (frequencyTarget > 1 || wantsCap);
     const input: CreateHabitInput = {
       name: name.trim(),
       description: cleanedDescription || null,
@@ -223,6 +229,7 @@ export function HabitPickerSheet({
       frequency_target: frequencyTarget,
       is_quantitative: isCounting,
       quantitative_target: isCounting ? frequencyTarget : null,
+      quantitative_max: isCounting && wantsCap ? effMax : null,
       quantitative_unit: null,
     };
     try {
@@ -492,76 +499,112 @@ export function HabitPickerSheet({
               </div>
             </section>
 
-            {/* Advanced options */}
+            {/* Step 6 — target: period + amount on ONE row, then an optional
+                count cap (daily only). No longer hidden behind an
+                "advanced options" toggle — it's a normal part of the form. */}
             <section>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced((v) => !v)}
-                className="flex items-center justify-between w-full py-2 text-sm text-ink-300 hover:text-ink-100"
-              >
-                <span>אופציות נוספות</span>
-                {showAdvanced ? (
-                  <ChevronUp size={16} />
-                ) : (
-                  <ChevronDown size={16} />
-                )}
-              </button>
+              <SectionTitle>
+                כמה פעמים{' '}
+                {frequencyPeriod === 'daily'
+                  ? 'ביום'
+                  : frequencyPeriod === 'weekly'
+                  ? 'בשבוע'
+                  : 'בחודש'}
+                ?
+              </SectionTitle>
+              <div className="flex items-center gap-2">
+                {/* Period selector — segmented, takes the remaining width */}
+                <div className="grid grid-cols-3 gap-1 flex-1">
+                  {(
+                    [
+                      { v: 'daily' as const, label: 'יומי' },
+                      { v: 'weekly' as const, label: 'שבועי' },
+                      { v: 'monthly' as const, label: 'חודשי' },
+                    ]
+                  ).map((opt) => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => setFrequencyPeriod(opt.v)}
+                      className={`py-2.5 rounded-xl text-sm transition-colors ${
+                        frequencyPeriod === opt.v
+                          ? 'bg-forest-700 text-on-accent'
+                          : 'bg-surface-raised text-ink-300 hover:text-ink-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Amount — compact stepper on the same row */}
+                <NumberStepper
+                  value={frequencyTarget}
+                  onChange={setFrequencyTarget}
+                  min={1}
+                  max={frequencyPeriod === 'daily' ? 24 : frequencyPeriod === 'weekly' ? 7 : 31}
+                  compact
+                />
+              </div>
+              {/* When the daily target is >1, the cell becomes a tap counter
+                  (1→target) and only "completes" at the target. */}
+              {frequencyPeriod === 'daily' && frequencyTarget > 1 && (
+                <p className="text-xs text-ink-500 mt-2 leading-snug">
+                  כל לחיצה על המשבצת תספור 1 עד {frequencyTarget} — ההרגל נחשב
+                  כבוצע ביום רק כשמגיעים ל-{frequencyTarget}.
+                </p>
+              )}
 
-              {showAdvanced && (
-                <div className="mt-3 space-y-4 pt-3 border-t border-surface-border">
-                  {/* Frequency period */}
-                  <div>
-                    <SectionTitle>תקופת היעד</SectionTitle>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(
-                        [
-                          { v: 'daily' as const, label: 'יומי' },
-                          { v: 'weekly' as const, label: 'שבועי' },
-                          { v: 'monthly' as const, label: 'חודשי' },
-                        ]
-                      ).map((opt) => (
-                        <button
-                          key={opt.v}
-                          type="button"
-                          onClick={() => setFrequencyPeriod(opt.v)}
-                          className={`py-2 rounded-xl text-sm transition-colors ${
-                            frequencyPeriod === opt.v
-                              ? 'bg-forest-700 text-on-accent'
-                              : 'bg-surface-raised text-ink-300 hover:text-ink-100'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Frequency target */}
-                  <div>
-                    <SectionTitle>
-                      כמה פעמים{' '}
-                      {frequencyPeriod === 'daily'
-                        ? 'ביום'
-                        : frequencyPeriod === 'weekly'
-                        ? 'בשבוע'
-                        : 'בחודש'}
-                      ?
-                    </SectionTitle>
-                    <NumberStepper
-                      value={frequencyTarget}
-                      onChange={setFrequencyTarget}
-                      min={1}
-                      max={frequencyPeriod === 'daily' ? 24 : frequencyPeriod === 'weekly' ? 7 : 31}
+              {/* Optional count cap ABOVE the target — daily only. Grayed out
+                  until the checkbox is ticked, so it reads as the rare,
+                  not-required option it is. */}
+              {frequencyPeriod === 'daily' && (
+                <div className="mt-4">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={maxEnabled}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setMaxEnabled(on);
+                        // Seed a sensible cap the first time it's switched on.
+                        if (on && maxCount <= frequencyTarget) {
+                          setMaxCount(frequencyTarget + 5);
+                        }
+                      }}
+                      className="w-4 h-4 accent-forest-600 cursor-pointer"
                     />
-                    {/* When the daily target is >1, the cell becomes a tap
-                        counter (1→target) and only "completes" at the target. */}
-                    {frequencyPeriod === 'daily' && frequencyTarget > 1 && (
-                      <p className="text-xs text-ink-500 mt-2 leading-snug">
-                        כל לחיצה על המשבצת תספור 1 עד {frequencyTarget} — ההרגל
-                        נחשב כבוצע ביום רק כשמגיעים ל-{frequencyTarget}.
-                      </p>
-                    )}
-                  </div>
+                    <span
+                      className={`text-sm transition-colors ${
+                        maxEnabled ? 'text-ink-100' : 'text-ink-500'
+                      }`}
+                    >
+                      תקרת ספירה מעל היעד (לא חובה)
+                    </span>
+                  </label>
+                  {maxEnabled && (
+                    <div className="mt-2.5 flex items-center gap-2">
+                      <span className="text-xs text-ink-500 shrink-0">עד</span>
+                      <NumberStepper
+                        value={Math.max(maxCount, frequencyTarget + 1)}
+                        onChange={setMaxCount}
+                        min={frequencyTarget + 1}
+                        max={99}
+                        compact
+                      />
+                      <span className="text-xs text-ink-500 shrink-0">
+                        פעמים ביום
+                      </span>
+                    </div>
+                  )}
+                  <p
+                    className={`text-xs mt-1.5 leading-snug ${
+                      maxEnabled ? 'text-ink-500' : 'text-ink-500/60'
+                    }`}
+                  >
+                    מאפשר לסמן מעבר ליעד לצורך ספירה בלבד — היעד והניקוד נשארים
+                    לפי {frequencyTarget > 1 ? frequencyTarget : 'היעד'}, והלחיצות
+                    הנוספות רק נספרות.
+                  </p>
                 </div>
               )}
             </section>
@@ -577,6 +620,8 @@ export function HabitPickerSheet({
             className="w-full py-3 rounded-2xl font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-cream-50"
             style={{
               backgroundColor: canSubmit ? color : 'var(--color-surface-raised)',
+              // Light swatches need dark text to stay legible.
+              color: canSubmit ? readableTextOn(color) : undefined,
             }}
           >
             {submitting ? 'שומר...' : isEditing ? 'שמור שינויים' : 'שמור הרגל'}
@@ -784,21 +829,24 @@ function NumberStepper({
   min,
   max,
   step = 1,
+  compact = false,
 }: {
   value: number;
   onChange: (n: number) => void;
   min: number;
   max: number;
   step?: number;
+  /** Compact = fixed-width (sits beside other controls); default = full row. */
+  compact?: boolean;
 }) {
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-1.5 ${compact ? 'shrink-0' : ''}`}>
       <button
         type="button"
         onClick={() => onChange(clamp(value - step))}
         disabled={value <= min}
-        className="w-9 h-9 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
+        className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
       >
         −
       </button>
@@ -813,17 +861,42 @@ function NumberStepper({
           const n = Number(raw);
           if (!Number.isNaN(n)) onChange(clamp(n));
         }}
-        className="flex-1 text-center px-3 py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500"
+        className={`text-center py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500 ${
+          compact ? 'w-12 px-1' : 'flex-1 px-3'
+        }`}
       />
       <button
         type="button"
         onClick={() => onChange(clamp(value + step))}
         disabled={value >= max}
-        className="w-9 h-9 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
+        className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
       >
         +
       </button>
     </div>
   );
+}
+
+// Pick the more readable text colour (dark vs cream) for text laid over `hex`,
+// by comparing actual WCAG contrast ratios. Many palette swatches (yellows,
+// limes, lavender, light grays) are bright enough that cream text is
+// unreadable and dark text wins.
+const DARK_INK = '#14241a';
+const CREAM = '#fffaf0';
+function relLuminance(hex: string): number {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
+  if (!m) return 0;
+  const n = parseInt(m[1], 16);
+  const lin = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+}
+function readableTextOn(hex: string): string {
+  const L = relLuminance(hex);
+  const contrastDark = (L + 0.05) / (relLuminance(DARK_INK) + 0.05);
+  const contrastCream = (relLuminance(CREAM) + 0.05) / (L + 0.05);
+  return contrastDark >= contrastCream ? DARK_INK : CREAM;
 }
 

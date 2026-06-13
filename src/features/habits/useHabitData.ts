@@ -402,6 +402,7 @@ export function useHabitData(userId: string | null): UseHabitData {
         frequency_target: input.frequency_target,
         is_quantitative: input.is_quantitative,
         quantitative_target: input.is_quantitative ? input.quantitative_target : null,
+        quantitative_max: input.is_quantitative ? input.quantitative_max : null,
         quantitative_unit: input.is_quantitative
           ? input.quantitative_unit?.trim() || null
           : null,

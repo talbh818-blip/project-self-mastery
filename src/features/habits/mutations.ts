@@ -25,6 +25,7 @@ export type CreateHabitInput = {
   frequency_target: number;
   is_quantitative: boolean;
   quantitative_target: number | null;
+  quantitative_max: number | null;
   quantitative_unit: string | null;
   difficulty: Difficulty;
 };
@@ -55,6 +56,7 @@ export async function createHabitInSlot(params: {
       frequency_target: input.frequency_target,
       is_quantitative: input.is_quantitative,
       quantitative_target: input.is_quantitative ? input.quantitative_target : null,
+      quantitative_max: input.is_quantitative ? input.quantitative_max : null,
       quantitative_unit: input.is_quantitative
         ? input.quantitative_unit?.trim() || null
         : null,
@@ -192,6 +194,7 @@ export type UpdateHabitInput = {
   frequency_target: number;
   is_quantitative: boolean;
   quantitative_target: number | null;
+  quantitative_max: number | null;
   quantitative_unit: string | null;
   difficulty: Difficulty;
 };
@@ -213,6 +216,7 @@ export async function updateHabit(
       frequency_target: input.frequency_target,
       is_quantitative: input.is_quantitative,
       quantitative_target: input.is_quantitative ? input.quantitative_target : null,
+      quantitative_max: input.is_quantitative ? input.quantitative_max : null,
       quantitative_unit: input.is_quantitative
         ? input.quantitative_unit?.trim() || null
         : null,

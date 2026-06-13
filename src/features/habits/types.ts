@@ -66,6 +66,10 @@ export type Habit = {
   frequency_target: number; // > 0
   is_quantitative: boolean;
   quantitative_target: number | null;
+  /** Optional tap-counter cap ABOVE the points target — lets the per-day
+   *  counter run higher than the target for tracking only (no extra points).
+   *  Null = no cap (counter stops at the target). Only > target is meaningful. */
+  quantitative_max: number | null;
   quantitative_unit: string | null;
   difficulty: Difficulty; // self-reported difficulty
   sort_order: number; // user-controlled display order within the type group
