@@ -10,11 +10,14 @@
 // started"). The ring answers "how much of THIS week / month / year have I
 // filled in?", so the SAME habit reads ~100% on a strong week but only a few
 // percent on the year (most of the year is still unlived/unfilled).
-//   • Every day from period-start → today is bucketed by the habit's frequency
-//     (day / week / month). Days BEFORE the habit existed, or in an unassigned
-//     gap, still count toward the period's "expected" total (they're unfilled)
-//     but do NOT count as completed — that's what keeps a freshly-started habit
-//     LOW at the month/year scale.
+//   • Weekly is a "this week so far" gauge — only ELAPSED days count, so a
+//     perfect week so far reads ~100%. Monthly / yearly measure "how much of
+//     the WHOLE period have you filled?": the expected total spans the FULL
+//     period (period-start → period-END), so days still AHEAD, days before the
+//     habit existed, and unassigned gaps all count as unfilled (expected, not
+//     done). That bounds the value by how far into the month/year you are — you
+//     can't be 62% "through" June on the 13th — and keeps a freshly-started
+//     habit LOW at the month/year scale.
 //   • Each bucket "expects" min(target, days-in-bucket) marks (effective quota).
 //   • "done" = Σ min(V-days-in-bucket, expected); ratio = done / Σ expected.
 //     So a 3×/week habit that hit its 3 every week reads ~100% at every scope.
@@ -134,11 +137,19 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
   const items = useMemo<Item[]>(() => {
     if (status !== 'ready') return [];
     const { start, end } = periodBounds(scope, periodKey);
-    // Never count days that haven't happened yet.
-    const windowEnd = end < today ? end : today;
-    if (start > windowEnd) return [];
+    // Last ELAPSED day of the period (future days haven't happened).
+    const todayEnd = end < today ? end : today;
+    if (start > todayEnd) return []; // period hasn't started yet
 
-    const slots = slotsForRange({ start, end: windowEnd });
+    // The expected-denominator window. Weekly = "this week so far" → elapsed
+    // only. Monthly / yearly = "% of the whole period filled" → the FULL period
+    // (future days count as unfilled, bounding the value by the elapsed
+    // fraction). V's only ever land on elapsed days, so done is unaffected.
+    const windowEnd = scope === 'weekly' ? todayEnd : end;
+
+    // slotsForRange only picks WHICH habits to show (it always returns the
+    // current habit per slot); the elapsed end is fine here.
+    const slots = slotsForRange({ start, end: todayEnd });
     const out: Item[] = [];
     for (const slot of slots) {
       const habit = slot.habit;
@@ -164,7 +175,7 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
       dir="rtl"
       className="overflow-x-auto vision-habits-scroll pt-3 mt-3 border-t border-surface-border"
     >
-      <div className="flex items-center justify-center gap-2.5 min-w-max">
+      <div className="flex items-center justify-center gap-3 min-w-max">
         {items.map((it) => (
           <SuccessRing key={it.habit.id} habit={it.habit} ratio={it.ratio} />
         ))}
@@ -174,8 +185,8 @@ export function VisionHabitsStrip({ userId, scope, periodKey }: Props) {
 }
 
 function SuccessRing({ habit, ratio }: { habit: Habit; ratio: number }) {
-  const SIZE = 38;
-  const STROKE = 3.5;
+  const SIZE = 46;
+  const STROKE = 4;
   const R = (SIZE - STROKE) / 2;
   const C = 2 * Math.PI * R;
   const clamped = Math.max(0, Math.min(1, ratio));
@@ -213,7 +224,7 @@ function SuccessRing({ habit, ratio }: { habit: Habit; ratio: number }) {
         </g>
       </svg>
       <span className="absolute inset-0 flex items-center justify-center text-ink-100">
-        <HabitIcon name={habit.icon} size={17} strokeWidth={1.9} />
+        <HabitIcon name={habit.icon} size={22} strokeWidth={1.9} />
       </span>
     </div>
   );
