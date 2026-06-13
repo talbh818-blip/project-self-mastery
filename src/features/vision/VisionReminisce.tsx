@@ -16,7 +16,8 @@ import { Eye, X } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
 import { HabitIcon } from '../habits/HabitIcon';
 import { fetchVisionRowMeta } from './queries';
-import { visionParagraphs } from './content';
+import { isVisionContentEmpty } from './content';
+import { VisionReadOnly } from './VisionReadOnly';
 import {
   formatPeriodLabel,
   getMonthKey,
@@ -217,7 +218,7 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                   scope={p.scope}
                   periodKey={p.key}
                   icon={m?.icon ?? null}
-                  lines={visionParagraphs(m?.content)}
+                  content={m?.content ?? null}
                 />
               );
             })
@@ -232,15 +233,14 @@ function MemoryCard({
   scope,
   periodKey,
   icon,
-  lines,
+  content,
 }: {
   scope: VisionScope;
   periodKey: string;
   icon: string | null;
-  lines: string[];
+  content: unknown;
 }) {
-  const empty = lines.length === 0;
-  // weekly cards lead with the week's Sunday date for quick orientation.
+  const empty = isVisionContentEmpty(content);
   const label = formatPeriodLabel(scope, periodKey);
   return (
     <article className="border-s-2 border-forest-700 rounded-xl bg-surface-card/70 p-3.5">
@@ -255,24 +255,7 @@ function MemoryCard({
           עוד לא נכתב חזון לתקופה זו.
         </p>
       ) : (
-        <div className="space-y-0.5">
-          {/* Tight gap between consecutive lines (single-Enter) — normal prose;
-              the bigger paragraph break comes ONLY from the blank-line markers. */}
-          {lines.map((line, i) =>
-            line === '' ? (
-              // A blank line the writer left between paragraphs (double-Enter) —
-              // shown as a clear gap so the original breaks read through.
-              <div key={i} aria-hidden className="h-2.5" />
-            ) : (
-              <p
-                key={i}
-                className="text-[0.9rem] text-ink-100 leading-relaxed"
-              >
-                {line}
-              </p>
-            ),
-          )}
-        </div>
+        <VisionReadOnly content={content} />
       )}
     </article>
   );
