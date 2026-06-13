@@ -512,10 +512,11 @@ export function HabitPickerSheet({
                   : 'בחודש'}
                 ?
               </SectionTitle>
-              <div className="flex items-center gap-2">
-                {/* Period selector — tight segmented pill (joined, dense) so
-                    the number stepper gets more breathing room. */}
-                <div className="flex gap-0.5 bg-surface-raised rounded-xl p-0.5 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                {/* Period selector — segmented pill whose buttons HUG their
+                    text (no flex-1 stretch), so there's no wasted padding and
+                    the number stepper gets the freed room. */}
+                <div className="inline-flex gap-0.5 bg-surface-raised rounded-xl p-0.5">
                   {(
                     [
                       { v: 'daily' as const, label: 'יומי' },
@@ -527,7 +528,7 @@ export function HabitPickerSheet({
                       key={opt.v}
                       type="button"
                       onClick={() => setFrequencyPeriod(opt.v)}
-                      className={`flex-1 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
+                      className={`px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors ${
                         frequencyPeriod === opt.v
                           ? 'bg-forest-700 text-on-accent'
                           : 'text-ink-300 hover:text-ink-100'
@@ -837,17 +838,13 @@ function NumberStepper({
   compact?: boolean;
 }) {
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
-  // Compact = small +/− chevrons hugging a prominent number; default = full row.
-  const btn = compact
-    ? 'w-6 h-9 shrink-0 rounded-lg bg-surface-raised text-ink-300 hover:text-ink-100 hover:bg-surface-border disabled:opacity-30 text-base'
-    : 'w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg';
   return (
-    <div className={`flex items-center ${compact ? 'gap-1 shrink-0' : 'gap-1.5'}`}>
+    <div className={`flex items-center gap-1.5 ${compact ? 'shrink-0' : ''}`}>
       <button
         type="button"
         onClick={() => onChange(clamp(value - step))}
         disabled={value <= min}
-        className={btn}
+        className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
       >
         −
       </button>
@@ -862,17 +859,15 @@ function NumberStepper({
           const n = Number(raw);
           if (!Number.isNaN(n)) onChange(clamp(n));
         }}
-        className={`text-center rounded-xl bg-surface-raised border border-surface-border text-ink-100 focus:outline-none focus:border-forest-500 ${
-          compact
-            ? 'w-12 px-1 py-2 text-base font-semibold'
-            : 'flex-1 px-3 py-2 text-sm'
+        className={`text-center py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500 ${
+          compact ? 'w-12 px-1' : 'flex-1 px-3'
         }`}
       />
       <button
         type="button"
         onClick={() => onChange(clamp(value + step))}
         disabled={value >= max}
-        className={btn}
+        className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
       >
         +
       </button>
