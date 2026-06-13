@@ -1114,7 +1114,7 @@ function IsometricField({
                   style={{
                     transformBox: 'fill-box',
                     transformOrigin: 'center',
-                    animationDelay: `${ring * 2}s`,
+                    animationDelay: `${ring * 2.5}s`,
                   }}
                 />
               ))}

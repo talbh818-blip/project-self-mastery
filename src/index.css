@@ -413,11 +413,12 @@ html[data-theme="light"] {
     transform: scale(0.25);
     opacity: 0;
   }
-  20% {
+  8% {
     opacity: 0.18;
   }
-  70% {
-    opacity: 0.04;
+  20% {
+    transform: scale(1.45);
+    opacity: 0;
   }
   100% {
     transform: scale(1.45);
@@ -425,10 +426,13 @@ html[data-theme="light"] {
   }
 }
 .tree-radar-ring {
-  animation: tree-radar-ping 6s ease-out infinite;
-  /* backwards: during a disc's start delay it sits at the 0% keyframe (small,
-     faint) instead of its default full-size/opaque state. Without this the
-     delayed discs flash as a bold static ring for the first seconds on open. */
+  /* One ping (fade in -> expand -> fade out) fills ~20% of the loop (~1.5s),
+     then the disc holds invisible for the rest — that tail is the GAP. With 3
+     discs staggered 2.5s apart, a ping appears ~every 2.5s with ~1s of empty
+     space between consecutive pings. */
+  animation: tree-radar-ping 7.5s ease-out infinite;
+  /* backwards: during a disc's start delay it sits at the 0% keyframe
+     (invisible) instead of its default state — no bold ring flash on open. */
   animation-fill-mode: backwards;
 }
 
