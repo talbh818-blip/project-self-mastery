@@ -60,7 +60,9 @@ import {
   displayPoints,
   isDateLockedV2,
   isV2Date,
+  periodFillFor,
   type CombinedStats,
+  type PeriodFill,
 } from '../features/habits/scoring2';
 import {
   nextAmountInCycle,
@@ -986,6 +988,16 @@ function HabitRow({
             //    0 = not in a streak (has a log, or is future)
             //   1..N = Nth day in the current blank streak
             const habitStart = slot.habitStartDate;
+            // Weekly / monthly habits don't follow a daily missed-streak: an
+            // unmarked day is fine as long as the PERIOD met its goal. We
+            // colour those cells by period state (covered / open / missed)
+            // instead of the red streak. `hasV` / `activeOn` let the helper
+            // count V's across the whole period (a month spans past the
+            // visible week), not just the cells on screen.
+            const isPeriodic = habit.frequency_period !== 'daily';
+            const hasV = (dateStr: string) => effectiveFor(dateStr) === 'V';
+            const activeOn = (dateStr: string) =>
+              !habitStart || dateStr >= habitStart;
             // Days BEFORE the habit's start_date — including when the
             // entire visible week predates the habit — render as plain
             // neutral cells (no streak, no dash) but are STILL CLICKABLE
@@ -1003,27 +1015,34 @@ function HabitRow({
               // target would retroactively dim days completed under an older
               // target.
               const completed = effective === 'V';
+              const isPreStart = !!(habitStart && dateStr < habitStart);
+              // Weekly/monthly fill state — only for periodic habits, and not
+              // for pre-start days (the habit didn't exist yet).
+              const freqFill: PeriodFill | null =
+                isPeriodic && !isPreStart
+                  ? periodFillFor({ habit, dateStr, today, hasV, activeOn })
+                  : null;
 
-              if (habitStart && dateStr < habitStart) {
+              if (isPreStart) {
                 streakCount = 0;
-                return { dateStr, future, mark, completed, streakDepth: -1 };
+                return { dateStr, future, mark, completed, freqFill, streakDepth: -1 };
               }
               if (future) {
                 streakCount = 0;
-                return { dateStr, future, mark, completed, streakDepth: 0 };
+                return { dateStr, future, mark, completed, freqFill, streakDepth: 0 };
               }
               if (mark === 'V' || mark === 'X') {
                 // V = success, X = explicit failure — both reset the streak.
                 streakCount = 0;
-                return { dateStr, future, mark, completed, streakDepth: 0 };
+                return { dateStr, future, mark, completed, freqFill, streakDepth: 0 };
               }
               // Blank (undefined) OR auto_x (virtual, not stored in DB) =
               // missed day → streak grows and cell turns progressively red.
               streakCount++;
-              return { dateStr, future, mark, completed, streakDepth: streakCount };
+              return { dateStr, future, mark, completed, freqFill, streakDepth: streakCount };
             });
 
-            return cellInfos.map(({ dateStr, future, mark, completed, streakDepth }, i) => {
+            return cellInfos.map(({ dateStr, future, mark, completed, freqFill, streakDepth }, i) => {
               const isToday = isSameDay(days[i], today);
               const amount = slot.amounts[dateStr] ?? null;
               return (
@@ -1033,6 +1052,7 @@ function HabitRow({
                   mark={mark}
                   amount={amount}
                   completed={completed}
+                  freqFill={freqFill}
                   isToday={isToday}
                   disabled={future}
                   streakDepth={streakDepth}
@@ -1180,6 +1200,7 @@ function DayCell({
   mark,
   amount,
   completed,
+  freqFill,
   isToday,
   disabled,
   streakDepth,
@@ -1191,6 +1212,10 @@ function DayCell({
   /** Engine verdict — the day is complete per ITS OWN target snapshot
    *  (target_at_log), not the habit's current target. */
   completed: boolean;
+  /** Weekly/monthly habits only (null for daily): the period's fill state.
+   *  When set, an unmarked cell is coloured by whether the period met its
+   *  goal, NOT by a daily missed-streak. */
+  freqFill: PeriodFill | null;
   isToday: boolean;
   disabled: boolean;
   /** -1 = before habit creation (render completely empty)
@@ -1243,6 +1268,40 @@ function DayCell({
   } else if (mark === 'V') {
     // Full habit color — the screenshot's "filled square" look.
     style = { backgroundColor: habit.color };
+  } else if (freqFill) {
+    // Weekly / monthly habit, unmarked day. Colour by the PERIOD's goal
+    // state, not a daily missed-streak:
+    //   covered → goal already met, this day is "you're covered" → habit
+    //             colour at low opacity (clearly fainter than a real V, so
+    //             the days you actually did still stand out).
+    //   missed  → period is over and the goal wasn't met → red miss + dash.
+    //   open    → period still running, goal not met yet → neutral, no red.
+    if (freqFill === 'covered') {
+      style = { backgroundColor: hexWithAlpha(habit.color, 0.3) };
+    } else if (freqFill === 'missed' && !isToday) {
+      style = { backgroundColor: 'rgba(220,38,38,0.42)' };
+      if (!disabled) {
+        content = (
+          <span
+            style={{
+              display: 'block',
+              width: '55%',
+              height: '2px',
+              backgroundColor: 'rgba(255,160,160,0.9)',
+              borderRadius: '1px',
+            }}
+          />
+        );
+      }
+    } else {
+      // 'open' (or today) — neutral muted tile.
+      style = isToday
+        ? {
+            backgroundColor: 'rgba(122,160,134,0.18)',
+            border: '1px solid rgba(122,160,134,0.45)',
+          }
+        : { backgroundColor: hexWithAlpha(habit.color, 0.15) };
+    }
   } else {
     // blank / X / auto_x — empty tile. Past blanks score as auto_x.
     style = isToday

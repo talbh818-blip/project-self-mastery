@@ -321,6 +321,45 @@ export function periodLocked(period: Period, today: Date): boolean {
 }
 
 // ----------------------------------------------------------------------------
+// Cell visual state for a weekly/monthly habit's day (PURELY a rendering
+// concern — no points). Daily habits don't use this; their cells keep the
+// missed-streak look. The states:
+//   'covered' — the period already met its goal, so this unmarked day is
+//               "you're covered": render in the habit colour at low opacity.
+//   'missed'  — the period is over (locked) and the goal was NOT met → the
+//               unmarked day reads as a real miss (red).
+//   'open'    — the period is still running and the goal isn't met yet →
+//               neutral; there's still time, so no red.
+// This is independent of the V2 epoch — it applies to every displayed
+// period, past included (the fix the user asked to be retroactive).
+// ----------------------------------------------------------------------------
+export type PeriodFill = 'covered' | 'missed' | 'open';
+
+export function periodFillFor(params: {
+  habit: Habit;
+  dateStr: string;
+  today: Date;
+  /** Does the habit have a completed V on this date? */
+  hasV: (d: string) => boolean;
+  /** Was the habit assigned (active) on this date? Caps the effective quota
+   *  so a partial period (created mid-week) isn't judged against a quota it
+   *  could never reach. */
+  activeOn?: (d: string) => boolean;
+}): PeriodFill {
+  const { habit, dateStr, today, hasV, activeOn } = params;
+  const period = periodOf(habit, dateStr);
+  let vCount = 0;
+  let activeDays = 0;
+  for (let d = period.start; d <= period.end; d = addDaysStr(d, 1)) {
+    if (!activeOn || activeOn(d)) activeDays++;
+    if (hasV(d)) vCount++;
+  }
+  const quota = Math.max(1, Math.min(period.quota, activeDays || period.quota));
+  if (vCount >= quota) return 'covered';
+  return periodLocked(period, today) ? 'missed' : 'open';
+}
+
+// ----------------------------------------------------------------------------
 // How many quota slots are already filled in a period, given the habit's
 // logs. Daily counters fill `amount` slots on their single day; weekly and
 // monthly habits fill one slot per V-marked day in the period.
