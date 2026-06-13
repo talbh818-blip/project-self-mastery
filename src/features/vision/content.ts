@@ -93,7 +93,10 @@ export function visionParagraphs(content: unknown): string[] {
 
   const root = content as { content?: unknown[] };
   const blocks = Array.isArray(root.content) ? root.content : [];
-  const lines: string[] = [];
+  // Empty paragraphs (the blank lines a user adds with a double-Enter) are kept
+  // as '' markers so the reader can show the same paragraph breaks the writer
+  // made — they're trimmed at the edges and collapsed below.
+  const raw: string[] = [];
   for (const block of blocks) {
     const b = block as { type?: string; content?: unknown[] };
     if (
@@ -104,12 +107,20 @@ export function visionParagraphs(content: unknown): string[] {
       const items = Array.isArray(b.content) ? b.content : [];
       for (const li of items) {
         const t = textOf(li);
-        if (t) lines.push(`• ${t}`);
+        if (t) raw.push(`• ${t}`);
       }
     } else {
-      const t = textOf(block);
-      if (t) lines.push(t);
+      raw.push(textOf(block)); // may be '' — a deliberate blank line
     }
   }
+  // Drop leading blanks + collapse any run of blanks into a single one.
+  const lines: string[] = [];
+  for (const line of raw) {
+    if (line === '' && (lines.length === 0 || lines[lines.length - 1] === '')) {
+      continue;
+    }
+    lines.push(line);
+  }
+  while (lines.length && lines[lines.length - 1] === '') lines.pop(); // trim trailing
   return lines;
 }

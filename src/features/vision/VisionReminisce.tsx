@@ -133,6 +133,10 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
   );
 
   const shown = periodsByScope[tab];
+  const activeIndex = Math.max(
+    0,
+    TABS.findIndex((t) => t.scope === tab),
+  );
 
   return (
     <div className="flex flex-col max-h-[calc(100vh-6.5rem)] rounded-2xl bg-surface-base ring-1 ring-surface-border overflow-hidden">
@@ -161,9 +165,19 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         </button>
       </div>
 
-      {/* Tabs — quick access to the year / month / recent weeks. */}
+      {/* Tabs — a sliding-pill toggle: the green pill GLIDES to the choice
+          instead of snapping, the labels sit on top. */}
       <div dir="rtl" className="px-3 pb-3 shrink-0">
-        <div className="flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
+        <div className="relative flex items-center p-1 rounded-xl bg-surface-raised ring-1 ring-surface-border">
+          {/* the gliding pill */}
+          <div
+            aria-hidden
+            className="absolute top-1 bottom-1 right-1 rounded-lg bg-forest-700 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-transform duration-300 ease-out"
+            style={{
+              width: 'calc((100% - 0.5rem) / 3)',
+              transform: `translateX(${activeIndex * -100}%)`,
+            }}
+          />
           {TABS.map((t) => {
             const active = tab === t.scope;
             return (
@@ -173,12 +187,8 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                 onClick={() => pickTab(t.scope)}
                 aria-pressed={active}
                 className={`
-                  flex-1 h-8 rounded-lg text-[13px] font-semibold transition-colors
-                  ${
-                    active
-                      ? 'bg-forest-700 text-on-accent shadow-sm'
-                      : 'text-ink-300 hover:text-ink-100'
-                  }
+                  relative z-10 flex-1 h-8 rounded-lg text-[13px] font-semibold transition-colors
+                  ${active ? 'text-on-accent' : 'text-ink-300 hover:text-ink-100'}
                 `}
               >
                 {t.label}
@@ -245,15 +255,21 @@ function MemoryCard({
           עוד לא נכתב חזון לתקופה זו.
         </p>
       ) : (
-        <div className="space-y-1.5">
-          {lines.map((line, i) => (
-            <p
-              key={i}
-              className="text-[0.9rem] text-ink-100 leading-relaxed"
-            >
-              {line}
-            </p>
-          ))}
+        <div className="space-y-2">
+          {lines.map((line, i) =>
+            line === '' ? (
+              // A blank line the writer left between paragraphs — show it as a
+              // clear gap so the original paragraph breaks read through.
+              <div key={i} aria-hidden className="h-3" />
+            ) : (
+              <p
+                key={i}
+                className="text-[0.9rem] text-ink-100 leading-relaxed"
+              >
+                {line}
+              </p>
+            ),
+          )}
         </div>
       )}
     </article>

@@ -121,8 +121,23 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
   // Whether the navigator body (map / months) is expanded.
   const [navOpen, setNavOpen] = useState(true);
-  // Whether the read-only "look back" panel is showing on the LEFT.
+  // The read-only "look back" panel on the LEFT, with a smooth slide in/out.
+  //   • reminisceOpen     — the button's logical state.
+  //   • reminisceRendered — kept mounted once opened (so exit animates + re-open
+  //     is instant; no fetch until first open).
+  //   • reminisceVisible  — the VISUAL state, flipped one tick AFTER mount so the
+  //     enter transition actually plays.
   const [reminisceOpen, setReminisceOpen] = useState(false);
+  const [reminisceRendered, setReminisceRendered] = useState(false);
+  const [reminisceVisible, setReminisceVisible] = useState(false);
+  useEffect(() => {
+    if (reminisceOpen) {
+      setReminisceRendered(true);
+      const id = window.setTimeout(() => setReminisceVisible(true), 20);
+      return () => window.clearTimeout(id);
+    }
+    setReminisceVisible(false); // play the exit transition; stay mounted
+  }, [reminisceOpen]);
 
   // Persist only the LEVEL view (never the feed), per-user.
   const persistLevelView = useCallback(
@@ -465,20 +480,27 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
           )}
         </div>
 
-        {/* ── LEFT COLUMN — same width as the rail so the centre stays dead-
-            centre. Empty balancer by default; the read-only "look back" panel
-            fills it when the eye is toggled on. ── */}
-        {reminisceOpen ? (
-          <aside className="shrink-0 w-[440px] sticky top-3 self-start">
-            <VisionReminisce
-              userId={userId}
-              today={today}
-              onClose={() => setReminisceOpen(false)}
-            />
-          </aside>
-        ) : (
-          <div aria-hidden className="shrink-0 w-[440px]" />
-        )}
+        {/* ── LEFT COLUMN — ALWAYS 440px (so the centre stays dead-centre).
+            It's an empty balancer until the eye is toggled on; then the
+            read-only "look back" panel slides into it. ── */}
+        <aside className="shrink-0 w-[440px] sticky top-3 self-start">
+          {reminisceRendered && (
+            <div
+              aria-hidden={!reminisceVisible}
+              className={`transition-all duration-300 ease-in-out ${
+                reminisceVisible
+                  ? 'opacity-100 translate-x-0'
+                  : 'opacity-0 -translate-x-6 pointer-events-none'
+              }`}
+            >
+              <VisionReminisce
+                userId={userId}
+                today={today}
+                onClose={() => setReminisceOpen(false)}
+              />
+            </div>
+          )}
+        </aside>
       </div>
 
       <VisionIconPicker
