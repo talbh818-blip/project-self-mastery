@@ -19,7 +19,7 @@
 // its fetch on mount so picks are fresh by the time the user taps.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Settings2 } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import {
   useEditor,
   EditorContent,
@@ -32,13 +32,14 @@ import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 import type { SaveStatus } from './useVisionEntry';
-import { useAssistMode } from './useAssistMode';
 import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionNode } from './VisionQuestion';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionImage } from './VisionImage';
 import { VisionToolbar } from './VisionToolbar';
+import { VisionHabitsStrip } from './VisionHabitsStrip';
 import { DateBar } from './DateBar';
+import { Emoji } from '../../components/Emoji';
 import { CompassLoader } from '../../components/CompassLoader';
 import { uploadVisionImage } from './storage';
 import { useAuth } from '../../hooks/useAuth';
@@ -214,13 +215,14 @@ export function VisionEditor({
     editor.setEditable(!readOnly);
   }, [editor, readOnly]);
 
-  const { enabled: assistOn, toggle: toggleAssist } = useAssistMode();
+  // The open period's key, parsed out of resetKey (`${scope}:${periodKey}:${ver}`).
+  // Feeds the per-habit summary strip in the header's second row, which shows
+  // how each habit is doing for THIS exact period (week / month / year).
+  const periodKey = resetKey.split(':')[1] ?? '';
 
-  // NOTE: Assist no longer auto-seeds questions. It used to drop a few starter
-  // questions into any empty doc when on — but because the editor remounts on
-  // every period change, navigating week→week with Assist on re-seeded each
-  // empty week (unwanted). Questions are now added ONLY when the user taps the
-  // "+ כתיבה מודרכת" button.
+  // Guided writing is always available now (no on/off toggle): the button lives
+  // in the header's second row. Questions are inserted ONLY on tap — never
+  // auto-seeded (auto-seeding re-filled every empty period as you navigated).
 
   if (!editor) {
     return (
@@ -230,8 +232,6 @@ export function VisionEditor({
           onStepPeriod={onStepPeriod}
           canStepNext={canStepNext}
           jumpToNow={jumpToNow}
-          assistOn={assistOn}
-          onToggleAssist={toggleAssist}
           icon={icon}
           onIconClick={onIconClick}
           saveStatus={saveStatus}
@@ -271,57 +271,64 @@ export function VisionEditor({
           onStepPeriod={onStepPeriod}
           canStepNext={canStepNext}
           jumpToNow={jumpToNow}
-          assistOn={assistOn}
-          onToggleAssist={toggleAssist}
           icon={icon}
           onIconClick={onIconClick}
           saveStatus={saveStatus}
         />
-        {/* Guided-writing: insert another question. Sits right under the
-            title (top of the writing card), not in the formatting toolbar.
-            Always mounted while editable — the .assist-reveal shell slides
-            it open/closed smoothly as the Assist toggle flips. */}
+        {/* SECOND header row: the prominent guided-writing button (+ its
+            settings) on the right, and a per-habit success summary for this
+            period filling the rest. Carries the single divider below the
+            whole 2-row header. */}
         {!readOnly && (
           <div
-            className={`assist-reveal ${assistOn ? 'assist-reveal--open' : ''}`}
-            aria-hidden={!assistOn}
+            dir="rtl"
+            className="flex items-center gap-2 pb-2.5 mb-3 border-b border-surface-border"
           >
-            <div className="assist-reveal__inner pb-2 flex items-stretch gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Guided writing — bold, colourful, always available. Inserts a
+                  fresh guiding question at the caret. */}
               <button
                 type="button"
-                tabIndex={assistOn ? 0 : -1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={insertOneQuestion}
                 className="
-                  flex-1 inline-flex items-center justify-center gap-1.5 h-9
-                  rounded-xl border border-dashed border-surface-border
-                  text-[13px] font-medium text-ink-300
-                  hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
-                  transition-colors
+                  inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl
+                  bg-gradient-to-l from-forest-700/35 to-forest-600/15
+                  ring-1 ring-forest-600/40 text-forest-200
+                  text-[13px] font-semibold
+                  hover:from-forest-700/45 hover:to-forest-600/25
+                  shadow-[0_2px_10px_-5px_rgba(0,0,0,0.6)] transition-colors
                 "
               >
-                <Plus size={15} strokeWidth={2.2} />
+                <Emoji emoji="✨" size={16} ariaLabel="" />
                 כתיבה מודרכת
               </button>
               {/* My-questions settings — author personal questions and
                   optionally replace the defaults with them. */}
               <button
                 type="button"
-                tabIndex={assistOn ? 0 : -1}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setQuestionSettingsOpen(true)}
                 aria-label="השאלות שלי"
                 title="השאלות שלי"
                 className="
                   shrink-0 w-9 h-9 inline-flex items-center justify-center
-                  rounded-xl border border-dashed border-surface-border
-                  text-ink-300
-                  hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
+                  rounded-xl bg-surface-raised ring-1 ring-surface-border
+                  text-ink-300 hover:text-forest-400 hover:ring-forest-600
                   transition-colors
                 "
               >
                 <Settings2 size={15} strokeWidth={2} />
               </button>
+            </div>
+            {/* Per-habit success rings for the open period (week/month/year).
+                Scrolls horizontally when there are more habits than fit. */}
+            <div className="min-w-0 flex-1 overflow-x-auto vision-habits-scroll">
+              <VisionHabitsStrip
+                userId={userId}
+                scope={scope}
+                periodKey={periodKey}
+              />
             </div>
           </div>
         )}

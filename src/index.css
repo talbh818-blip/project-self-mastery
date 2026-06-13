@@ -486,6 +486,16 @@ html[data-theme="light"] {
   height: 3.5rem;
 }
 
+/* The per-habit success rings (header row 2) scroll horizontally when there
+   are more habits than fit — without a visible scrollbar (it's a glanceable
+   strip, not a scroll region the user needs to see chrome for). */
+.vision-habits-scroll {
+  scrollbar-width: none; /* Firefox */
+}
+.vision-habits-scroll::-webkit-scrollbar {
+  display: none; /* WebKit */
+}
+
 /* ---------------------------------------------------------------------------
  * Scope-switch ZOOM transition. Going to a finer level (year→month→week)
  * zooms IN — the new page rushes toward you from slightly small. Going
