@@ -186,8 +186,10 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
             </button>
           </div>
 
-          {/* The rail's body: the whole-year map (or the feed's search box). */}
-          <div className="vision-desktop-rail-body rounded-2xl bg-surface-card ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
+          {/* The rail's body. Background is the PAGE base (darker than the
+              month cards) so each month's surface-card reads as its own
+              container — exactly like the mobile year map. */}
+          <div className="vision-desktop-rail-body rounded-2xl bg-surface-base ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
             {feedActive ? (
               <div className="relative">
                 <Search

@@ -897,6 +897,15 @@ html[data-theme="light"] .vision-editor .vision-question {
   max-height: calc(100vh - 12rem);
 }
 
+/* Desktop year map: the 2-column cards are wide, which makes the per-week
+   squares grow large. Cap them a touch smaller so they stay tidy. Scoped to
+   the desktop rail only — the mobile year map is untouched. The cap overrides
+   the inline `calc()` width (max-width wins) while aspect-square keeps them
+   square. */
+.vision-desktop-rail .vision-week-cell {
+  max-width: 1.5rem;
+}
+
 @keyframes confetti-fly {
   0% {
     opacity: 0;

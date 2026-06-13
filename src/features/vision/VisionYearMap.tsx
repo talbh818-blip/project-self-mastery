@@ -235,7 +235,7 @@ export function VisionYearMap({
           className={`
             flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg
             font-bold transition-colors
-            ${fillHeight ? 'h-10 text-[17px]' : 'h-7 text-[13px]'}
+            ${fillHeight ? 'h-8 text-[14px]' : 'h-7 text-[13px]'}
             ${
               isYearSelected
                 ? 'bg-forest-700/20 text-ink-100 ring-2 ring-inset ring-forest-500'
@@ -249,7 +249,7 @@ export function VisionYearMap({
           {iconByKey.has(yearKey) && (
             <HabitIcon
               name={iconByKey.get(yearKey)!}
-              size={fillHeight ? 18 : 14}
+              size={fillHeight ? 15 : 14}
               className="shrink-0"
             />
           )}
@@ -500,7 +500,7 @@ function WeekSquare({
       // square is the same size in every month; shorter months centre theirs.
       style={{ width: 'calc((100% - 10px) / 6)' }}
       className={`
-        relative shrink-0 aspect-square rounded-[3px] transition-colors
+        vision-week-cell relative shrink-0 aspect-square rounded-[3px] transition-colors
         flex items-center justify-center
         ${
           isFuture
