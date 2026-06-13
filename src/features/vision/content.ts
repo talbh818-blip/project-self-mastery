@@ -60,3 +60,56 @@ export function visionPreviewText(content: unknown, maxLen = 180): string {
   const text = parts.join(' ').replace(/\s+/g, ' ').trim();
   return text.length > maxLen ? `${text.slice(0, maxLen).trimEnd()}…` : text;
 }
+
+/**
+ * Flatten a vision document into block-level LINES, preserving paragraph breaks
+ * (unlike `visionPreviewText`, which joins everything with spaces). Headings and
+ * paragraphs become one line each; list items become "• "-prefixed lines. Used
+ * by the read-only "look back" panel so past visions read like the journal they
+ * are, not one run-on blob.
+ */
+export function visionParagraphs(content: unknown): string[] {
+  if (!content || typeof content !== 'object') return [];
+
+  const textOf = (node: unknown): string => {
+    const parts: string[] = [];
+    const walk = (n: unknown): void => {
+      if (!n || typeof n !== 'object') return;
+      const nn = n as {
+        type?: string;
+        text?: string;
+        attrs?: { text?: unknown };
+        content?: unknown[];
+      };
+      if (nn.type === 'text' && typeof nn.text === 'string') parts.push(nn.text);
+      else if (nn.type === 'visionQuestion' && typeof nn.attrs?.text === 'string')
+        parts.push(nn.attrs.text);
+      else if (nn.type === 'visionImage') parts.push('🖼️');
+      if (Array.isArray(nn.content)) for (const c of nn.content) walk(c);
+    };
+    walk(node);
+    return parts.join('').replace(/\s+/g, ' ').trim();
+  };
+
+  const root = content as { content?: unknown[] };
+  const blocks = Array.isArray(root.content) ? root.content : [];
+  const lines: string[] = [];
+  for (const block of blocks) {
+    const b = block as { type?: string; content?: unknown[] };
+    if (
+      b.type === 'bulletList' ||
+      b.type === 'orderedList' ||
+      b.type === 'taskList'
+    ) {
+      const items = Array.isArray(b.content) ? b.content : [];
+      for (const li of items) {
+        const t = textOf(li);
+        if (t) lines.push(`• ${t}`);
+      }
+    } else {
+      const t = textOf(block);
+      if (t) lines.push(t);
+    }
+  }
+  return lines;
+}

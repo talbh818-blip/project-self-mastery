@@ -29,10 +29,12 @@ import {
   History,
   GalleryVertical,
   ChevronDown,
+  Eye,
   Search,
   X,
 } from 'lucide-react';
 import { VisionEditorDesktop } from './VisionEditorDesktop';
+import { VisionReminisce } from './VisionReminisce';
 import { VisionYearMap } from './VisionYearMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
 import { VisionIconPicker } from './VisionIconPicker';
@@ -119,6 +121,8 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
   // Whether the navigator body (map / months) is expanded.
   const [navOpen, setNavOpen] = useState(true);
+  // Whether the read-only "look back" panel is showing on the LEFT.
+  const [reminisceOpen, setReminisceOpen] = useState(false);
 
   // Persist only the LEVEL view (never the feed), per-user.
   const persistLevelView = useCallback(
@@ -284,8 +288,27 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
               </button>
             </div>
 
-            {/* LEFT group (RTL end): version history + collapse chevron. */}
+            {/* LEFT group (RTL end): look-back (eye) · history · collapse.
+                The eye is the rightmost of the three (right of history). */}
             <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setReminisceOpen((v) => !v)}
+                aria-pressed={reminisceOpen}
+                aria-label="מבט אחורה — חזונות קודמים לקריאה"
+                title="מבט אחורה"
+                className={`
+                  shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
+                  ring-1 transition-all
+                  ${
+                    reminisceOpen
+                      ? 'bg-forest-700/25 ring-forest-700 text-ink-100'
+                      : 'bg-surface-raised ring-surface-border text-ink-300 hover:text-ink-100 hover:ring-ink-300'
+                  }
+                `}
+              >
+                <Eye size={20} />
+              </button>
               <button
                 type="button"
                 onClick={() => setHistoryOpen(true)}
@@ -442,9 +465,20 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
           )}
         </div>
 
-        {/* ── LEFT BALANCER — empty, same width as the rail, so the centre
-            column lands dead-centre in the viewport ── */}
-        <div aria-hidden className="shrink-0 w-[440px]" />
+        {/* ── LEFT COLUMN — same width as the rail so the centre stays dead-
+            centre. Empty balancer by default; the read-only "look back" panel
+            fills it when the eye is toggled on. ── */}
+        {reminisceOpen ? (
+          <aside className="shrink-0 w-[440px] sticky top-3 self-start">
+            <VisionReminisce
+              userId={userId}
+              today={today}
+              onClose={() => setReminisceOpen(false)}
+            />
+          </aside>
+        ) : (
+          <div aria-hidden className="shrink-0 w-[440px]" />
+        )}
       </div>
 
       <VisionIconPicker
