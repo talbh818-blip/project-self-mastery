@@ -60,6 +60,9 @@ type Props = {
    *  reachable via a scrollbar on the right. Off = compact mode (future rows
    *  hidden, no inner scroll). */
   scrollable?: boolean;
+  /** "חודשי" view: same map style, but only TWO month cards in one row —
+   *  this month + last month (today-based) — under the year header. */
+  recentMonths?: boolean;
 };
 
 /** Enumerate the weeks (Sundays) that OVERLAP a calendar month, in order —
@@ -89,16 +92,26 @@ export function VisionYearMap({
   onPickMonth,
   onPickWeek,
   scrollable = false,
+  recentMonths = false,
 }: Props) {
-  const months = useMemo(
-    () =>
-      Array.from({ length: 12 }, (_, m) => ({
-        index: m,
-        key: getPeriodKey('monthly', new Date(year, m, 1)),
-        weeks: monthWeeks(year, m),
-      })),
-    [year],
-  );
+  const months = useMemo(() => {
+    if (recentMonths) {
+      // This month + last month (today-based; may cross a year boundary).
+      // Current month first → rightmost in RTL; previous to its left.
+      const cur = new Date(today.getFullYear(), today.getMonth(), 1);
+      const prev = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      return [cur, prev].map((d) => ({
+        index: d.getMonth(),
+        key: getPeriodKey('monthly', d),
+        weeks: monthWeeks(d.getFullYear(), d.getMonth()),
+      }));
+    }
+    return Array.from({ length: 12 }, (_, m) => ({
+      index: m,
+      key: getPeriodKey('monthly', new Date(year, m, 1)),
+      weeks: monthWeeks(year, m),
+    }));
+  }, [year, recentMonths, today]);
 
   // Compact mode hides whole FUTURE rows: in the current year we only show
   // months up to the end of the row that holds the current month (rows are
@@ -107,13 +120,13 @@ export function VisionYearMap({
   // the WHOLE year (future months dimmed + inert) so you can scroll it end to
   // end.
   const visibleMonths = useMemo(() => {
-    if (scrollable) return months;
+    if (recentMonths || scrollable) return months;
     const cy = today.getFullYear();
     if (year < cy) return months;
     if (year > cy) return [];
     const rowEnd = Math.ceil((today.getMonth() + 1) / 3) * 3; // 3, 6, 9 or 12
     return months.slice(0, rowEnd);
-  }, [months, year, today, scrollable]);
+  }, [months, year, today, scrollable, recentMonths]);
 
   const allKeys = useMemo(() => {
     const keys = new Set<string>([String(year)]);
@@ -189,9 +202,12 @@ export function VisionYearMap({
 
   return (
     <div dir="rtl" className="pt-1">
-      {/* ── Year selector — full width, THIN (matches the month/week rows) ── */}
+      {/* ── Year header — the yearly vision. Step arrows only in the full year
+          view; in "recent months" mode it's a plain full-width header. ── */}
       <div className="flex items-center gap-1.5 mb-3">
-        <MapArrow dir="prev" aria-label="שנה קודמת" onClick={() => onStepYear(-1)} />
+        {!recentMonths && (
+          <MapArrow dir="prev" aria-label="שנה קודמת" onClick={() => onStepYear(-1)} />
+        )}
         <button
           type="button"
           onClick={onPickYear}
@@ -213,12 +229,14 @@ export function VisionYearMap({
           )}
           <span>{year}</span>
         </button>
-        <MapArrow
-          dir="next"
-          aria-label="שנה הבאה"
-          disabled={nextYearFuture}
-          onClick={() => onStepYear(1)}
-        />
+        {!recentMonths && (
+          <MapArrow
+            dir="next"
+            aria-label="שנה הבאה"
+            disabled={nextYearFuture}
+            onClick={() => onStepYear(1)}
+          />
+        )}
       </div>
 
       {/* ── Month grid ───────────────────────────────────────────────────── */}
@@ -231,7 +249,10 @@ export function VisionYearMap({
         // grid flips back to rtl); the height cap shows 2 rows. Compact mode
         // renders the grid bare.
         <ScrollWrap scrollable={scrollable} maxH={maxH}>
-        <div ref={gridRef} className="grid grid-cols-3 gap-1.5 items-start">
+        <div
+          ref={gridRef}
+          className={`grid gap-1.5 items-start ${recentMonths ? 'grid-cols-2' : 'grid-cols-3'}`}
+        >
           {visibleMonths.map((mo) => {
             const monthHasContent = contentKeys.has(mo.key);
             const monthIcon = iconByKey.get(mo.key) ?? null;

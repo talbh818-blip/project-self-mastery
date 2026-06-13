@@ -17,7 +17,6 @@ import {
   type VisionLevelView,
 } from '../features/vision/VisionViewBar';
 import { VisionYearMap } from '../features/vision/VisionYearMap';
-import { VisionMonthlyOverview } from '../features/vision/VisionMonthlyOverview';
 import { VisionScrollFeed } from '../features/vision/VisionScrollFeed';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
 import { VisionHistorySheet } from '../features/vision/VisionHistorySheet';
@@ -141,10 +140,13 @@ export function Vision() {
     (v: VisionLevelView) => {
       setLevelView(v);
       setFeedActive(false);
+      // Yearly: line the map up with the open period's year. Monthly: its two
+      // cards are today-based, so the year header reflects the current year.
       if (v === 'yearly') setMapYear(anchor.getFullYear());
+      else if (v === 'monthly') setMapYear(today.getFullYear());
       persistView(v);
     },
-    [anchor, persistView],
+    [anchor, today, persistView],
   );
 
   // Switch to the (separate) free-scroll feed.
@@ -384,32 +386,26 @@ export function Vision() {
             style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden min-h-0">
-              {view === 'yearly' ? (
-                <VisionYearMap
-                  userId={userId}
-                  year={mapYear}
-                  today={today}
-                  selectedLevel={level}
-                  selectedKey={periodKey}
-                  scrollable
-                  onStepYear={(delta) => setMapYear((y) => y + delta)}
-                  onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-                  onPickMonth={(monthKey) =>
-                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                  }
-                  onPickWeek={(weekKey) =>
-                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                  }
-                />
-              ) : (
-                <VisionMonthlyOverview
-                  userId={userId}
-                  today={today}
-                  selectedLevel={level}
-                  selectedKey={periodKey}
-                  onOpen={goToPeriod}
-                />
-              )}
+              {/* Same map component for both level views: the yearly view
+                  scrolls the whole year; the monthly view shows just this
+                  month + last month (recentMonths) under the year header. */}
+              <VisionYearMap
+                userId={userId}
+                year={mapYear}
+                today={today}
+                selectedLevel={level}
+                selectedKey={periodKey}
+                scrollable={view === 'yearly'}
+                recentMonths={view === 'monthly'}
+                onStepYear={(delta) => setMapYear((y) => y + delta)}
+                onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+                onPickMonth={(monthKey) =>
+                  goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                }
+                onPickWeek={(weekKey) =>
+                  goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                }
+              />
             </div>
           </div>
 
