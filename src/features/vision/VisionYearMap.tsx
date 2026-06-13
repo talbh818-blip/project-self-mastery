@@ -18,7 +18,7 @@
 //   • Shorter months centre their fewer (uniform-size) week squares.
 //   • Per-period icon shows to the right of the year / month label.
 // ============================================================================
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
 import { HabitIcon } from '../habits/HabitIcon';
@@ -55,6 +55,11 @@ type Props = {
   onPickYear: () => void;
   onPickMonth: (monthKey: string) => void;
   onPickWeek: (weekKey: string) => void;
+  /** "שנתי" view: show the WHOLE year (12 months, future dimmed) inside a
+   *  height-capped scroller — exactly 2 rows (6 months) visible, the rest
+   *  reachable via a scrollbar on the right. Off = compact mode (future rows
+   *  hidden, no inner scroll). */
+  scrollable?: boolean;
 };
 
 /** Enumerate the weeks (Sundays) that OVERLAP a calendar month, in order —
@@ -83,6 +88,7 @@ export function VisionYearMap({
   onPickYear,
   onPickMonth,
   onPickWeek,
+  scrollable = false,
 }: Props) {
   const months = useMemo(
     () =>
@@ -94,17 +100,20 @@ export function VisionYearMap({
     [year],
   );
 
-  // Hide whole FUTURE rows: in the current year we only show months up to the
-  // end of the row that holds the current month (rows are groups of 3). So a
-  // future row simply isn't rendered until its first month arrives. Past years
-  // show all 12.
+  // Compact mode hides whole FUTURE rows: in the current year we only show
+  // months up to the end of the row that holds the current month (rows are
+  // groups of 3), so a future row isn't rendered until its first month
+  // arrives; past years show all 12. The scrollable "שנתי" view instead shows
+  // the WHOLE year (future months dimmed + inert) so you can scroll it end to
+  // end.
   const visibleMonths = useMemo(() => {
+    if (scrollable) return months;
     const cy = today.getFullYear();
     if (year < cy) return months;
     if (year > cy) return [];
     const rowEnd = Math.ceil((today.getMonth() + 1) / 3) * 3; // 3, 6, 9 or 12
     return months.slice(0, rowEnd);
-  }, [months, year, today]);
+  }, [months, year, today, scrollable]);
 
   const allKeys = useMemo(() => {
     const keys = new Set<string>([String(year)]);
@@ -144,6 +153,31 @@ export function VisionYearMap({
       cancelled = true;
     };
   }, [userId, allKeys]);
+
+  // Scrollable mode: cap the month grid to exactly 2 rows (6 months) and let
+  // the rest scroll. All month cards share one structure (heading row + a row
+  // of equal-size week squares), so they're the same height — measure the
+  // first card and the cap is `2·cardHeight + one row gap`. Re-measured on
+  // resize (square size, hence card height, follows the container width).
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [maxH, setMaxH] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    if (!scrollable) {
+      setMaxH(null);
+      return;
+    }
+    const grid = gridRef.current;
+    const first = grid?.children[0] as HTMLElement | undefined;
+    if (!grid || !first) return;
+    const measure = () => {
+      const h = first.getBoundingClientRect().height;
+      if (h > 0) setMaxH(Math.round(h * 2 + 6)); // 2 rows + gap-1.5 (6px)
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(first);
+    return () => ro.disconnect();
+  }, [scrollable, loading, visibleMonths.length]);
 
   const currentMonthKey = getPeriodKey('monthly', today);
   const currentWeekKey = getWeekKey(today);
@@ -193,7 +227,11 @@ export function VisionYearMap({
           <CompassLoader size="md" />
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1.5 items-start">
+        // Scrollable "שנתי": dir=ltr parks the scrollbar on the RIGHT (the inner
+        // grid flips back to rtl); the height cap shows 2 rows. Compact mode
+        // renders the grid bare.
+        <ScrollWrap scrollable={scrollable} maxH={maxH}>
+        <div ref={gridRef} className="grid grid-cols-3 gap-1.5 items-start">
           {visibleMonths.map((mo) => {
             const monthHasContent = contentKeys.has(mo.key);
             const monthIcon = iconByKey.get(mo.key) ?? null;
@@ -272,12 +310,36 @@ export function VisionYearMap({
             );
           })}
         </div>
+        </ScrollWrap>
       )}
     </div>
   );
 }
 
 // ─── Pieces ─────────────────────────────────────────────────────────────────
+
+/** Wraps the month grid: in scrollable mode, a height-capped scroller with the
+ *  bar on the RIGHT (dir=ltr outer → rtl inner); otherwise a pass-through. */
+function ScrollWrap({
+  scrollable,
+  maxH,
+  children,
+}: {
+  scrollable: boolean;
+  maxH: number | null;
+  children: React.ReactNode;
+}) {
+  if (!scrollable) return <>{children}</>;
+  return (
+    <div
+      dir="ltr"
+      className="vision-feed-scroll overflow-y-auto overscroll-contain pl-1.5"
+      style={{ maxHeight: maxH ?? undefined }}
+    >
+      <div dir="rtl">{children}</div>
+    </div>
+  );
+}
 
 function WeekSquare({
   start,

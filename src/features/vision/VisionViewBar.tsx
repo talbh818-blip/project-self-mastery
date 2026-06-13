@@ -1,42 +1,59 @@
 // ============================================================================
-// VisionViewBar — control strip ABOVE the layered navigator.
+// VisionViewBar — control strip ABOVE the vision content.
 // ----------------------------------------------------------------------------
-// Layout (RTL, physical left→right):
+// Layout (RTL, physical right→left):
 //
-//   [ ▼ collapse ] [ היום/החודש/השבוע ] ……… [ ▦ | ▤ view toggle ]
+//   [ שנתי ▾ ] [ ▤ feed ] ……… [ ↺ history ] [ ▾ collapse ]
 //
-//   • Collapse chevron (physical LEFT-most): folds the 3-layer navigator up
-//     and down like a drawer. Rotates 180° to signal the open/closed state.
-//   • Jump-to-now (just right of the chevron): returns the active level to the
-//     current period. Moved here out of the editor's DateBar.
-//   • View toggle (physical RIGHT): switches between the year map and the
-//     free-scroll feed.
+//   • View dropdown (physical RIGHT-most): Google-Calendar-style picker for
+//     the granularity — שבועי / חודשי / שנתי. Its label shows the active
+//     level view; tinted green while a level view is active.
+//   • Free-scroll button: a SEPARATE control (its own chip, a gap away from
+//     the dropdown — deliberately not one segmented group) that switches to
+//     the free-scroll feed.
+//   • physical LEFT (level views only): version-history + collapse chevron.
+//     In the feed it's the search box; in the (coming-soon) weekly view it's
+//     empty.
 //
-// This component is purely presentational — all state lives in the Vision
-// screen so the drawer animation and the editor stay in sync.
+// Purely presentational — all state lives in the Vision screen.
 // ============================================================================
+import { useState } from 'react';
 import {
   ChevronDown,
-  LayoutGrid,
   GalleryVertical,
   History,
   Search,
   X,
+  Check,
 } from 'lucide-react';
 
-export type VisionView = 'board' | 'feed';
+export type VisionLevelView = 'yearly' | 'monthly' | 'weekly';
+export type VisionView = VisionLevelView | 'feed';
+
+const LEVEL_LABELS: Record<VisionLevelView, string> = {
+  yearly: 'שנתי',
+  monthly: 'חודשי',
+  weekly: 'שבועי',
+};
+
+// Menu order, top→bottom: weekly, monthly, yearly (fine→broad, like a
+// calendar's Day/Week/Month/Year list).
+const MENU_ORDER: VisionLevelView[] = ['weekly', 'monthly', 'yearly'];
 
 type Props = {
-  /** Is the layered navigator currently expanded? */
+  /** Is the navigator drawer (map / cards) currently expanded? */
   layersOpen: boolean;
   onToggleLayers: () => void;
-  /** Active view: the year map or the free-scroll feed. */
+  /** The active view. */
   view: VisionView;
-  onViewChange: (view: VisionView) => void;
+  /** The level the dropdown LABELS (the last-picked level view) — stays put
+   *  while the feed is active so the dropdown keeps a meaningful caption. */
+  levelView: VisionLevelView;
+  onPickLevelView: (v: VisionLevelView) => void;
+  onPickFeed: () => void;
   /** Open the version-history (restore) sheet for the open vision. */
   onOpenHistory: () => void;
-  /** Feed-view search box — rendered inline, filling the row left of the
-   *  toggles. Only shown when `view === 'feed'`. */
+  /** Feed-view search box. Only shown when `view === 'feed'`. */
   searchQuery: string;
   onSearchChange: (q: string) => void;
 };
@@ -45,36 +62,116 @@ export function VisionViewBar({
   layersOpen,
   onToggleLayers,
   view,
-  onViewChange,
+  levelView,
+  onPickLevelView,
+  onPickFeed,
   onOpenHistory,
   searchQuery,
   onSearchChange,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const onLevelView = view !== 'feed';
+  // The left cluster (history + collapse) only makes sense for the views with
+  // a navigator + editor below: yearly and monthly.
+  const showNav = view === 'yearly' || view === 'monthly';
+
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
-      {/* physical RIGHT (first DOM child): the two view toggles. Map leads
-          (rightmost in RTL); free-scroll is left-most. */}
-      <div className="inline-flex items-center gap-0.5 rounded-xl bg-surface-raised p-0.5 ring-1 ring-surface-border">
-        <ViewToggle
-          active={view === 'board'}
-          label="מפת השנה"
-          onClick={() => onViewChange('board')}
-        >
-          <LayoutGrid size={16} />
-        </ViewToggle>
-        <ViewToggle
-          active={view === 'feed'}
-          label="גלילה חופשית בין החזונות"
-          onClick={() => onViewChange('feed')}
+      {/* physical RIGHT: the view dropdown + the (separate) free-scroll chip. */}
+      <div className="flex items-center gap-2">
+        {/* ── View dropdown ── */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-haspopup="listbox"
+            aria-expanded={menuOpen}
+            aria-label="בחירת תצוגה"
+            className={`
+              inline-flex items-center gap-1 h-7 ps-2 pe-2.5 rounded-lg
+              text-[13px] font-semibold transition-colors
+              ${
+                onLevelView
+                  ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                  : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
+              }
+            `}
+          >
+            <ChevronDown
+              size={14}
+              className={`shrink-0 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+            />
+            <span>{LEVEL_LABELS[levelView]}</span>
+          </button>
+
+          {menuOpen && (
+            <>
+              {/* Outside-click catcher. */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setMenuOpen(false)}
+                aria-hidden
+              />
+              <div
+                role="listbox"
+                className="absolute z-50 top-full mt-1 right-0 min-w-[148px] rounded-xl bg-surface-card ring-1 ring-surface-border shadow-xl p-1"
+              >
+                {MENU_ORDER.map((opt) => {
+                  const active = view === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      role="option"
+                      aria-selected={active}
+                      onClick={() => {
+                        onPickLevelView(opt);
+                        setMenuOpen(false);
+                      }}
+                      className={`
+                        w-full flex items-center justify-between gap-3 px-3 h-8 rounded-lg
+                        text-[13px] transition-colors
+                        ${
+                          active
+                            ? 'text-forest-400 font-semibold bg-forest-700/10'
+                            : 'text-ink-100 hover:bg-surface-raised'
+                        }
+                      `}
+                    >
+                      <span>{LEVEL_LABELS[opt]}</span>
+                      {active && <Check size={14} className="shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── Free-scroll — a SEPARATE chip (gap above), not grouped with the
+            dropdown. ── */}
+        <button
+          type="button"
+          onClick={onPickFeed}
+          aria-pressed={view === 'feed'}
+          aria-label="גלילה חופשית בין החזונות"
+          title="גלילה חופשית בין החזונות"
+          className={`
+            shrink-0 inline-flex items-center justify-center h-7 w-8 rounded-lg
+            transition-colors
+            ${
+              view === 'feed'
+                ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
+            }
+          `}
         >
           <GalleryVertical size={16} />
-        </ViewToggle>
+        </button>
       </div>
 
-      {/* physical LEFT (last DOM child). In the FEED view this is the search
-          box, filling the row left of the toggles. In the other views it's the
-          version-history button + collapse chevron (DOM order [history][chevron]
-          → in RTL the chevron lands left-most, history just to its right). */}
+      {/* physical LEFT: search (feed) / history + collapse (level views) /
+          nothing (weekly coming-soon). */}
       {view === 'feed' ? (
         <div className="relative flex-1">
           <Search
@@ -103,7 +200,7 @@ export function VisionViewBar({
             </button>
           )}
         </div>
-      ) : (
+      ) : showNav ? (
         <div className="inline-flex items-center gap-1.5">
           <button
             type="button"
@@ -137,45 +234,7 @@ export function VisionViewBar({
             />
           </button>
         </div>
-      )}
+      ) : null}
     </div>
-  );
-}
-
-function ViewToggle({
-  active,
-  disabled = false,
-  label,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  disabled?: boolean;
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={label}
-      aria-pressed={active}
-      title={label}
-      className={`
-        inline-flex items-center justify-center h-7 w-8 rounded-lg
-        transition-colors
-        ${
-          active
-            ? 'bg-forest-700/25 text-ink-100'
-            : disabled
-              ? 'text-ink-300/30'
-              : 'text-ink-300 hover:text-ink-100 hover:bg-surface-card'
-        }
-      `}
-    >
-      {children}
-    </button>
   );
 }

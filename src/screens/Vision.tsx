@@ -9,10 +9,15 @@
 // when stepping a week crosses a month/year boundary.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Hammer } from 'lucide-react';
 import { VisionEditor } from '../features/vision/VisionEditor';
-import { VisionViewBar, type VisionView } from '../features/vision/VisionViewBar';
+import {
+  VisionViewBar,
+  type VisionView,
+  type VisionLevelView,
+} from '../features/vision/VisionViewBar';
 import { VisionYearMap } from '../features/vision/VisionYearMap';
+import { VisionMonthlyOverview } from '../features/vision/VisionMonthlyOverview';
 import { VisionScrollFeed } from '../features/vision/VisionScrollFeed';
 import { VisionIconPicker } from '../features/vision/VisionIconPicker';
 import { VisionHistorySheet } from '../features/vision/VisionHistorySheet';
@@ -47,19 +52,27 @@ const PLACEHOLDERS: Record<VisionScope, string> = {
   weekly: 'מה המיקוד שלך לשבוע הזה?',
 };
 
-// Per-user remembered view. The map ("board") is the default for a brand-new
+// Per-user remembered view. The yearly map is the default for a brand-new
 // user; once someone switches, their choice sticks (per user, per device).
 const VIEW_LS_PREFIX = 'vision-view:';
 
 function readSavedView(userId: string | null): VisionView {
-  if (!userId) return 'board';
+  if (!userId) return 'yearly';
   try {
     const saved = localStorage.getItem(`${VIEW_LS_PREFIX}${userId}`);
-    if (saved === 'board' || saved === 'feed') return saved;
+    // 'board' is the legacy key for what is now the yearly map.
+    if (saved === 'board') return 'yearly';
+    if (
+      saved === 'yearly' ||
+      saved === 'monthly' ||
+      saved === 'weekly' ||
+      saved === 'feed'
+    )
+      return saved;
   } catch {
     // ignore — fall through to default
   }
-  return 'board';
+  return 'yearly';
 }
 
 export function Vision() {
@@ -73,10 +86,21 @@ export function Vision() {
   const [anchor, setAnchor] = useState<Date>(today);
 
   // Top-bar state: whether the navigator drawer is expanded, and which view is
-  // active. The map ("board") is the default view; each user's last choice is
+  // active. The view is modelled as two independent pieces so the Google-
+  // Calendar-style dropdown (a LEVEL view: yearly/monthly/weekly) and the
+  // SEPARATE free-scroll button don't fight over one slot:
+  //   • levelView — which granularity the dropdown last picked (also its label
+  //     while the feed is open),
+  //   • feedActive — whether the free-scroll feed is the active surface.
+  // `view` is the resolved active surface. Each user's last choice is
   // remembered per-user in localStorage and wins on entry.
   const [layersOpen, setLayersOpen] = useState(true);
-  const [view, setView] = useState<VisionView>(() => readSavedView(userId));
+  const initialView = useMemo(() => readSavedView(userId), [userId]);
+  const [levelView, setLevelView] = useState<VisionLevelView>(
+    initialView === 'feed' ? 'yearly' : initialView,
+  );
+  const [feedActive, setFeedActive] = useState(initialView === 'feed');
+  const view: VisionView = feedActive ? 'feed' : levelView;
   // Feed-view search query — lifted here so the search box can live in the top
   // view-bar row (left of the toggles) instead of inside the feed.
   const [feedQuery, setFeedQuery] = useState('');
@@ -84,31 +108,50 @@ export function Vision() {
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
 
+  const persistView = useCallback(
+    (v: VisionView) => {
+      if (!userId) return;
+      try {
+        localStorage.setItem(`${VIEW_LS_PREFIX}${userId}`, v);
+      } catch {
+        // private-mode / quota — preference just won't persist.
+      }
+    },
+    [userId],
+  );
+
   // Once auth resolves, apply this user's saved view preference (the lazy
   // initializer above may have run before userId was known).
   const viewLoadedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userId || viewLoadedForRef.current === userId) return;
     viewLoadedForRef.current = userId;
-    setView(readSavedView(userId));
+    const v = readSavedView(userId);
+    if (v === 'feed') {
+      setFeedActive(true);
+    } else {
+      setFeedActive(false);
+      setLevelView(v);
+    }
   }, [userId]);
 
-  // Switch + remember the view. Entering the map lines it up with the open
-  // period's year.
-  const changeView = useCallback(
-    (v: VisionView) => {
-      if (v === 'board') setMapYear(anchor.getFullYear());
-      setView(v);
-      if (userId) {
-        try {
-          localStorage.setItem(`${VIEW_LS_PREFIX}${userId}`, v);
-        } catch {
-          // private-mode / quota — preference just won't persist.
-        }
-      }
+  // Pick a level view from the dropdown. Entering the yearly map lines it up
+  // with the open period's year.
+  const pickLevelView = useCallback(
+    (v: VisionLevelView) => {
+      setLevelView(v);
+      setFeedActive(false);
+      if (v === 'yearly') setMapYear(anchor.getFullYear());
+      persistView(v);
     },
-    [anchor, userId],
+    [anchor, persistView],
   );
+
+  // Switch to the (separate) free-scroll feed.
+  const pickFeed = useCallback(() => {
+    setFeedActive(true);
+    persistView('feed');
+  }, [persistView]);
 
   const periodKey = getPeriodKey(level, anchor);
   const locked = isFuturePeriod(level, periodKey);
@@ -234,7 +277,7 @@ export function Vision() {
   // action in both views. Disabled only when we're already there.
   const onCurrentWeek =
     level === 'weekly' && periodKey === getPeriodKey('weekly', today);
-  const mapOnCurrentYear = view !== 'board' || mapYear === today.getFullYear();
+  const mapOnCurrentYear = view !== 'yearly' || mapYear === today.getFullYear();
   const jumpToNow = {
     label: 'השבוע',
     enabled: !(onCurrentWeek && mapOnCurrentYear),
@@ -252,13 +295,15 @@ export function Vision() {
     setLevel(targetLevel);
   };
 
-  // Feed → tap a vision: jump to it and open the map view (so the editor +
-  // map context show). Sync the map's year to the opened period.
+  // Feed → tap a vision: jump to it and land on the yearly map (so the editor
+  // + map context show). Sync the map's year to the opened period.
   const openFromFeed = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
     setMapYear(targetAnchor.getFullYear());
-    setView('board');
+    setFeedActive(false);
+    setLevelView('yearly');
+    persistView('yearly');
   };
 
   // The writing surface for the active period — shown below the year-map grid.
@@ -307,7 +352,9 @@ export function Vision() {
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((v) => !v)}
         view={view}
-        onViewChange={changeView}
+        levelView={levelView}
+        onPickLevelView={pickLevelView}
+        onPickFeed={pickFeed}
         onOpenHistory={() => setHistoryOpen(true)}
         searchQuery={feedQuery}
         onSearchChange={setFeedQuery}
@@ -315,7 +362,7 @@ export function Vision() {
 
       {view === 'feed' ? (
         // Free-scroll feed — a view of its own (no navigator, no single
-        // editor). Tapping a vision opens it in the map view.
+        // editor). Tapping a vision opens it in the yearly map view.
         <VisionScrollFeed
           userId={userId}
           today={today}
@@ -323,31 +370,46 @@ export function Vision() {
           query={feedQuery}
           onOpen={openFromFeed}
         />
+      ) : view === 'weekly' ? (
+        // Weekly view — coming soon (placeholder until the dedicated layout
+        // lands). No navigator, no editor.
+        <WeeklyComingSoon />
       ) : (
         <>
-          {/* The year map navigator — collapses as a drawer. The grid 0fr↔1fr
-              trick animates real content height with no JS measuring; the inner
-              wrapper clips during the fold. */}
+          {/* The navigator (yearly map / monthly cards) — collapses as a
+              drawer. The grid 0fr↔1fr trick animates real content height with
+              no JS measuring; the inner wrapper clips during the fold. */}
           <div
             className="grid transition-[grid-template-rows] duration-300 ease-in-out"
             style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden min-h-0">
-              <VisionYearMap
-                userId={userId}
-                year={mapYear}
-                today={today}
-                selectedLevel={level}
-                selectedKey={periodKey}
-                onStepYear={(delta) => setMapYear((y) => y + delta)}
-                onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-                onPickMonth={(monthKey) =>
-                  goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                }
-                onPickWeek={(weekKey) =>
-                  goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                }
-              />
+              {view === 'yearly' ? (
+                <VisionYearMap
+                  userId={userId}
+                  year={mapYear}
+                  today={today}
+                  selectedLevel={level}
+                  selectedKey={periodKey}
+                  scrollable
+                  onStepYear={(delta) => setMapYear((y) => y + delta)}
+                  onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+                  onPickMonth={(monthKey) =>
+                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                  }
+                  onPickWeek={(weekKey) =>
+                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                  }
+                />
+              ) : (
+                <VisionMonthlyOverview
+                  userId={userId}
+                  today={today}
+                  selectedLevel={level}
+                  selectedKey={periodKey}
+                  onOpen={goToPeriod}
+                />
+              )}
             </div>
           </div>
 
@@ -413,6 +475,19 @@ function formatVisionTitle(level: VisionScope, anchor: Date): string {
   // weekly — short: just the Sunday that opens the week (day.month).
   const start = parsePeriodStart('weekly', getWeekKey(anchor));
   return `חזון שבועי · ${start.getDate()}.${start.getMonth() + 1}`;
+}
+
+/** Placeholder for the weekly view until its dedicated layout ships. */
+function WeeklyComingSoon() {
+  return (
+    <div className="vision-page text-center">
+      <div className="py-12">
+        <Hammer size={26} className="text-forest-500 mx-auto mb-3" />
+        <p className="text-ink-100 font-semibold">התצוגה השבועית בדרך</p>
+        <p className="text-ink-300 text-sm mt-1">תכף יוצאת — בקרוב כאן.</p>
+      </div>
+    </div>
+  );
 }
 
 function LockedNotice({ level }: { level: VisionScope }) {
