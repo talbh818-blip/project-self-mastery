@@ -6,7 +6,13 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UserCircle, ChevronLeft, CalendarDays, Handshake } from 'lucide-react';
+import {
+  UserCircle,
+  ChevronLeft,
+  CalendarDays,
+  Handshake,
+  MessageCirclePlus,
+} from 'lucide-react';
 import { fetchActiveProfiles } from './queries';
 import { GenderIcon } from './GenderIcon';
 import { Emoji } from '../../components/Emoji';
@@ -34,11 +40,21 @@ export function UsersDirectory() {
 
   return (
     <div className="bg-surface-card rounded-2xl overflow-hidden">
-      <header className="px-5 pt-4 pb-2">
-        <h2 className="text-sm font-semibold text-ink-100">משתתפים אקטיביים</h2>
-        <p className="text-[11px] text-ink-300">
-          סקירת ביצועים של אנשים אחרים באפליקציה
-        </p>
+      <header className="px-5 pt-4 pb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-ink-100">משתתפים אקטיביים</h2>
+          <p className="text-[11px] text-ink-300">
+            המסע מתחזק כשצועדים בו יחד
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={inviteOnWhatsApp}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-forest-700/15 text-forest-400 hover:bg-forest-700/25 active:scale-95 px-3 py-1.5 text-[11px] font-semibold transition"
+        >
+          <MessageCirclePlus size={14} className="shrink-0" />
+          הזמינו חברים
+        </button>
       </header>
 
       {error && (
@@ -109,6 +125,18 @@ export function UsersDirectory() {
         </ul>
       )}
     </div>
+  );
+}
+
+// Opens WhatsApp with a pre-filled invite to the app (current origin as link).
+function inviteOnWhatsApp() {
+  const url = window.location.origin;
+  const text =
+    `בוא/י להצטרף אליי לפרויקט מחויבות לעצמי 🧭 — בונים הרגלים טובים ומשמידים הרגלים רעים, ביחד!\n${url}`;
+  window.open(
+    `https://wa.me/?text=${encodeURIComponent(text)}`,
+    '_blank',
+    'noopener,noreferrer',
   );
 }
 

@@ -41,6 +41,8 @@ export type UserDashboard = {
   habit_count: number;
   vision_count: number;
   habits_visibility: Visibility;
+  /** This user explicitly shared their habits with the current viewer. */
+  shared_with_me: boolean;
   can_view_habits: boolean;
   habits?: DashboardHabit[];
   daily?: DailyV[];

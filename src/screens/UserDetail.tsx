@@ -7,7 +7,17 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { UserCircle, ArrowRight, Lock, CalendarDays, Check } from 'lucide-react';
+import {
+  UserCircle,
+  ArrowRight,
+  Lock,
+  CalendarDays,
+  Check,
+  Handshake,
+  Globe,
+  Sprout,
+} from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 import {
   fetchUserDashboard,
   type UserDashboard,
@@ -20,6 +30,7 @@ import { Emoji } from '../components/Emoji';
 
 export function UserDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState<UserDashboard | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +82,8 @@ export function UserDetail() {
 
   const name = data.display_name || 'משתמש';
   const daysOnJourney = daysSince(data.created_at);
+  const relation = habitsRelation(data, user?.id);
+  const hasHabits = (data.habits?.length ?? 0) > 0;
 
   return (
     <section className="pt-1 pb-6 space-y-4">
@@ -98,7 +111,11 @@ export function UserDetail() {
             <p className="text-lg font-semibold text-ink-100 truncate">{name}</p>
             <GenderIcon gender={data.gender} size={16} />
           </div>
-          <div className="mt-1 flex items-center gap-1 text-[11px] text-ink-300">
+          {/* Habits-visibility relationship tag (private / partner / public). */}
+          <div className="mt-1.5">
+            <RelationTag relation={relation} />
+          </div>
+          <div className="mt-1.5 flex items-center gap-1 text-[11px] text-ink-300">
             <CalendarDays size={12} />
             <span dir="ltr">הצטרף {formatJoinDate(data.created_at)}</span>
           </div>
@@ -123,47 +140,117 @@ export function UserDetail() {
         <Kpi icon={<Emoji emoji="📖" size={22} />} value={data.vision_count} label="כתיבות חזון" />
       </div>
 
-      {/* Habits + heatmap, or a privacy notice */}
+      {/* Habits + heatmap · a neutral "no habits yet" state · or a privacy notice */}
       {data.can_view_habits ? (
-        <>
-          <div className="bg-surface-card rounded-2xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-ink-100">ההרגלים של {name}</h2>
-            {data.habits && data.habits.length > 0 ? (
+        hasHabits ? (
+          <>
+            <div className="bg-surface-card rounded-2xl p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-ink-100">ההרגלים של {name}</h2>
               <div className="grid grid-cols-3 gap-2">
-                {data.habits.map((h) => (
+                {data.habits!.map((h) => (
                   <UserHabitCard key={h.id} habit={h} />
                 ))}
               </div>
-            ) : (
-              <p className="text-xs text-ink-300">אין הרגלים פעילים כרגע.</p>
-            )}
-          </div>
+            </div>
 
-          <div className="bg-surface-card rounded-2xl p-5 space-y-3">
-            <h2 className="text-sm font-semibold text-ink-100">עקביות (חצי שנה אחרונה)</h2>
-            <MiniHeatmap
-              daily={data.daily ?? []}
-              habitCount={Math.max(1, data.habit_count)}
-            />
-            <p className="text-[10px] text-ink-500">
-              כל ריבוע = יום; ככל שירוק יותר, כך סומנו יותר הרגלים בהצלחה.
-            </p>
-          </div>
-        </>
+            <div className="bg-surface-card rounded-2xl p-5 space-y-3">
+              <h2 className="text-sm font-semibold text-ink-100">עקביות (חצי שנה אחרונה)</h2>
+              <MiniHeatmap
+                daily={data.daily ?? []}
+                habitCount={Math.max(1, data.habit_count)}
+              />
+              <p className="text-[10px] text-ink-500">
+                כל ריבוע = יום; ככל שירוק יותר, כך סומנו יותר הרגלים בהצלחה.
+              </p>
+            </div>
+          </>
+        ) : (
+          <Notice
+            icon={<Sprout size={18} className="text-forest-500" />}
+            title="עדיין אין הרגלים"
+            body={`${name} עוד לא יצר/ה הרגלים באפליקציה.`}
+          />
+        )
       ) : (
-        <div className="bg-surface-card rounded-2xl p-5 flex items-center gap-3">
-          <span className="w-10 h-10 rounded-full bg-surface-raised flex items-center justify-center shrink-0">
-            <Lock size={18} className="text-ink-300" />
-          </span>
-          <div>
-            <p className="text-sm text-ink-100 font-medium">ההרגלים פרטיים</p>
-            <p className="text-xs text-ink-300">
-              {name} לא שיתף/ה את ההרגלים איתך.
-            </p>
-          </div>
-        </div>
+        <Notice
+          icon={<Lock size={18} className="text-ink-300" />}
+          title="ההרגלים פרטיים"
+          body={`${name} לא שיתף/ה את ההרגלים איתך.`}
+        />
       )}
     </section>
+  );
+}
+
+// The viewer's habits-visibility relationship to this profile. Mirrors the
+// directory tag: public wins, then an explicit share ("שותף למסע"), else private.
+type HabitsRelation = 'me' | 'public' | 'partner' | 'private';
+
+function habitsRelation(
+  d: UserDashboard,
+  viewerId: string | undefined,
+): HabitsRelation {
+  if (viewerId && d.id === viewerId) return 'me';
+  if (d.habits_visibility === 'public') return 'public';
+  if (d.shared_with_me) return 'partner';
+  return 'private';
+}
+
+function RelationTag({ relation }: { relation: HabitsRelation }) {
+  const cfg = {
+    me: {
+      label: 'אני',
+      icon: null,
+      cls: 'bg-forest-700/30 text-forest-400',
+    },
+    public: {
+      label: 'פומבי',
+      icon: <Globe size={11} />,
+      cls: 'bg-forest-700/20 text-forest-400',
+    },
+    partner: {
+      label: 'שותף למסע',
+      icon: <Handshake size={11} />,
+      cls: 'bg-amber-400/15 text-amber-400',
+    },
+    private: {
+      label: 'פרטי',
+      icon: <Lock size={11} />,
+      cls: 'bg-surface-raised text-ink-300',
+    },
+  }[relation];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${cfg.cls}`}
+    >
+      {cfg.icon}
+      {cfg.label}
+    </span>
+  );
+}
+
+// A small card with a round icon + title + body — used for the empty / private
+// states under the KPI row.
+function Notice({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="bg-surface-card rounded-2xl p-5 flex items-center gap-3">
+      <span className="w-10 h-10 rounded-full bg-surface-raised flex items-center justify-center shrink-0">
+        {icon}
+      </span>
+      <div>
+        <p className="text-sm text-ink-100 font-medium">{title}</p>
+        <p className="text-xs text-ink-300">{body}</p>
+      </div>
+    </div>
   );
 }
 
