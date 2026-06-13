@@ -1,12 +1,20 @@
 // ============================================================================
 // visionHistory — a local "undo" safety net for vision content.
 // ----------------------------------------------------------------------------
-// Every successful save records a snapshot of the (non-empty) content to
-// localStorage, keyed per vision. Because it's persisted, the history survives
-// a refresh / navigation / new tab — so even if content is accidentally
-// cleared and the change syncs to the cloud, the previous versions are still
-// here to restore. Empty content is never snapshotted, so a deletion can't
-// push out the good versions.
+// A snapshot of the (non-empty) content is kept in localStorage, keyed per
+// vision. Because it's persisted, the history survives a refresh / navigation
+// / new tab — so even if content is accidentally cleared and the change syncs
+// to the cloud, the previous versions are still here to restore. Empty content
+// is never snapshotted, so a deletion can't push out the good versions.
+//
+// COALESCING (why the list isn't a wall of near-identical saves): auto-save
+// fires on every ~1s typing pause, but we DON'T seal a version each time —
+// that produced dozens of versions from tiny edits within a minute. Instead,
+// while edits keep coming within COALESCE_WINDOW_MS of the latest snapshot we
+// UPDATE that snapshot in place (one evolving "session" version); a brand-new
+// version is only sealed once that much idle time has passed. So you get
+// roughly one version per sitting — the convention in Docs/Notion-style
+// editors — while the latest content of the current session stays recoverable.
 // ============================================================================
 import { isVisionContentEmpty } from './content';
 import type { VisionScope } from './period';
@@ -15,6 +23,10 @@ export type VisionSnapshot = { content: unknown; savedAt: number };
 
 /** Keep the last N distinct non-empty versions per vision. */
 const MAX_SNAPSHOTS = 12;
+
+/** Edits landing within this long of the newest snapshot update it in place
+ *  (same session) instead of sealing a new version. */
+const COALESCE_WINDOW_MS = 5 * 60_000; // 5 minutes
 
 const keyFor = (userId: string, scope: VisionScope, periodKey: string) =>
   `vision-history:${userId}:${scope}:${periodKey}`;
@@ -59,7 +71,9 @@ function write(
 
 /**
  * Record a version. No-ops for empty content (so deletions never evict the
- * good versions) and dedupes against the most recent snapshot.
+ * good versions), dedupes against existing snapshots, and COALESCES edits made
+ * within COALESCE_WINDOW_MS of the newest snapshot (updates it in place rather
+ * than sealing a near-duplicate).
  */
 export function recordSnapshot(
   userId: string | null,
@@ -73,8 +87,18 @@ export function recordSnapshot(
   // Dedupe against ANY recent snapshot (not just the last) so restoring an
   // earlier version doesn't re-add an identical copy.
   if (items.some((s) => canonical(s.content) === next)) return;
-  items.push({ content, savedAt: Date.now() });
-  while (items.length > MAX_SNAPSHOTS) items.shift();
+
+  const now = Date.now();
+  const newest = items[items.length - 1];
+  if (newest && now - newest.savedAt < COALESCE_WINDOW_MS) {
+    // Same editing session — replace the latest checkpoint with the newer
+    // content instead of appending a new version.
+    items[items.length - 1] = { content, savedAt: now };
+  } else {
+    // Enough idle time passed (or first ever) — seal a new version.
+    items.push({ content, savedAt: now });
+    while (items.length > MAX_SNAPSHOTS) items.shift();
+  }
   write(userId, scope, periodKey, items);
 }
 
