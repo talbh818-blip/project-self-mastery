@@ -154,19 +154,20 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       <div className="flex items-start">
         {/* ── RIGHT RAIL — first child = rightmost in RTL, flush to the edge ── */}
         <aside className="vision-desktop-rail shrink-0 w-[440px] sticky top-3 self-start">
-          {/* Top controls: year-map view · free-scroll view · version history. */}
+          {/* Top controls — icon-only, clustered at the top-RIGHT (RTL start):
+              year-map view · free-scroll view · version history. */}
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 inline-flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
+            <div className="inline-flex items-center p-1 rounded-xl bg-surface-raised ring-1 ring-surface-border">
               <RailViewButton
                 active={!feedActive}
                 onClick={showYearMap}
-                icon={<CalendarDays size={16} />}
+                icon={<CalendarDays size={20} />}
                 label="מפת השנה"
               />
               <RailViewButton
                 active={feedActive}
                 onClick={() => setFeedActive(true)}
-                icon={<GalleryVertical size={16} />}
+                icon={<GalleryVertical size={20} />}
                 label="גלילה חופשית"
               />
             </div>
@@ -176,12 +177,12 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
               aria-label="גרסאות קודמות"
               title="גרסאות קודמות"
               className="
-                shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl
+                shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
                 bg-surface-raised ring-1 ring-surface-border
                 text-ink-300 hover:text-ink-100 hover:ring-ink-300 transition-all
               "
             >
-              <History size={17} />
+              <History size={20} />
             </button>
           </div>
 
@@ -302,7 +303,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   );
 }
 
-/** One option in the rail's view segmented control (year map / free scroll). */
+/** One option in the rail's view control — ICON-ONLY (year map / free scroll). */
 function RailViewButton({
   active,
   onClick,
@@ -319,9 +320,11 @@ function RailViewButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      aria-label={label}
+      title={label}
       className={`
-        flex-1 inline-flex items-center justify-center gap-1.5 h-9 rounded-lg
-        text-[13px] font-semibold transition-colors
+        inline-flex items-center justify-center h-10 w-11 rounded-lg
+        transition-colors
         ${
           active
             ? 'bg-forest-700 text-on-accent shadow-sm'
@@ -330,7 +333,6 @@ function RailViewButton({
       `}
     >
       {icon}
-      {label}
     </button>
   );
 }

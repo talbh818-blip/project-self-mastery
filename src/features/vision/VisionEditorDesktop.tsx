@@ -96,6 +96,7 @@ export function VisionEditorDesktop({
       icon={icon}
       onIconClick={onIconClick}
       saveStatus={saveStatus}
+      variant="desktop"
     />
   );
 
@@ -146,14 +147,14 @@ export function VisionEditorDesktop({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={insertOneQuestion}
                 className="
-                  flex-1 inline-flex items-center justify-center gap-1.5 h-9
+                  flex-1 inline-flex items-center justify-center gap-1.5 h-10
                   rounded-xl border border-dashed border-surface-border
-                  text-[13px] font-medium text-ink-300
+                  text-sm font-medium text-ink-300
                   hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
                   transition-colors
                 "
               >
-                <Plus size={15} strokeWidth={2.2} />
+                <Plus size={20} strokeWidth={2.2} />
                 כתיבה מודרכת
               </button>
               <button
@@ -164,14 +165,14 @@ export function VisionEditorDesktop({
                 aria-label="השאלות שלי"
                 title="השאלות שלי"
                 className="
-                  shrink-0 w-9 h-9 inline-flex items-center justify-center
+                  shrink-0 w-10 h-10 inline-flex items-center justify-center
                   rounded-xl border border-dashed border-surface-border
                   text-ink-300
                   hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
                   transition-colors
                 "
               >
-                <Settings2 size={15} strokeWidth={2} />
+                <Settings2 size={20} strokeWidth={2} />
               </button>
             </div>
           </div>

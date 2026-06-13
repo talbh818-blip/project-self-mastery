@@ -233,8 +233,9 @@ export function VisionYearMap({
           type="button"
           onClick={onPickYear}
           className={`
-            flex-1 inline-flex items-center justify-center gap-1.5 h-7 rounded-lg
-            text-[13px] font-bold transition-colors
+            flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg
+            font-bold transition-colors
+            ${fillHeight ? 'h-10 text-[17px]' : 'h-7 text-[13px]'}
             ${
               isYearSelected
                 ? 'bg-forest-700/20 text-ink-100 ring-2 ring-inset ring-forest-500'
@@ -246,7 +247,11 @@ export function VisionYearMap({
         >
           {contentKeys.has(yearKey) && <WrittenDot />}
           {iconByKey.has(yearKey) && (
-            <HabitIcon name={iconByKey.get(yearKey)!} size={14} className="shrink-0" />
+            <HabitIcon
+              name={iconByKey.get(yearKey)!}
+              size={fillHeight ? 18 : 14}
+              className="shrink-0"
+            />
           )}
           <span>{year}</span>
         </button>
@@ -389,7 +394,9 @@ function MonthsLayout({
   const grid = (
     <div
       ref={gridRef}
-      className={`grid gap-1.5 items-start ${recentMonths ? 'grid-cols-2' : 'grid-cols-3'}`}
+      className={`grid gap-1.5 items-start ${
+        recentMonths || fillHeight ? 'grid-cols-2' : 'grid-cols-3'
+      }`}
     >
       {children}
     </div>

@@ -43,6 +43,9 @@ type Props = {
   onIconClick: () => void;
   /** Save indicator state — driven by useVisionEntry. */
   saveStatus: SaveStatus;
+  /** 'desktop' bumps the chrome icons/buttons a notch (consistency with the
+   *  desktop toolbar). Default 'mobile' leaves the phone layout untouched. */
+  variant?: 'mobile' | 'desktop';
 };
 
 export function DateBar({
@@ -55,7 +58,17 @@ export function DateBar({
   icon,
   onIconClick,
   saveStatus,
+  variant = 'mobile',
 }: Props) {
+  // Desktop sizes the chrome icons to match the formatting toolbar (~20px);
+  // mobile keeps its original compact sizing.
+  const big = variant === 'desktop';
+  const sideBtn = big ? 'h-9 w-9' : 'h-7 w-7';
+  const habitGlyph = big ? 20 : 16;
+  const smileGlyph = big ? 19 : 15;
+  const assistGlyph = big ? 18 : 15;
+  const nowBtn = big ? 'h-9 px-3 text-[12px]' : 'h-7 px-2.5 text-[11px]';
+  const nowGlyph = big ? 16 : 13;
   return (
     // 3-column grid with equal-width flanks (1fr each) so the TITLE in the
     // middle column is truly centred in the row regardless of how wide the
@@ -73,16 +86,16 @@ export function DateBar({
           title="בחר אייקון לחזון"
           className={`
             shrink-0 inline-flex items-center justify-center
-            h-7 w-7 rounded-lg transition-all
+            ${sideBtn} rounded-lg transition-all
             ${icon
               ? 'bg-forest-700/25 text-ink-100'
               : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 text-ink-300'}
           `}
         >
           {icon ? (
-            <HabitIcon name={icon} size={16} />
+            <HabitIcon name={icon} size={habitGlyph} />
           ) : (
-            <SmilePlus size={15} strokeWidth={1.9} />
+            <SmilePlus size={smileGlyph} strokeWidth={1.9} />
           )}
         </button>
 
@@ -95,13 +108,13 @@ export function DateBar({
           title={assistOn ? 'כיבוי כתיבה מודרכת' : 'הפעלת כתיבה מודרכת'}
           className={`
             shrink-0 inline-flex items-center justify-center
-            h-7 w-7 rounded-lg transition-all
+            ${sideBtn} rounded-lg transition-all
             ${assistOn
               ? 'bg-forest-700/25 ring-1 ring-forest-700'
               : 'bg-surface-raised ring-1 ring-surface-border hover:ring-ink-300 opacity-70'}
           `}
         >
-          <Emoji emoji="🗺️" size={15} ariaLabel="" />
+          <Emoji emoji="🗺️" size={assistGlyph} ariaLabel="" />
         </button>
       </div>
 
@@ -137,8 +150,8 @@ export function DateBar({
               : `כבר ב${jumpToNow.label}`
           }
           className={`
-            shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-lg
-            text-[11px] font-semibold transition-colors
+            shrink-0 inline-flex items-center gap-1 ${nowBtn} rounded-lg
+            font-semibold transition-colors
             ${
               jumpToNow.enabled
                 ? // Soft green tint instead of a loud solid fill.
@@ -147,7 +160,7 @@ export function DateBar({
             }
           `}
         >
-          <RotateCcw size={13} className="shrink-0" />
+          <RotateCcw size={nowGlyph} className="shrink-0" />
           {jumpToNow.label}
         </button>
       </div>
