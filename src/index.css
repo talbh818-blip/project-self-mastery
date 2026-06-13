@@ -411,6 +411,9 @@ html[data-theme="light"] {
 @keyframes tree-radar-ping {
   0% {
     transform: scale(0.25);
+    opacity: 0;
+  }
+  20% {
     opacity: 0.18;
   }
   70% {
