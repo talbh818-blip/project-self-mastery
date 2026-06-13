@@ -214,10 +214,14 @@ export function VisionYearMap({
 
   return (
     <div dir="rtl" className="pt-1">
-      {/* ── Year header — the yearly vision. Step arrows only in the full year
-          view; in "recent months" mode it's a plain full-width header. ── */}
+      {/* ── Year header — the yearly vision. Full year view: flanked by the
+          year-step arrows. "Recent months" view: flanked by spacers the SAME
+          width as the month-step arrows below, so the header lines up exactly
+          with the two month cards (and doesn't bleed to the screen edges). ── */}
       <div className="flex items-center gap-1.5 mb-3">
-        {!recentMonths && (
+        {recentMonths ? (
+          <span aria-hidden className="w-7 shrink-0" />
+        ) : (
           <MapArrow dir="prev" aria-label="שנה קודמת" onClick={() => onStepYear(-1)} />
         )}
         <button
@@ -241,7 +245,9 @@ export function VisionYearMap({
           )}
           <span>{year}</span>
         </button>
-        {!recentMonths && (
+        {recentMonths ? (
+          <span aria-hidden className="w-7 shrink-0" />
+        ) : (
           <MapArrow
             dir="next"
             aria-label="שנה הבאה"
