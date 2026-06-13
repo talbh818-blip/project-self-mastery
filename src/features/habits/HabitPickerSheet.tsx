@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
+import { X, Check, AlertTriangle, CheckCircle2, XCircle, AlignLeft, List, ListOrdered, ListChecks, type LucideIcon } from 'lucide-react';
 import type { CreateHabitInput } from './mutations';
 import {
   HabitIcon,
@@ -528,7 +528,7 @@ export function HabitPickerSheet({
                       key={opt.v}
                       type="button"
                       onClick={() => setFrequencyPeriod(opt.v)}
-                      className={`px-3.5 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                      className={`px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors ${
                         frequencyPeriod === opt.v
                           ? 'bg-forest-700 text-on-accent'
                           : 'text-ink-300 hover:text-ink-100'
@@ -562,6 +562,8 @@ export function HabitPickerSheet({
               {frequencyPeriod === 'daily' && (
                 <div className="mt-4">
                   <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    {/* Custom brand checkbox — forest-green box + soft cream
+                        check (not a bright/white native checkbox). */}
                     <input
                       type="checkbox"
                       checked={maxEnabled}
@@ -573,8 +575,19 @@ export function HabitPickerSheet({
                           setMaxCount(frequencyTarget + 5);
                         }
                       }}
-                      className="w-4 h-4 accent-forest-600 cursor-pointer"
+                      className="sr-only"
                     />
+                    <span
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                        maxEnabled
+                          ? 'bg-forest-700 border-forest-700'
+                          : 'bg-surface-raised border-surface-border'
+                      }`}
+                    >
+                      {maxEnabled && (
+                        <Check size={13} strokeWidth={3} className="text-cream-50" />
+                      )}
+                    </span>
                     <span
                       className={`text-sm transition-colors ${
                         maxEnabled ? 'text-ink-100' : 'text-ink-300'
@@ -583,21 +596,27 @@ export function HabitPickerSheet({
                       תקרת ספירה מעל היעד (לא חובה)
                     </span>
                   </label>
-                  {maxEnabled && (
-                    <div className="mt-2.5 flex items-center gap-2">
-                      <span className="text-xs text-ink-300 shrink-0">עד</span>
-                      <NumberStepper
-                        value={Math.max(maxCount, frequencyTarget + 1)}
-                        onChange={setMaxCount}
-                        min={frequencyTarget + 1}
-                        max={99}
-                        compact
-                      />
-                      <span className="text-xs text-ink-300 shrink-0">
-                        פעמים ביום
-                      </span>
-                    </div>
-                  )}
+                  {/* The cap stepper is ALWAYS shown — grayed out and inert
+                      until the checkbox is ticked, so it reads as available
+                      but optional rather than appearing out of nowhere. */}
+                  <div
+                    className={`mt-2.5 flex items-center gap-2 transition-opacity ${
+                      maxEnabled ? '' : 'opacity-50'
+                    }`}
+                  >
+                    <span className="text-xs text-ink-300 shrink-0">עד</span>
+                    <NumberStepper
+                      value={Math.max(maxCount, frequencyTarget + 1)}
+                      onChange={setMaxCount}
+                      min={frequencyTarget + 1}
+                      max={99}
+                      compact
+                      disabled={!maxEnabled}
+                    />
+                    <span className="text-xs text-ink-300 shrink-0">
+                      פעמים ביום
+                    </span>
+                  </div>
                   <p className="text-xs mt-1.5 leading-snug text-ink-300">
                     מאפשר לסמן מעבר ליעד לצורך ספירה בלבד - היעד והניקוד נשארים
                     לפי {frequencyTarget > 1 ? frequencyTarget : 'היעד'}, והלחיצות
@@ -828,6 +847,7 @@ function NumberStepper({
   max,
   step = 1,
   compact = false,
+  disabled = false,
 }: {
   value: number;
   onChange: (n: number) => void;
@@ -836,14 +856,20 @@ function NumberStepper({
   step?: number;
   /** Compact = fixed-width (sits beside other controls); default = full row. */
   compact?: boolean;
+  /** Inert + non-interactive (parent dims it). */
+  disabled?: boolean;
 }) {
   const clamp = (n: number) => Math.max(min, Math.min(max, n));
   return (
-    <div className={`flex items-center gap-1.5 ${compact ? 'shrink-0' : ''}`}>
+    <div
+      className={`flex items-center gap-1.5 ${compact ? 'shrink-0' : ''} ${
+        disabled ? 'pointer-events-none' : ''
+      }`}
+    >
       <button
         type="button"
         onClick={() => onChange(clamp(value - step))}
-        disabled={value <= min}
+        disabled={disabled || value <= min}
         className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
       >
         −
@@ -853,6 +879,7 @@ function NumberStepper({
         inputMode="numeric"
         pattern="[0-9]*"
         value={value}
+        disabled={disabled}
         onChange={(e) => {
           const raw = e.target.value.replace(/[^0-9]/g, '');
           if (raw === '') return;
@@ -860,13 +887,13 @@ function NumberStepper({
           if (!Number.isNaN(n)) onChange(clamp(n));
         }}
         className={`text-center py-2 rounded-xl bg-surface-raised border border-surface-border text-ink-100 text-sm focus:outline-none focus:border-forest-500 ${
-          compact ? 'w-12 px-1' : 'flex-1 px-3'
+          compact ? 'w-14 px-1' : 'flex-1 px-3'
         }`}
       />
       <button
         type="button"
         onClick={() => onChange(clamp(value + step))}
-        disabled={value >= max}
+        disabled={disabled || value >= max}
         className="w-9 h-9 shrink-0 rounded-xl bg-surface-raised text-ink-100 hover:bg-surface-border disabled:opacity-30 text-lg"
       >
         +
