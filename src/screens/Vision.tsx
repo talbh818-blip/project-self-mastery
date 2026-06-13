@@ -51,23 +51,21 @@ const PLACEHOLDERS: Record<VisionScope, string> = {
   weekly: 'מה המיקוד שלך לשבוע הזה?',
 };
 
-// Per-user remembered view. The yearly map is the default for a brand-new
-// user; once someone switches, their choice sticks (per user, per device).
+// Per-user remembered view. ONLY a level view (yearly/monthly/weekly) is ever
+// remembered as the entry default — the free-scroll feed is deliberately NEVER
+// persisted, so opening the app always lands on the user's last level view (or
+// the yearly map for a brand-new user). Choice sticks per user, per device.
 const VIEW_LS_PREFIX = 'vision-view:';
 
-function readSavedView(userId: string | null): VisionView {
+function readSavedLevelView(userId: string | null): VisionLevelView {
   if (!userId) return 'yearly';
   try {
     const saved = localStorage.getItem(`${VIEW_LS_PREFIX}${userId}`);
     // 'board' is the legacy key for what is now the yearly map.
     if (saved === 'board') return 'yearly';
-    if (
-      saved === 'yearly' ||
-      saved === 'monthly' ||
-      saved === 'weekly' ||
-      saved === 'feed'
-    )
+    if (saved === 'yearly' || saved === 'monthly' || saved === 'weekly')
       return saved;
+    // 'feed' (or anything unexpected) → fall through: feed is never a default.
   } catch {
     // ignore — fall through to default
   }
@@ -94,11 +92,12 @@ export function Vision() {
   // `view` is the resolved active surface. Each user's last choice is
   // remembered per-user in localStorage and wins on entry.
   const [layersOpen, setLayersOpen] = useState(true);
-  const initialView = useMemo(() => readSavedView(userId), [userId]);
-  const [levelView, setLevelView] = useState<VisionLevelView>(
-    initialView === 'feed' ? 'yearly' : initialView,
+  // levelView is restored from the saved default; feed always starts OFF (the
+  // feed is never the entry default).
+  const [levelView, setLevelView] = useState<VisionLevelView>(() =>
+    readSavedLevelView(userId),
   );
-  const [feedActive, setFeedActive] = useState(initialView === 'feed');
+  const [feedActive, setFeedActive] = useState(false);
   const view: VisionView = feedActive ? 'feed' : levelView;
   // Feed-view search query — lifted here so the search box can live in the top
   // view-bar row (left of the toggles) instead of inside the feed.
@@ -111,8 +110,9 @@ export function Vision() {
   // independent of the editor's open period below.
   const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
 
-  const persistView = useCallback(
-    (v: VisionView) => {
+  // Only level views are persisted (never the feed).
+  const persistLevelView = useCallback(
+    (v: VisionLevelView) => {
       if (!userId) return;
       try {
         localStorage.setItem(`${VIEW_LS_PREFIX}${userId}`, v);
@@ -123,19 +123,14 @@ export function Vision() {
     [userId],
   );
 
-  // Once auth resolves, apply this user's saved view preference (the lazy
-  // initializer above may have run before userId was known).
+  // Once auth resolves, apply this user's saved level-view default (the lazy
+  // initializer above may have run before userId was known). Feed stays off.
   const viewLoadedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userId || viewLoadedForRef.current === userId) return;
     viewLoadedForRef.current = userId;
-    const v = readSavedView(userId);
-    if (v === 'feed') {
-      setFeedActive(true);
-    } else {
-      setFeedActive(false);
-      setLevelView(v);
-    }
+    setLevelView(readSavedLevelView(userId));
+    setFeedActive(false);
   }, [userId]);
 
   // Pick a level view from the dropdown. Entering the yearly map lines it up
@@ -151,9 +146,9 @@ export function Vision() {
         setMonthlyAnchor(today);
         setMapYear(today.getFullYear());
       }
-      persistView(v);
+      persistLevelView(v);
     },
-    [anchor, today, persistView],
+    [anchor, today, persistLevelView],
   );
 
   // Step the "חודשי" window a month back/forward; keep the year header (mapYear)
@@ -176,11 +171,12 @@ export function Vision() {
     getPeriodKey('monthly', addAnchor('monthly', monthlyAnchor, 1)),
   );
 
-  // Switch to the (separate) free-scroll feed.
+  // Switch to the (separate) free-scroll feed. NOT persisted — the feed is
+  // never restored as the entry default; the saved level view stays the
+  // default, so a reload lands back on it.
   const pickFeed = useCallback(() => {
     setFeedActive(true);
-    persistView('feed');
-  }, [persistView]);
+  }, []);
 
   const periodKey = getPeriodKey(level, anchor);
   const locked = isFuturePeriod(level, periodKey);
@@ -326,14 +322,15 @@ export function Vision() {
   };
 
   // Feed → tap a vision: jump to it and land on the yearly map (so the editor
-  // + map context show). Sync the map's year to the opened period.
+  // + map context show). Sync the map's year to the opened period. We switch
+  // the in-memory view to yearly so the editor shows, but do NOT persist it —
+  // tapping a feed item is navigation, not a change to the saved default.
   const openFromFeed = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
     setMapYear(targetAnchor.getFullYear());
     setFeedActive(false);
     setLevelView('yearly');
-    persistView('yearly');
   };
 
   // The writing surface for the active period — shown below the year-map grid.
