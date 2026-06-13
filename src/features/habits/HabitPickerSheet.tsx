@@ -97,8 +97,10 @@ export function HabitPickerSheet({
     DEFAULTS.frequency_target,
   );
   // Optional per-day tap cap ABOVE the points target (daily counters only).
+  // The default cap is always "daily target + 2" (tracks the target while the
+  // option is off).
   const [maxEnabled, setMaxEnabled] = useState<boolean>(false);
-  const [maxCount, setMaxCount] = useState<number>(DEFAULTS.frequency_target + 5);
+  const [maxCount, setMaxCount] = useState<number>(DEFAULTS.frequency_target + 2);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -136,7 +138,7 @@ export function HabitPickerSheet({
       }
       // Optional count cap above the target.
       setMaxEnabled(editingHabit.quantitative_max != null);
-      setMaxCount(editingHabit.quantitative_max ?? seededTarget + 5);
+      setMaxCount(editingHabit.quantitative_max ?? seededTarget + 2);
     } else {
       setType(DEFAULTS.type);
       setIcon(DEFAULTS.icon);
@@ -149,7 +151,7 @@ export function HabitPickerSheet({
       setFrequencyPeriod(DEFAULTS.frequency_period);
       setFrequencyTarget(DEFAULTS.frequency_target);
       setMaxEnabled(false);
-      setMaxCount(DEFAULTS.frequency_target + 5);
+      setMaxCount(DEFAULTS.frequency_target + 2);
     }
     setSubmitting(false);
     setError(null);
@@ -556,11 +558,19 @@ export function HabitPickerSheet({
                 </p>
               )}
 
-              {/* Optional count cap ABOVE the target — daily only. Grayed out
+              {/* Optional count cap ABOVE the target — daily only. The whole
+                  block slides open/closed (grid-rows 0fr↔1fr) when switching
+                  period, instead of popping in/out. Inside, it's grayed out
                   until the checkbox is ticked, so it reads as the rare,
                   not-required option it is. */}
-              {frequencyPeriod === 'daily' && (
-                <div className="mt-4">
+              <div
+                className={`grid transition-all duration-300 ease-out ${
+                  frequencyPeriod === 'daily'
+                    ? 'grid-rows-[1fr] opacity-100 mt-4'
+                    : 'grid-rows-[0fr] opacity-0'
+                }`}
+              >
+                <div className="overflow-hidden">
                   <label className="flex items-center gap-2.5 cursor-pointer select-none">
                     {/* Custom brand checkbox — forest-green box + soft cream
                         check (not a bright/white native checkbox). */}
@@ -570,10 +580,8 @@ export function HabitPickerSheet({
                       onChange={(e) => {
                         const on = e.target.checked;
                         setMaxEnabled(on);
-                        // Seed a sensible cap the first time it's switched on.
-                        if (on && maxCount <= frequencyTarget) {
-                          setMaxCount(frequencyTarget + 5);
-                        }
+                        // Seed the default cap (daily target + 2) when ticked.
+                        if (on) setMaxCount(frequencyTarget + 2);
                       }}
                       className="sr-only"
                     />
@@ -597,8 +605,8 @@ export function HabitPickerSheet({
                     </span>
                   </label>
                   {/* The cap stepper is ALWAYS shown — grayed out and inert
-                      until the checkbox is ticked, so it reads as available
-                      but optional rather than appearing out of nowhere. */}
+                      until the checkbox is ticked. While off it shows the live
+                      default (daily target + 2). */}
                   <div
                     className={`mt-2.5 flex items-center gap-2 transition-opacity ${
                       maxEnabled ? '' : 'opacity-50'
@@ -606,7 +614,11 @@ export function HabitPickerSheet({
                   >
                     <span className="text-xs text-ink-300 shrink-0">עד</span>
                     <NumberStepper
-                      value={Math.max(maxCount, frequencyTarget + 1)}
+                      value={
+                        maxEnabled
+                          ? Math.max(maxCount, frequencyTarget + 1)
+                          : frequencyTarget + 2
+                      }
                       onChange={setMaxCount}
                       min={frequencyTarget + 1}
                       max={99}
@@ -623,7 +635,7 @@ export function HabitPickerSheet({
                     הנוספות רק נספרות.
                   </p>
                 </div>
-              )}
+              </div>
             </section>
 
           </div>
