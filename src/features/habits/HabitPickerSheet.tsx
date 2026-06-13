@@ -586,11 +586,9 @@ export function HabitPickerSheet({
                         <Check size={13} strokeWidth={3} className="text-cream-50" />
                       )}
                     </span>
-                    <span
-                      className={`text-sm transition-colors ${
-                        maxEnabled ? 'text-ink-100' : 'text-ink-300'
-                      }`}
-                    >
+                    {/* Stays ink-300 whether or not it's checked, so it reads
+                        like every other section title (no white flip). */}
+                    <span className="text-sm text-ink-300">
                       תקרת ספירה מעל היעד (לא חובה)
                     </span>
                   </label>
