@@ -28,14 +28,23 @@ import {
   type CourseVideo,
 } from '../features/course/queries';
 import { CompassLoader } from '../components/CompassLoader';
+import { useVisionLayoutPref } from '../features/vision/useVisionLayoutPref';
 
 export function Course() {
+  // Course follows the global desktop/mobile toggle (the bottom-nav switch,
+  // shared with Vision). MOBILE keeps the original horizontal book carousel with
+  // the videos stacked below it. DESKTOP uses the full viewport width: a
+  // 3-per-row book grid pinned to the right, with the active book's video player
+  // filling the space to its left.
+  const { mode } = useVisionLayoutPref();
+  const desktop = mode === 'desktop';
+
   const [books, setBooks] = useState<CourseBookWithCount[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeBookId, setActiveBookId] = useState<string | null>(null);
 
   // Load the catalog once on mount. Auto-select the first book so the screen
-  // never shows an "empty" state below the carousel.
+  // never shows an "empty" state next to the carousel/grid.
   useEffect(() => {
     let cancelled = false;
     fetchBooks()
@@ -57,27 +66,101 @@ export function Course() {
   const activeBook =
     books?.find((b) => b.id === activeBookId) ?? books?.[0] ?? null;
 
+  const body = error ? (
+    <p className="text-red-400 text-sm py-10 text-center">{error}</p>
+  ) : !books ? (
+    <div className="py-10">
+      <CompassLoader size="md" />
+    </div>
+  ) : books.length === 0 ? (
+    <EmptyShelf />
+  ) : desktop ? (
+    <CourseDesktop
+      books={books}
+      activeBook={activeBook}
+      activeBookId={activeBookId}
+      onSelect={setActiveBookId}
+    />
+  ) : (
+    <>
+      <BookShelf
+        books={books}
+        activeBookId={activeBookId}
+        onSelect={setActiveBookId}
+      />
+      {activeBook && <BookSection key={activeBook.id} book={activeBook} />}
+    </>
+  );
+
+  // The Layout gives /course the full viewport width (like /vision); we
+  // re-constrain here so MOBILE stays phone-width and DESKTOP gets a roomy —
+  // but not edge-to-edge — canvas.
   return (
-    <section className="-mt-3 pb-6 space-y-5">
-      {error ? (
-        <p className="text-red-400 text-sm py-10 text-center">{error}</p>
-      ) : !books ? (
-        <div className="py-10">
-          <CompassLoader size="md" />
-        </div>
-      ) : books.length === 0 ? (
-        <EmptyShelf />
-      ) : (
-        <>
-          <BookShelf
-            books={books}
-            activeBookId={activeBookId}
-            onSelect={setActiveBookId}
-          />
-          {activeBook && <BookSection key={activeBook.id} book={activeBook} />}
-        </>
-      )}
+    <section
+      className={`-mt-3 pb-6 space-y-5 w-full mx-auto ${
+        desktop ? 'max-w-6xl' : 'max-w-md'
+      }`}
+    >
+      {body}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CourseDesktop — wide two-column layout. RTL renders the first child on the
+// right, so the book grid sits on the right and the video player fills the
+// space to its left.
+// ---------------------------------------------------------------------------
+function CourseDesktop({
+  books,
+  activeBook,
+  activeBookId,
+  onSelect,
+}: {
+  books: CourseBookWithCount[];
+  activeBook: CourseBookWithCount | null;
+  activeBookId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="flex gap-6 items-start">
+      <BookGrid books={books} activeBookId={activeBookId} onSelect={onSelect} />
+      <div className="flex-1 min-w-0">
+        {activeBook && <BookSection key={activeBook.id} book={activeBook} />}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BookGrid — desktop-only. A fixed 3 columns of full-size book cards (same size
+// as the mobile carousel). RTL auto-placement fills right→left, so the cards
+// hug the right edge and a short last row stays right-aligned. Rows stack
+// downward; the panel scrolls vertically once the shelf grows past the cap.
+// ---------------------------------------------------------------------------
+function BookGrid({
+  books,
+  activeBookId,
+  onSelect,
+}: {
+  books: CourseBookWithCount[];
+  activeBookId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="shrink-0 max-h-[72vh] overflow-y-auto p-1">
+      <ul className="grid grid-cols-[repeat(3,100px)] gap-3">
+        {books.map((b) => (
+          <li key={b.id}>
+            <BookCard
+              book={b}
+              active={b.id === activeBookId}
+              onClick={() => onSelect(b.id)}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

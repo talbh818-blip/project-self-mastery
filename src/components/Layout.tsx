@@ -17,12 +17,11 @@ export function Layout() {
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname);
-  // Vision ships a wide desktop layout; give its route the FULL width so the
-  // navigation rail can sit flush against the screen's right edge and the
-  // writing page can centre in the whole viewport. Every other screen stays
-  // phone-width (max-w-md). The Vision screen re-constrains its MOBILE layout to
-  // max-w-md itself, so phones are unaffected.
-  const wideContainer = pathname === '/vision';
+  // Vision and Course both ship a wide desktop layout; give their routes the
+  // FULL width so the page can use the whole viewport. Every other screen stays
+  // phone-width (max-w-md). Both screens re-constrain their MOBILE layout to
+  // max-w-md themselves, so phones are unaffected.
+  const wideContainer = pathname === '/vision' || pathname === '/course';
 
   // On initial load and on every route change, start the viewport just past
   // the brand header so the screen content is what the user sees first.
