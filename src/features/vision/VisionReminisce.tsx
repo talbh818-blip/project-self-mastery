@@ -240,13 +240,17 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         </button>
       </div>
 
-      {/* Checkbox picker — choose what to view (multi-select). */}
-      <div dir="rtl" className="px-3 pb-2.5 shrink-0 border-b border-surface-border">
-        <CheckRow checked={checked.has('yearly')} label="חזון שנתי" onToggle={() => toggle('yearly')} />
-        <CheckRow checked={checked.has('monthly')} label="חזון חודשי" onToggle={() => toggle('monthly')} />
-        <CheckRow checked={checked.has('w1')} label="שבוע שעבר" onToggle={() => toggle('w1')} />
+      {/* Checkbox picker — choose what to view (multi-select). Laid out
+          HORIZONTALLY: the three mains in one row, the sub-weeks in a row
+          below (only when "שבוע שעבר" is checked). */}
+      <div dir="rtl" className="px-3 pb-2.5 shrink-0 border-b border-surface-border space-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <CheckRow checked={checked.has('yearly')} label="חזון שנתי" onToggle={() => toggle('yearly')} />
+          <CheckRow checked={checked.has('monthly')} label="חזון חודשי" onToggle={() => toggle('monthly')} />
+          <CheckRow checked={checked.has('w1')} label="שבוע שעבר" onToggle={() => toggle('w1')} />
+        </div>
         {w1Checked && (
-          <div className="vision-subweeks">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <CheckRow sub checked={checked.has('w2')} label="לפני 2 שבועות" onToggle={() => toggle('w2')} />
             <CheckRow sub checked={checked.has('w3')} label="לפני 3 שבועות" onToggle={() => toggle('w3')} />
             <CheckRow sub checked={checked.has('w4')} label="לפני 4 שבועות" onToggle={() => toggle('w4')} />
@@ -322,9 +326,7 @@ function CheckRow({
       type="button"
       onClick={onToggle}
       aria-pressed={checked}
-      className={`flex items-center gap-2.5 w-full text-right rounded-lg py-1.5 transition-colors hover:bg-surface-raised/50 ${
-        sub ? 'ps-7 pe-2' : 'px-2'
-      }`}
+      className="inline-flex items-center gap-1.5 rounded-lg py-1 px-1.5 transition-colors hover:bg-surface-raised/50"
     >
       <span
         className={`shrink-0 inline-flex items-center justify-center rounded-[5px] border transition-colors ${
@@ -383,6 +385,19 @@ function SortableMemory({
       }`}
     >
       <header className="mb-2 flex items-start gap-2">
+        {/* Drag handle (Trello-style reorder) — on the RIGHT (RTL start), to the
+            right of the title + icon. */}
+        <button
+          type="button"
+          aria-label="גרור לסידור מחדש"
+          title="גרור לסידור"
+          {...attributes}
+          {...listeners}
+          style={{ touchAction: 'none' }}
+          className="shrink-0 -ms-1 mt-0.5 cursor-grab active:cursor-grabbing text-ink-500 hover:text-ink-300 transition-colors"
+        >
+          <GripVertical size={16} />
+        </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
@@ -400,18 +415,6 @@ function SortableMemory({
             </div>
           )}
         </div>
-        {/* Drag handle (Trello-style reorder). */}
-        <button
-          type="button"
-          aria-label="גרור לסידור מחדש"
-          title="גרור לסידור"
-          {...attributes}
-          {...listeners}
-          style={{ touchAction: 'none' }}
-          className="shrink-0 -me-1 cursor-grab active:cursor-grabbing text-ink-500 hover:text-ink-300 transition-colors"
-        >
-          <GripVertical size={16} />
-        </button>
       </header>
       {empty ? (
         <p className="text-[13px] text-ink-500 italic">
