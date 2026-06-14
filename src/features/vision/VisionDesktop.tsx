@@ -80,6 +80,19 @@ function readSavedDesktopLevelView(userId: string | null): VisionLevelView {
   return 'yearly';
 }
 
+// Whether the "look back" panel was last left open — remembered per-user so it
+// reopens (or stays closed) on the next visit.
+const REMINISCE_OPEN_LS_PREFIX = 'vision-reminisce-open:';
+
+function readReminisceOpen(userId: string | null): boolean {
+  if (!userId) return false;
+  try {
+    return localStorage.getItem(`${REMINISCE_OPEN_LS_PREFIX}${userId}`) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   const {
     today,
@@ -127,7 +140,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
   //     is instant; no fetch until first open).
   //   • reminisceVisible  — the VISUAL state, flipped one tick AFTER mount so the
   //     enter transition actually plays.
-  const [reminisceOpen, setReminisceOpen] = useState(false);
+  const [reminisceOpen, setReminisceOpen] = useState(() => readReminisceOpen(userId));
   const [reminisceRendered, setReminisceRendered] = useState(false);
   const [reminisceVisible, setReminisceVisible] = useState(false);
   useEffect(() => {
@@ -138,6 +151,29 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     }
     setReminisceVisible(false); // play the exit transition; stay mounted
   }, [reminisceOpen]);
+
+  // Once auth resolves, apply the saved open/closed state (the lazy initializer
+  // may have run before userId was known).
+  const reminisceLoadedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userId || reminisceLoadedRef.current === userId) return;
+    reminisceLoadedRef.current = userId;
+    setReminisceOpen(readReminisceOpen(userId));
+  }, [userId]);
+
+  // Open / close the panel AND remember it per-user.
+  const setReminisceOpenPersist = useCallback(
+    (next: boolean) => {
+      setReminisceOpen(next);
+      if (!userId) return;
+      try {
+        localStorage.setItem(`${REMINISCE_OPEN_LS_PREFIX}${userId}`, next ? '1' : '0');
+      } catch {
+        // ignore
+      }
+    },
+    [userId],
+  );
 
   // Persist only the LEVEL view (never the feed), per-user.
   const persistLevelView = useCallback(
@@ -308,7 +344,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setReminisceOpen((v) => !v)}
+                onClick={() => setReminisceOpenPersist(!reminisceOpen)}
                 aria-pressed={reminisceOpen}
                 aria-label="מבט אחורה — חזונות קודמים לקריאה"
                 title="מבט אחורה"
@@ -496,7 +532,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
               <VisionReminisce
                 userId={userId}
                 today={today}
-                onClose={() => setReminisceOpen(false)}
+                onClose={() => setReminisceOpenPersist(false)}
               />
             </div>
           )}
