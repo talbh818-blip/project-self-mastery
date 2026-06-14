@@ -352,19 +352,34 @@ export function VisionHabitsStrip({
         </div>
 
         {/* Range toggle — to the LEFT of the rings, two compact lines, the
-            Hebrew text RIGHT-aligned. Tap flips "this period" ⇄ "last N days". */}
+            Hebrew text RIGHT-aligned. Tap flips "this period" ⇄ "last N days".
+            Both states are stacked in ONE grid cell so the button is always as
+            wide as the WIDER of the two — the rings never shift when the text
+            swaps; only the active state is shown. */}
         <button
           type="button"
           onClick={toggle}
           title="החלפת טווח המדידה"
           aria-label={`טווח המדידה: ${label[0]} ${label[1]} — לחצו להחלפה`}
-          className={`shrink-0 text-right leading-[1.12] font-semibold
+          className={`shrink-0 grid text-right leading-[1.12] font-semibold
             text-white/80 hover:text-white transition-colors ${
               inline ? 'text-[11px]' : 'text-[12px]'
             }`}
         >
-          <span className="block whitespace-nowrap">{label[0]}</span>
-          <span className="block whitespace-nowrap">{label[1]}</span>
+          {[PERIOD_LABEL[scope], ROLLING_LABEL[scope]].map((pair, i) => {
+            const active = (i === 0) === (mode === 'period');
+            return (
+              <span
+                key={i}
+                aria-hidden={!active}
+                className="col-start-1 row-start-1 whitespace-nowrap"
+                style={{ visibility: active ? 'visible' : 'hidden' }}
+              >
+                <span className="block">{pair[0]}</span>
+                <span className="block">{pair[1]}</span>
+              </span>
+            );
+          })}
         </button>
       </div>
     </div>
@@ -416,7 +431,12 @@ function SuccessRing({
             stroke={habit.color}
             strokeWidth={STROKE}
             strokeLinecap="round"
-            strokeDasharray={`${filled} ${C - filled}`}
+            // Full dash, animate the OFFSET so the arc grows/shrinks smoothly
+            // when the value changes (e.g. toggling "this period" ⇄ "last N
+            // days" fills or empties the ring).
+            strokeDasharray={C}
+            strokeDashoffset={C - filled}
+            style={{ transition: 'stroke-dashoffset 650ms cubic-bezier(0.22, 1, 0.36, 1)' }}
           />
         </g>
       </svg>
