@@ -13,12 +13,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, X, Check, GripVertical } from 'lucide-react';
 import {
   DndContext,
+  DragOverlay,
   MouseSensor,
   TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -200,7 +202,16 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
+  // Which card is mid-drag (null = none). While dragging, ALL cards collapse to
+  // a short preview so reordering long visions is easy, and the dragged one is
+  // shown via a DragOverlay clone (clean motion, no stretched original).
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const dragging = activeId !== null;
+
+  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
+
   const handleDragEnd = (e: DragEndEvent) => {
+    setActiveId(null);
     const { active, over } = e;
     if (!over || active.id === over.id) return;
     setOrder((prev) => {
@@ -212,6 +223,9 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
       return next;
     });
   };
+
+  const activePeriod = activeId ? itemPeriods.get(activeId) : null;
+  const activeMeta = activePeriod ? meta.get(activePeriod.key) : null;
 
   return (
     <div className="flex flex-col max-h-[calc(100vh-6.5rem)] rounded-2xl bg-surface-base ring-1 ring-surface-border overflow-hidden">
@@ -249,13 +263,20 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
           <CheckRow checked={checked.has('monthly')} label="חזון חודשי" onToggle={() => toggle('monthly')} />
           <CheckRow checked={checked.has('w1')} label="שבוע שעבר" onToggle={() => toggle('w1')} />
         </div>
-        {w1Checked && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <CheckRow sub checked={checked.has('w2')} label="לפני 2 שבועות" onToggle={() => toggle('w2')} />
-            <CheckRow sub checked={checked.has('w3')} label="לפני 3 שבועות" onToggle={() => toggle('w3')} />
-            <CheckRow sub checked={checked.has('w4')} label="לפני 4 שבועות" onToggle={() => toggle('w4')} />
+        {/* Sub-weeks slide open like a drawer (grid 0fr↔1fr animates the real
+            height; the inner wrapper clips during the fold). */}
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+          style={{ gridTemplateRows: w1Checked ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
+              <CheckRow sub checked={checked.has('w2')} label="לפני 2 שבועות" onToggle={() => toggle('w2')} />
+              <CheckRow sub checked={checked.has('w3')} label="לפני 3 שבועות" onToggle={() => toggle('w3')} />
+              <CheckRow sub checked={checked.has('w4')} label="לפני 4 שבועות" onToggle={() => toggle('w4')} />
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Body: the chosen visions, drag to reorder. */}
@@ -279,7 +300,9 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              onDragCancel={() => setActiveId(null)}
             >
               <SortableContext items={order} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2.5">
@@ -297,11 +320,25 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                         subtitle={p.subtitle}
                         icon={m?.icon ?? null}
                         content={m?.content ?? null}
+                        collapsed={dragging}
                       />
                     );
                   })}
                 </div>
               </SortableContext>
+              {/* A clean clone of the dragged card follows the cursor. */}
+              <DragOverlay>
+                {activeId && activePeriod ? (
+                  <MemoryCardView
+                    title={activePeriod.title}
+                    subtitle={activePeriod.subtitle}
+                    icon={activeMeta?.icon ?? null}
+                    content={activeMeta?.content ?? null}
+                    collapsed
+                    overlay
+                  />
+                ) : null}
+              </DragOverlay>
             </DndContext>
           )}
         </div>
@@ -356,43 +393,45 @@ function CheckRow({
   );
 }
 
-function SortableMemory({
-  id,
+// Presentational card — shared by the in-list sortable item AND the drag
+// overlay clone. `collapsed` clamps the body to a short, fading preview so a
+// dragging list is easy to reorder.
+function MemoryCardView({
   title,
   subtitle,
   icon,
   content,
+  collapsed,
+  overlay,
+  dimmed,
+  handleProps,
 }: {
-  id: string;
   title: string;
   subtitle?: string;
   icon: string | null;
   content: unknown;
+  collapsed?: boolean;
+  /** The floating drag clone (gets a stronger shadow + grabbing cursor). */
+  overlay?: boolean;
+  /** The original in-list item while it's the one being dragged. */
+  dimmed?: boolean;
+  /** Spread onto the grip button (sortable attributes + listeners). */
+  handleProps?: Record<string, unknown>;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
   const empty = isVisionContentEmpty(content);
   return (
     <article
-      ref={setNodeRef}
-      style={style}
       className={`border-s-2 border-forest-700 rounded-xl bg-surface-card/70 p-3.5 ${
-        isDragging ? 'relative z-10 opacity-90 shadow-xl ring-1 ring-forest-600' : ''
-      }`}
+        overlay ? 'shadow-2xl ring-1 ring-forest-600 cursor-grabbing' : ''
+      } ${dimmed ? 'opacity-40' : ''}`}
     >
       <header className="mb-2 flex items-start gap-2">
-        {/* Drag handle (Trello-style reorder) — on the RIGHT (RTL start), to the
-            right of the title + icon. */}
+        {/* Drag handle (Trello-style reorder) — on the RIGHT (RTL start). */}
         <button
           type="button"
           aria-label="גרור לסידור מחדש"
           title="גרור לסידור"
-          {...attributes}
-          {...listeners}
+          {...handleProps}
           style={{ touchAction: 'none' }}
           className="shrink-0 -ms-1 mt-0.5 cursor-grab active:cursor-grabbing text-ink-500 hover:text-ink-300 transition-colors"
         >
@@ -420,9 +459,49 @@ function SortableMemory({
         <p className="text-[13px] text-ink-500 italic">
           עוד לא נכתב חזון לתקופה זו.
         </p>
+      ) : collapsed ? (
+        <div
+          className="max-h-[5rem] overflow-hidden"
+          style={{
+            WebkitMaskImage: 'linear-gradient(to bottom, #000 55%, transparent)',
+            maskImage: 'linear-gradient(to bottom, #000 55%, transparent)',
+          }}
+        >
+          <VisionReadOnly content={content} />
+        </div>
       ) : (
         <VisionReadOnly content={content} />
       )}
     </article>
+  );
+}
+
+function SortableMemory({
+  id,
+  collapsed,
+  ...view
+}: {
+  id: string;
+  title: string;
+  subtitle?: string;
+  icon: string | null;
+  content: unknown;
+  collapsed: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <MemoryCardView
+        {...view}
+        collapsed={collapsed}
+        dimmed={isDragging}
+        handleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
   );
 }
