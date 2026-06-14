@@ -140,11 +140,23 @@ function successRatio(
 // ─── Range mode (this period vs. trailing window) ───────────────────────────
 // The strip can measure either the OPEN calendar period ("this week / month /
 // year") or a TRAILING window ending today ("last 7 / 30 / 365 days"). A tap on
-// the label to the left of the rings flips between the two; the choice is
-// remembered per-user in localStorage.
+// the label to the left of the rings flips between the two, and that choice
+// becomes the new DEFAULT — it sticks across remounts, scope / period / tab
+// switches, and page reloads, so the user never has to re-pick it.
+//
+// Two layers back it up:
+//   • localStorage  — survives reloads / new sessions (the cross-session store).
+//   • a module-level SESSION cache — the source of truth while the app is open,
+//     so the choice holds instantly with no flicker on remount, and keeps
+//     working even if a private-mode browser refuses the localStorage write.
 type RangeMode = 'period' | 'rolling';
 
 const RANGE_MODE_LS = 'vision-rings-range:';
+
+// Session source-of-truth, keyed by the user it was loaded for. Reset on reload
+// (a fresh page load clears module state and re-seeds from localStorage).
+let sessionRangeMode: RangeMode | null = null;
+let sessionRangeUser: string | null | undefined;
 
 const ROLLING_DAYS: Record<VisionScope, number> = {
   weekly: 7,
@@ -162,32 +174,50 @@ const ROLLING_LABEL: Record<VisionScope, string> = {
   yearly: '365 ימים אחרונים',
 };
 
+/** The current default for `userId` — session cache if it's for this user,
+ *  otherwise (re)seeded from localStorage. */
 function readRangeMode(userId: string | null): RangeMode {
+  if (sessionRangeMode !== null && sessionRangeUser === userId) {
+    return sessionRangeMode;
+  }
+  let mode: RangeMode = 'period';
   try {
-    return localStorage.getItem(RANGE_MODE_LS + (userId ?? '_')) === 'rolling'
-      ? 'rolling'
-      : 'period';
+    if (localStorage.getItem(RANGE_MODE_LS + (userId ?? '_')) === 'rolling') {
+      mode = 'rolling';
+    }
   } catch {
-    return 'period';
+    // storage unavailable → fall back to the default
+  }
+  sessionRangeMode = mode;
+  sessionRangeUser = userId;
+  return mode;
+}
+
+/** Make `next` the new default for `userId` — session cache first (always
+ *  succeeds), then localStorage for the next session (best-effort). */
+function writeRangeMode(next: RangeMode, userId: string | null) {
+  sessionRangeMode = next;
+  sessionRangeUser = userId;
+  try {
+    localStorage.setItem(RANGE_MODE_LS + (userId ?? '_'), next);
+  } catch {
+    // ignore quota / private-mode failures — the session cache still holds it
   }
 }
 
-/** Per-user persisted toggle between the calendar-period and trailing-window
- *  measurement. Mirrors the lightweight localStorage pattern of useAssistMode. */
+/** Per-user toggle between the calendar-period and trailing-window measurement.
+ *  Whatever the user picks becomes the persistent default (see header). */
 function useRangeMode(userId: string | null) {
   const [mode, setMode] = useState<RangeMode>(() => readRangeMode(userId));
-  // Re-read when the signed-in user lands / changes.
+  // Re-sync when the signed-in user lands / changes (the strip can first mount
+  // before auth resolves; this pulls the saved default once userId arrives).
   useEffect(() => {
     setMode(readRangeMode(userId));
   }, [userId]);
   const toggle = useCallback(() => {
     setMode((prev) => {
       const next: RangeMode = prev === 'period' ? 'rolling' : 'period';
-      try {
-        localStorage.setItem(RANGE_MODE_LS + (userId ?? '_'), next);
-      } catch {
-        // ignore quota / private-mode failures
-      }
+      writeRangeMode(next, userId);
       return next;
     });
   }, [userId]);
