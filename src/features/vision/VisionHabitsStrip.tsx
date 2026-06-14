@@ -337,7 +337,7 @@ export function VisionHabitsStrip({
         <div className="overflow-x-auto vision-habits-scroll min-w-0">
           <div
             className={`flex items-center min-w-max ${
-              inline ? 'gap-2.5' : 'gap-3'
+              inline ? 'gap-2' : 'gap-3'
             }`}
           >
             {items.map((it) => (
@@ -345,8 +345,8 @@ export function VisionHabitsStrip({
                 key={it.habit.id}
                 habit={it.habit}
                 ratio={it.ratio}
-                size={inline ? 36 : 46}
-                iconSize={inline ? 18 : 22}
+                size={inline ? 32 : 46}
+                iconSize={inline ? 16 : 22}
               />
             ))}
           </div>
