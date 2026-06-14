@@ -119,7 +119,7 @@ export function DateBar({
       dir="rtl"
       className={`grid items-center gap-2 pb-2 mb-3 border-b border-surface-border ${
         big
-          ? '-mx-7 px-1 grid-cols-[auto_minmax(0,auto)_minmax(0,1fr)]'
+          ? '-mx-10 px-2 grid-cols-[auto_minmax(0,auto)_minmax(0,1fr)]'
           : 'grid-cols-[1fr_minmax(0,auto)_1fr]'
       }`}
     >
