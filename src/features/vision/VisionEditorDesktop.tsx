@@ -12,7 +12,7 @@
 // This is one of the two independent Vision layouts; it shares only the engine
 // + the controller with the mobile one.
 // ============================================================================
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Settings2 } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import type { SaveStatus } from './useVisionEntry';
@@ -29,6 +29,11 @@ import {
   insertGuidedQuestion,
 } from './useVisionTiptapEditor';
 import type { VisionScope } from './period';
+
+// Card content-box width (px) at/above which the habit rings ride in the header
+// flush-left; below it they move to a full-width row under the writing (mobile
+// style). Tuned so five rings + the title + side buttons fit before cutting over.
+const RINGS_HEADER_MIN_WIDTH = 680;
 
 type Props = {
   initialContent: unknown;
@@ -71,6 +76,27 @@ export function VisionEditorDesktop({
   }, []);
   const [questionSettingsOpen, setQuestionSettingsOpen] = useState(false);
 
+  // Responsive habit-ring placement. The desktop editor is the centre column,
+  // so its width shrinks as the window narrows / the navigator rail opens. When
+  // the card is wide enough the rings sit in the header (flush-left); when it's
+  // too narrow they drop to a full-width row UNDER the writing — exactly like
+  // mobile — instead of crowding the title. We measure the card itself (not the
+  // viewport) so it's accurate regardless of the rail. Threshold = card
+  // content-box width; tune RINGS_HEADER_MIN_WIDTH if the cutover feels off.
+  const [ringsInHeader, setRingsInHeader] = useState(true);
+  const roRef = useRef<ResizeObserver | null>(null);
+  const measureCard = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (!node || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setRingsInHeader(w >= RINGS_HEADER_MIN_WIDTH);
+    });
+    ro.observe(node);
+    roRef.current = ro;
+  }, []);
+  useEffect(() => () => roRef.current?.disconnect(), []);
+
   const { editor, uploadAndInsert, uploadingCount } = useVisionTiptapEditor({
     initialContent,
     resetKey,
@@ -97,24 +123,26 @@ export function VisionEditorDesktop({
       onIconClick={onIconClick}
       saveStatus={saveStatus}
       variant="desktop"
-      // Habit rings sit flush-LEFT in the header row. The desktop grid gives
-      // this cluster the bulk of the row's width (title + buttons are content-
-      // sized), so the rings have room; if they ever exceed it they scroll
-      // horizontally instead of spilling onto the title.
+      // When the card is wide enough, the rings ride flush-LEFT in the header
+      // (and back-to-now moves to the right cluster). When it's too narrow the
+      // header has NO rings — DateBar then puts back-to-now back on the LEFT,
+      // and the rings render under the writing instead (see below).
       leftSlot={
-        <VisionHabitsStrip
-          userId={userId}
-          scope={scope}
-          periodKey={periodKey}
-          variant="inline"
-        />
+        ringsInHeader ? (
+          <VisionHabitsStrip
+            userId={userId}
+            scope={scope}
+            periodKey={periodKey}
+            variant="inline"
+          />
+        ) : undefined
       }
     />
   );
 
   if (!editor) {
     return (
-      <div className="vision-editor vision-page-desktop">
+      <div ref={measureCard} className="vision-editor vision-page-desktop">
         {docHeader}
         <div className="py-10">
           <CompassLoader size="md" />
@@ -143,8 +171,13 @@ export function VisionEditorDesktop({
       )}
 
       {/* The document card. Keyed by scope so the zoom replays only on a scope
-          change (not period changes). */}
-      <div key={scope} className={`vision-editor vision-page-desktop vision-zoom-${zoomDir}`}>
+          change (not period changes). Measured (measureCard) to decide whether
+          the habit rings fit in the header or drop below the writing. */}
+      <div
+        key={scope}
+        ref={measureCard}
+        className={`vision-editor vision-page-desktop vision-zoom-${zoomDir}`}
+      >
         {docHeader}
 
         {!readOnly && (
@@ -190,9 +223,18 @@ export function VisionEditorDesktop({
           </div>
         )}
 
-        {/* The habit rings live in the header (leftSlot), not at the bottom —
-            so nothing here below the writing. */}
         <EditorContent editor={editor} />
+
+        {/* When the card is too narrow for the rings in the header, they live
+            here — a full-width row under the writing, exactly like mobile. */}
+        {!ringsInHeader && (
+          <VisionHabitsStrip
+            userId={userId}
+            scope={scope}
+            periodKey={periodKey}
+            variant="bottom"
+          />
+        )}
       </div>
 
       <VisionQuestionSettingsSheet

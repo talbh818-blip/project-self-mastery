@@ -122,10 +122,12 @@ export function DateBar({
           : 'grid-cols-[1fr_minmax(0,auto)_1fr]'
       }`}
     >
-      {/* RIGHT cluster (RTL → start = right): on desktop, back-to-now sits
-          rightmost, then the icon picker + assist toggle. */}
+      {/* RIGHT cluster (RTL → start = right): on desktop, when the rings DO
+          occupy the left cluster, back-to-now rides here (rightmost); when the
+          rings drop below the writing the left cluster is free, so back-to-now
+          moves there instead (see LEFT cluster). Then the icon picker + assist. */}
       <div className="flex items-center gap-1.5 justify-self-start">
-        {big && backToNowBtn}
+        {big && leftSlot ? backToNowBtn : null}
         <button
           type="button"
           onClick={onIconClick}
@@ -183,12 +185,13 @@ export function DateBar({
         />
       </div>
 
-      {/* LEFT cluster (RTL → justify-self-end = left): mobile shows back-to-now;
-          desktop shows the leftSlot (habit rings). A minimal save indicator sits
-          to its right (usually invisible — error only). */}
+      {/* LEFT cluster (RTL → justify-self-end = left): shows the leftSlot (habit
+          rings) when provided; otherwise back-to-now lives here — that's mobile,
+          and desktop too once the rings drop below the writing. A minimal save
+          indicator sits to its right (usually invisible — error only). */}
       <div className="justify-self-end flex items-center gap-1.5 min-w-0">
         <SaveBadge status={saveStatus} />
-        {big ? leftSlot : backToNowBtn}
+        {big ? leftSlot ?? backToNowBtn : backToNowBtn}
       </div>
     </div>
   );
