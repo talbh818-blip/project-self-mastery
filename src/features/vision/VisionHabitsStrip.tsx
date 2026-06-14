@@ -25,16 +25,23 @@
 //     skipped from both done and expected, matching how the habit cells treat
 //     them, so an unfinished today never drags the number down.
 //
+// RANGE TOGGLE — a label to the LEFT of the rings ("השבוע הזה" / "החודש הזה" /
+// "השנה הזאת") flips the rings between the OPEN-PERIOD metric above and a
+// TRAILING window ending today ("7 / 30 / 365 ימים אחרונים"). In the trailing
+// mode the same done/expected math runs over [today-(N-1) … today] anchored to
+// today (not the open period), so it reads "how am I doing lately?". The choice
+// is remembered per-user (see useRangeMode).
+//
 // The per-day verdict is the ENGINE's `effectiveByDate` ('V' only counts a
 // genuinely-complete day — a quantitative partial logged as 'V' does not), so
 // the strip agrees with the cells and the data dashboard. A habit with no real
-// activity in the period (e.g. it didn't exist yet for a past year) is hidden.
+// activity in the window (e.g. it didn't exist yet for a past year) is hidden.
 //
 // Self-contained: it loads its own habit data via useHabitData. The vision
 // editor persists across cached period steps, so this fetch happens once and
 // only refetches on a cold remount.
 // ============================================================================
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHabitData } from '../habits/useHabitData';
 import { HabitIcon } from '../habits/HabitIcon';
 import type { Habit } from '../habits/types';
@@ -130,6 +137,63 @@ function successRatio(
   return expected > 0 ? done / expected : null;
 }
 
+// ─── Range mode (this period vs. trailing window) ───────────────────────────
+// The strip can measure either the OPEN calendar period ("this week / month /
+// year") or a TRAILING window ending today ("last 7 / 30 / 365 days"). A tap on
+// the label to the left of the rings flips between the two; the choice is
+// remembered per-user in localStorage.
+type RangeMode = 'period' | 'rolling';
+
+const RANGE_MODE_LS = 'vision-rings-range:';
+
+const ROLLING_DAYS: Record<VisionScope, number> = {
+  weekly: 7,
+  monthly: 30,
+  yearly: 365,
+};
+const PERIOD_LABEL: Record<VisionScope, string> = {
+  weekly: 'השבוע הזה',
+  monthly: 'החודש הזה',
+  yearly: 'השנה הזאת',
+};
+const ROLLING_LABEL: Record<VisionScope, string> = {
+  weekly: '7 ימים אחרונים',
+  monthly: '30 ימים אחרונים',
+  yearly: '365 ימים אחרונים',
+};
+
+function readRangeMode(userId: string | null): RangeMode {
+  try {
+    return localStorage.getItem(RANGE_MODE_LS + (userId ?? '_')) === 'rolling'
+      ? 'rolling'
+      : 'period';
+  } catch {
+    return 'period';
+  }
+}
+
+/** Per-user persisted toggle between the calendar-period and trailing-window
+ *  measurement. Mirrors the lightweight localStorage pattern of useAssistMode. */
+function useRangeMode(userId: string | null) {
+  const [mode, setMode] = useState<RangeMode>(() => readRangeMode(userId));
+  // Re-read when the signed-in user lands / changes.
+  useEffect(() => {
+    setMode(readRangeMode(userId));
+  }, [userId]);
+  const toggle = useCallback(() => {
+    setMode((prev) => {
+      const next: RangeMode = prev === 'period' ? 'rolling' : 'period';
+      try {
+        localStorage.setItem(RANGE_MODE_LS + (userId ?? '_'), next);
+      } catch {
+        // ignore quota / private-mode failures
+      }
+      return next;
+    });
+  }, [userId]);
+  return { mode, toggle };
+}
+
 type Item = { habit: Habit; ratio: number };
 
 export function VisionHabitsStrip({
@@ -140,69 +204,120 @@ export function VisionHabitsStrip({
 }: Props) {
   const data = useHabitData(userId);
   const { status, stats, slotsForRange } = data;
+  const { mode, toggle } = useRangeMode(userId);
 
   const today = useMemo(() => new Date(), []);
 
   const items = useMemo<Item[]>(() => {
     if (status !== 'ready') return [];
-    const { start, end } = periodBounds(scope, periodKey);
-    // Last ELAPSED day of the period (future days haven't happened).
-    const todayEnd = end < today ? end : today;
-    if (start > todayEnd) return []; // period hasn't started yet
+    const { start: periodStart, end: periodEnd } = periodBounds(scope, periodKey);
+    // Never summarise a period that hasn't begun (future / locked) — in EITHER
+    // mode — so the strip (and its toggle) stay hidden there.
+    if (periodStart > today) return [];
 
-    // The expected-denominator window. Weekly = "this week so far" → elapsed
-    // only. Monthly / yearly = "% of the whole period filled" → the FULL period
-    // (future days count as unfilled, bounding the value by the elapsed
-    // fraction). V's only ever land on elapsed days, so done is unaffected.
-    const windowEnd = scope === 'weekly' ? todayEnd : end;
+    // Two windows: which habits to show (sel*) and what the rings MEASURE
+    // (win*). They differ by mode.
+    let selStart: Date;
+    let selEnd: Date;
+    let winStart: Date;
+    let winEnd: Date;
+
+    if (mode === 'rolling') {
+      // Trailing window ending today — "last N days" (N = 7 / 30 / 365).
+      // Anchored to today regardless of which period is open: that's exactly
+      // what the "X ימים אחרונים" label promises.
+      const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const start = new Date(t0);
+      start.setDate(t0.getDate() - (ROLLING_DAYS[scope] - 1));
+      selStart = start;
+      selEnd = today;
+      winStart = start;
+      winEnd = today;
+    } else {
+      // "This week / month / year." Last ELAPSED day of the period (future
+      // days haven't happened). Weekly = "this week so far" → elapsed only.
+      // Monthly / yearly = "% of the whole period filled" → the FULL period
+      // (future days count as unfilled). V's only ever land on elapsed days, so
+      // done is unaffected.
+      const todayEnd = periodEnd < today ? periodEnd : today;
+      selStart = periodStart;
+      selEnd = todayEnd;
+      winStart = periodStart;
+      winEnd = scope === 'weekly' ? todayEnd : periodEnd;
+    }
 
     // slotsForRange only picks WHICH habits to show (it always returns the
-    // current habit per slot); the elapsed end is fine here.
-    const slots = slotsForRange({ start, end: todayEnd });
+    // current habit per slot).
+    const slots = slotsForRange({ start: selStart, end: selEnd });
     const out: Item[] = [];
     for (const slot of slots) {
       const habit = slot.habit;
       if (!habit) continue;
       const eff = stats?.byHabit.get(habit.id)?.effectiveByDate;
-      const ratio = successRatio(habit, eff, start, windowEnd);
+      const ratio = successRatio(habit, eff, winStart, winEnd);
       if (ratio === null) continue;
       out.push({ habit, ratio });
     }
     out.sort((a, b) => (a.habit.sort_order ?? 0) - (b.habit.sort_order ?? 0));
     return out;
     // slotsForRange + stats are memoized in useHabitData; today is stable.
-  }, [status, stats, slotsForRange, scope, periodKey, today]);
+  }, [status, stats, slotsForRange, scope, periodKey, today, mode]);
 
   if (items.length === 0) return null;
 
   const inline = variant === 'inline';
+  const label = mode === 'rolling' ? ROLLING_LABEL[scope] : PERIOD_LABEL[scope];
 
   // 'bottom' sits below the writing (mobile) with its own top divider + spacing
   // and centred 46px rings. 'inline' is a bare, start-aligned strip of smaller
-  // rings for the desktop document header.
+  // rings for the desktop document header. In both, the range-toggle label sits
+  // to the LEFT of the rings (last child of the RTL row).
   return (
     <div
       dir="rtl"
-      className={
-        inline
-          ? 'overflow-x-auto vision-habits-scroll'
-          : 'overflow-x-auto vision-habits-scroll pt-3 mt-3 border-t border-surface-border'
-      }
+      className={inline ? '' : 'pt-3 mt-3 border-t border-surface-border'}
     >
       <div
-        className={`flex items-center min-w-max ${
-          inline ? 'gap-2.5 justify-start' : 'gap-3 justify-center'
+        className={`flex items-center ${
+          inline ? 'gap-2 justify-start' : 'gap-3 justify-center'
         }`}
       >
-        {items.map((it) => (
-          <SuccessRing
-            key={it.habit.id}
-            habit={it.habit}
-            ratio={it.ratio}
-            size={inline ? 36 : 46}
-            iconSize={inline ? 18 : 22}
-          />
-        ))}
+        {/* The rings — scroll horizontally (scrollbar hidden) when there are
+            more than fit. min-w-0 lets them shrink so the label keeps its spot
+            to the left. */}
+        <div className="overflow-x-auto vision-habits-scroll min-w-0">
+          <div
+            className={`flex items-center min-w-max ${
+              inline ? 'gap-2.5' : 'gap-3'
+            }`}
+          >
+            {items.map((it) => (
+              <SuccessRing
+                key={it.habit.id}
+                habit={it.habit}
+                ratio={it.ratio}
+                size={inline ? 36 : 46}
+                iconSize={inline ? 18 : 22}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Range toggle — to the LEFT of the rings. Tap flips
+            "this period" ⇄ "last N days". */}
+        <button
+          type="button"
+          onClick={toggle}
+          title="החלפת טווח המדידה"
+          aria-label={`טווח המדידה: ${label} — לחצו להחלפה`}
+          className={`shrink-0 whitespace-nowrap leading-tight text-center font-semibold
+            rounded-full bg-forest-700/10 hover:bg-forest-700/20
+            text-forest-400 hover:text-forest-500 transition-colors ${
+              inline ? 'text-[11px] px-2 py-0.5' : 'text-[13px] px-2.5 py-1'
+            }`}
+        >
+          {label}
+        </button>
       </div>
     </div>
   );
