@@ -138,7 +138,8 @@ function successRatio(
 // The strip can measure either the OPEN calendar period ("this week / month /
 // year") or a TRAILING window ending today ("last 7 / 30 / 365 days"). A tap on
 // the label to the left of the rings flips between the two, and that choice
-// becomes the new DEFAULT — it sticks across remounts, scope / period / tab
+// becomes the new DEFAULT for THAT SCOPE — weekly / monthly / yearly each keep
+// their own view independently. It sticks across remounts, period / tab
 // switches, and page reloads, so the user never has to re-pick it.
 //
 // Two layers back it up:
@@ -150,10 +151,16 @@ type RangeMode = 'period' | 'rolling';
 
 const RANGE_MODE_LS = 'vision-rings-range:';
 
-// Session source-of-truth, keyed by the user it was loaded for. Reset on reload
-// (a fresh page load clears module state and re-seeds from localStorage).
-let sessionRangeMode: RangeMode | null = null;
+// The choice is remembered PER SCOPE: weekly / monthly / yearly each keep their
+// own view, so picking "7 ימים אחרונים" for the week doesn't touch what the
+// month or year show. Session cache (scope → mode) is the in-app source of
+// truth; localStorage backs it across sessions. Reset on reload / user change.
+const sessionRangeByScope = new Map<VisionScope, RangeMode>();
 let sessionRangeUser: string | null | undefined;
+
+function rangeLsKey(userId: string | null, scope: VisionScope) {
+  return `${RANGE_MODE_LS}${userId ?? '_'}:${scope}`;
+}
 
 const ROLLING_DAYS: Record<VisionScope, number> = {
   weekly: 7,
@@ -161,7 +168,7 @@ const ROLLING_DAYS: Record<VisionScope, number> = {
   yearly: 365,
 };
 // Each label is two lines (primary / secondary) so it stacks vertically and
-// stays narrow — keeps the strip compact and flush-left.
+// stays narrow — keeps the strip compact. The lines render right-aligned.
 const PERIOD_LABEL: Record<VisionScope, [string, string]> = {
   weekly: ['השבוע', 'הזה'],
   monthly: ['החודש', 'הזה'],
@@ -173,53 +180,62 @@ const ROLLING_LABEL: Record<VisionScope, [string, string]> = {
   yearly: ['365 ימים', 'אחרונים'],
 };
 
-/** The current default for `userId` — session cache if it's for this user,
- *  otherwise (re)seeded from localStorage. */
-function readRangeMode(userId: string | null): RangeMode {
-  if (sessionRangeMode !== null && sessionRangeUser === userId) {
-    return sessionRangeMode;
+/** Drop the session cache when the signed-in user changes (so user B never
+ *  inherits user A's in-memory choices). */
+function syncRangeUser(userId: string | null) {
+  if (sessionRangeUser !== userId) {
+    sessionRangeByScope.clear();
+    sessionRangeUser = userId;
   }
+}
+
+/** The current default for (`userId`, `scope`) — session cache if present,
+ *  otherwise (re)seeded from localStorage. */
+function readRangeMode(userId: string | null, scope: VisionScope): RangeMode {
+  syncRangeUser(userId);
+  const cached = sessionRangeByScope.get(scope);
+  if (cached) return cached;
   let mode: RangeMode = 'period';
   try {
-    if (localStorage.getItem(RANGE_MODE_LS + (userId ?? '_')) === 'rolling') {
+    if (localStorage.getItem(rangeLsKey(userId, scope)) === 'rolling') {
       mode = 'rolling';
     }
   } catch {
     // storage unavailable → fall back to the default
   }
-  sessionRangeMode = mode;
-  sessionRangeUser = userId;
+  sessionRangeByScope.set(scope, mode);
   return mode;
 }
 
-/** Make `next` the new default for `userId` — session cache first (always
- *  succeeds), then localStorage for the next session (best-effort). */
-function writeRangeMode(next: RangeMode, userId: string | null) {
-  sessionRangeMode = next;
-  sessionRangeUser = userId;
+/** Make `next` the new default for (`userId`, `scope`) — session cache first
+ *  (always succeeds), then localStorage for the next session (best-effort). */
+function writeRangeMode(next: RangeMode, userId: string | null, scope: VisionScope) {
+  syncRangeUser(userId);
+  sessionRangeByScope.set(scope, next);
   try {
-    localStorage.setItem(RANGE_MODE_LS + (userId ?? '_'), next);
+    localStorage.setItem(rangeLsKey(userId, scope), next);
   } catch {
     // ignore quota / private-mode failures — the session cache still holds it
   }
 }
 
-/** Per-user toggle between the calendar-period and trailing-window measurement.
- *  Whatever the user picks becomes the persistent default (see header). */
-function useRangeMode(userId: string | null) {
-  const [mode, setMode] = useState<RangeMode>(() => readRangeMode(userId));
-  // Re-sync when the signed-in user lands / changes (the strip can first mount
-  // before auth resolves; this pulls the saved default once userId arrives).
+/** Per-user, PER-SCOPE toggle between the calendar-period and trailing-window
+ *  measurement. Whatever the user picks for a scope becomes that scope's
+ *  persistent default (see header). */
+function useRangeMode(userId: string | null, scope: VisionScope) {
+  const [mode, setMode] = useState<RangeMode>(() => readRangeMode(userId, scope));
+  // Re-sync when the user lands (auth can resolve after first mount) or the
+  // scope changes (each scope has its own remembered choice).
   useEffect(() => {
-    setMode(readRangeMode(userId));
-  }, [userId]);
+    setMode(readRangeMode(userId, scope));
+  }, [userId, scope]);
   const toggle = useCallback(() => {
     setMode((prev) => {
       const next: RangeMode = prev === 'period' ? 'rolling' : 'period';
-      writeRangeMode(next, userId);
+      writeRangeMode(next, userId, scope);
       return next;
     });
-  }, [userId]);
+  }, [userId, scope]);
   return { mode, toggle };
 }
 
@@ -233,7 +249,7 @@ export function VisionHabitsStrip({
 }: Props) {
   const data = useHabitData(userId);
   const { status, stats, slotsForRange } = data;
-  const { mode, toggle } = useRangeMode(userId);
+  const { mode, toggle } = useRangeMode(userId, scope);
 
   const today = useMemo(() => new Date(), []);
 
@@ -335,14 +351,14 @@ export function VisionHabitsStrip({
           </div>
         </div>
 
-        {/* Range toggle — to the LEFT of the rings, two compact lines, flush
-            left. Tap flips "this period" ⇄ "last N days". */}
+        {/* Range toggle — to the LEFT of the rings, two compact lines, the
+            Hebrew text RIGHT-aligned. Tap flips "this period" ⇄ "last N days". */}
         <button
           type="button"
           onClick={toggle}
           title="החלפת טווח המדידה"
           aria-label={`טווח המדידה: ${label[0]} ${label[1]} — לחצו להחלפה`}
-          className={`shrink-0 text-left leading-[1.12] font-semibold
+          className={`shrink-0 text-right leading-[1.12] font-semibold
             text-white/80 hover:text-white transition-colors ${
               inline ? 'text-[11px]' : 'text-[12px]'
             }`}
