@@ -97,23 +97,29 @@ export function VisionEditorDesktop({
       onIconClick={onIconClick}
       saveStatus={saveStatus}
       variant="desktop"
-      // The per-period habit rings move up into the header's LEFT cluster
-      // (where back-to-now used to be) instead of sitting at the bottom.
-      leftSlot={
-        <VisionHabitsStrip
-          userId={userId}
-          scope={scope}
-          periodKey={periodKey}
-          variant="inline"
-        />
-      }
     />
+  );
+
+  // The per-period habit rings get their OWN full-width row under the header
+  // (instead of being squeezed into the header's narrow left cluster, where on
+  // smaller screens they overflowed onto the centred title). Full width + its
+  // own horizontal scroll = no overlap.
+  const habitRings = (
+    <div className="mb-3">
+      <VisionHabitsStrip
+        userId={userId}
+        scope={scope}
+        periodKey={periodKey}
+        variant="inline"
+      />
+    </div>
   );
 
   if (!editor) {
     return (
       <div className="vision-editor vision-page-desktop">
         {docHeader}
+        {habitRings}
         <div className="py-10">
           <CompassLoader size="md" />
         </div>
@@ -144,6 +150,7 @@ export function VisionEditorDesktop({
           change (not period changes). */}
       <div key={scope} className={`vision-editor vision-page-desktop vision-zoom-${zoomDir}`}>
         {docHeader}
+        {habitRings}
 
         {!readOnly && (
           <div
@@ -188,8 +195,8 @@ export function VisionEditorDesktop({
           </div>
         )}
 
-        {/* The habit rings live in the header (leftSlot) on desktop, not at the
-            bottom — so nothing here below the writing. */}
+        {/* The habit rings are their own full-width row under the header (see
+            habitRings above), not at the bottom — so nothing here below. */}
         <EditorContent editor={editor} />
       </div>
 

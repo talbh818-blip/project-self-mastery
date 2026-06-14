@@ -317,23 +317,29 @@ export function VisionHabitsStrip({
   const label = mode === 'rolling' ? ROLLING_LABEL[scope] : PERIOD_LABEL[scope];
 
   // 'bottom' sits below the writing (mobile) with its own top divider + spacing
-  // and centred 46px rings. 'inline' is a bare, start-aligned strip of smaller
-  // rings for the desktop document header. In both, the range-toggle label sits
-  // to the LEFT of the rings (last child of the RTL row).
+  // and centred 46px rings. 'inline' is the desktop row under the header — it
+  // spans the FULL width (rings fill the row and scroll horizontally on
+  // overflow, never spilling onto the title). In both, the range-toggle label
+  // sits to the LEFT of the rings (last child of the RTL row).
   return (
     <div
       dir="rtl"
-      className={inline ? '' : 'pt-3 mt-3 border-t border-surface-border'}
+      className={inline ? 'w-full' : 'pt-3 mt-3 border-t border-surface-border'}
     >
       <div
         className={`flex items-center ${
-          inline ? 'gap-2 justify-start' : 'gap-3 justify-center'
+          inline ? 'gap-2' : 'gap-3 justify-center'
         }`}
       >
         {/* The rings — scroll horizontally (scrollbar hidden) when there are
-            more than fit. min-w-0 lets them shrink so the label keeps its spot
-            to the left. */}
-        <div className="overflow-x-auto vision-habits-scroll min-w-0">
+            more than fit. On desktop the wrapper FLEX-GROWS to claim the whole
+            row width; min-w-0 lets it shrink so overflow scrolls instead of
+            pushing the label off. */}
+        <div
+          className={`overflow-x-auto vision-habits-scroll min-w-0 ${
+            inline ? 'flex-1' : ''
+          }`}
+        >
           <div
             className={`flex items-center min-w-max ${
               inline ? 'gap-2.5' : 'gap-3'
