@@ -97,29 +97,25 @@ export function VisionEditorDesktop({
       onIconClick={onIconClick}
       saveStatus={saveStatus}
       variant="desktop"
+      // Habit rings sit flush-LEFT in the header row. The desktop grid gives
+      // this cluster the bulk of the row's width (title + buttons are content-
+      // sized), so the rings have room; if they ever exceed it they scroll
+      // horizontally instead of spilling onto the title.
+      leftSlot={
+        <VisionHabitsStrip
+          userId={userId}
+          scope={scope}
+          periodKey={periodKey}
+          variant="inline"
+        />
+      }
     />
-  );
-
-  // The per-period habit rings get their OWN full-width row under the header
-  // (instead of being squeezed into the header's narrow left cluster, where on
-  // smaller screens they overflowed onto the centred title). Full width + its
-  // own horizontal scroll = no overlap.
-  const habitRings = (
-    <div className="mb-3">
-      <VisionHabitsStrip
-        userId={userId}
-        scope={scope}
-        periodKey={periodKey}
-        variant="inline"
-      />
-    </div>
   );
 
   if (!editor) {
     return (
       <div className="vision-editor vision-page-desktop">
         {docHeader}
-        {habitRings}
         <div className="py-10">
           <CompassLoader size="md" />
         </div>
@@ -150,7 +146,6 @@ export function VisionEditorDesktop({
           change (not period changes). */}
       <div key={scope} className={`vision-editor vision-page-desktop vision-zoom-${zoomDir}`}>
         {docHeader}
-        {habitRings}
 
         {!readOnly && (
           <div
@@ -195,8 +190,8 @@ export function VisionEditorDesktop({
           </div>
         )}
 
-        {/* The habit rings are their own full-width row under the header (see
-            habitRings above), not at the bottom — so nothing here below. */}
+        {/* The habit rings live in the header (leftSlot), not at the bottom —
+            so nothing here below the writing. */}
         <EditorContent editor={editor} />
       </div>
 

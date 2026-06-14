@@ -107,12 +107,18 @@ export function DateBar({
   );
 
   return (
-    // 3-column grid with equal-width flanks (1fr each) so the TITLE in the
-    // middle column is truly centred in the row regardless of how wide the
-    // side controls are.
+    // 3-column grid. Mobile keeps equal-width flanks (1fr each) so the TITLE is
+    // truly centred. Desktop instead gives the LEFT cluster (the habit rings)
+    // the bulk of the width — title + right buttons are content-sized — so the
+    // rings sit flush-left across the row with room to breathe; they scroll if
+    // they ever exceed that (wide) track instead of overflowing onto the title.
     <div
       dir="rtl"
-      className="grid grid-cols-[1fr_minmax(0,auto)_1fr] items-center gap-2 pb-2 mb-3 border-b border-surface-border"
+      className={`grid items-center gap-2 pb-2 mb-3 border-b border-surface-border ${
+        big
+          ? 'grid-cols-[auto_minmax(0,auto)_minmax(0,1fr)]'
+          : 'grid-cols-[1fr_minmax(0,auto)_1fr]'
+      }`}
     >
       {/* RIGHT cluster (RTL → start = right): on desktop, back-to-now sits
           rightmost, then the icon picker + assist toggle. */}
