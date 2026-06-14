@@ -24,14 +24,16 @@ export function VisionReadOnly({ content }: { content: unknown }) {
   const doc = content as PMNode | null;
   if (!doc || typeof doc !== 'object' || !Array.isArray(doc.content)) return null;
   return (
-    <div className="text-[0.9rem] text-ink-100 leading-relaxed">
+    <div className="text-[0.9rem] text-ink-100 leading-snug">
       {doc.content.map((n, i) => renderBlock(n, i, i === 0))}
     </div>
   );
 }
 
-// Top margin per block: tight between consecutive paragraphs, a clear gap
-// before headings / lists. The first block gets none.
+// Top margin per block. Consecutive lines (single-Enter paragraphs) sit TIGHT
+// (no extra margin — the line-height alone separates them); headings / lists
+// get a clear gap before them. Real paragraph breaks (double-Enter) come from
+// the taller empty-line spacer below.
 function blockGap(type: string | undefined): string {
   switch (type) {
     case 'heading':
@@ -39,9 +41,9 @@ function blockGap(type: string | undefined): string {
     case 'orderedList':
     case 'taskList':
     case 'visionQuestion':
-      return 'mt-2.5';
+      return 'mt-3';
     default:
-      return 'mt-0.5';
+      return '';
   }
 }
 
@@ -51,9 +53,9 @@ function renderBlock(node: PMNode, key: number, first: boolean): ReactNode {
   switch (node.type) {
     case 'paragraph': {
       const inner = renderInline(node.content);
-      // An empty paragraph (a deliberate double-Enter) → a clear gap, so the
-      // writer's paragraph breaks read through.
-      if (inner.length === 0) return <div key={key} aria-hidden className="h-2.5" />;
+      // An empty paragraph (a deliberate double-Enter) → a clear, roomy gap so
+      // the writer's paragraph breaks stand out from the tight in-stanza lines.
+      if (inner.length === 0) return <div key={key} aria-hidden className="h-4" />;
       return (
         <p key={key} className={gap}>
           {inner}
