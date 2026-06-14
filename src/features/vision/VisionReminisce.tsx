@@ -10,7 +10,14 @@
 // rendered with real formatting via VisionReadOnly.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Eye, X, Check, GripVertical } from 'lucide-react';
+import {
+  Eye,
+  X,
+  Check,
+  GripVertical,
+  ChevronsDownUp,
+  ChevronsUpDown,
+} from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -72,6 +79,17 @@ const SUB_IDS = ['w2', 'w3', 'w4'];
 
 // Selection + order is remembered per-user (the array IS the display order).
 const SEL_LS_PREFIX = 'vision-reminisce-sel:';
+// Whether the cards are manually minimized (compact) — remembered per-user.
+const MIN_LS_PREFIX = 'vision-reminisce-min:';
+
+function readSavedMin(userId: string | null): boolean {
+  if (!userId) return false;
+  try {
+    return localStorage.getItem(`${MIN_LS_PREFIX}${userId}`) === '1';
+  } catch {
+    return false;
+  }
+}
 
 function readSavedSel(userId: string | null): string[] {
   if (!userId) return ['monthly'];
@@ -158,11 +176,28 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
 
   // Selected items in display order — drag-reorderable, persisted per-user.
   const [order, setOrder] = useState<string[]>(() => readSavedSel(userId));
+  // Manual "minimize" toggle — collapses every card to a compact preview.
+  const [minimized, setMinimized] = useState<boolean>(() => readSavedMin(userId));
   const loadedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userId || loadedForRef.current === userId) return;
     loadedForRef.current = userId;
     setOrder(readSavedSel(userId));
+    setMinimized(readSavedMin(userId));
+  }, [userId]);
+
+  const toggleMinimized = useCallback(() => {
+    setMinimized((prev) => {
+      const next = !prev;
+      if (userId) {
+        try {
+          localStorage.setItem(`${MIN_LS_PREFIX}${userId}`, next ? '1' : '0');
+        } catch {
+          // ignore
+        }
+      }
+      return next;
+    });
   }, [userId]);
 
   const persist = useCallback(
@@ -243,15 +278,31 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="סגור מבט אחורה"
-          title="סגור"
-          className="shrink-0 inline-flex items-center justify-center h-8 w-8 rounded-lg text-ink-300 hover:text-ink-100 hover:bg-surface-raised transition-colors"
-        >
-          <X size={17} />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={toggleMinimized}
+            aria-pressed={minimized}
+            aria-label={minimized ? 'הרחב חזונות' : 'מזער חזונות'}
+            title={minimized ? 'הרחב חזונות' : 'מזער חזונות'}
+            className={`inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors ${
+              minimized
+                ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                : 'text-ink-300 hover:text-ink-100 hover:bg-surface-raised'
+            }`}
+          >
+            {minimized ? <ChevronsUpDown size={17} /> : <ChevronsDownUp size={17} />}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="סגור מבט אחורה"
+            title="סגור"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg text-ink-300 hover:text-ink-100 hover:bg-surface-raised transition-colors"
+          >
+            <X size={17} />
+          </button>
+        </div>
       </div>
 
       {/* Checkbox picker — choose what to view (multi-select). Laid out
@@ -320,7 +371,7 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                         subtitle={p.subtitle}
                         icon={m?.icon ?? null}
                         content={m?.content ?? null}
-                        collapsed={dragging}
+                        collapsed={dragging || minimized}
                       />
                     );
                   })}
