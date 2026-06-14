@@ -107,19 +107,18 @@ export function DateBar({
   );
 
   return (
-    // 3-column grid. Mobile keeps equal-width flanks (1fr each) so the TITLE is
-    // truly centred. Desktop instead gives the LEFT cluster (the habit rings)
-    // the bulk of the width — title + right buttons are content-sized — so the
-    // rings sit flush-left across the row with room to breathe; they scroll if
-    // they ever exceed that (wide) track instead of overflowing onto the title.
-    // The negative margin reclaims most of the card's 2.5rem side padding for
-    // THIS row only (the writing keeps its padding), so the header uses the
-    // full container width and the rings reach almost to the edge.
+    // 3-column grid with EQUAL flanks so the TITLE (+ its chevrons) is truly
+    // centred in the row. Using minmax(0,1fr) — not plain 1fr — lets each flank
+    // shrink below its content, so the rings scroll within their (left) track
+    // instead of overflowing onto the title when space is tight. Desktop also
+    // reclaims most of the card's 2.5rem side padding for THIS row only (the
+    // writing keeps its padding), so the rings sit flush-left near the edge
+    // while the title stays dead-centre.
     <div
       dir="rtl"
       className={`grid items-center gap-2 pb-2 mb-3 border-b border-surface-border ${
         big
-          ? '-mx-10 px-2 grid-cols-[auto_minmax(0,auto)_minmax(0,1fr)]'
+          ? '-mx-10 px-2 grid-cols-[minmax(0,1fr)_minmax(0,auto)_minmax(0,1fr)]'
           : 'grid-cols-[1fr_minmax(0,auto)_1fr]'
       }`}
     >
