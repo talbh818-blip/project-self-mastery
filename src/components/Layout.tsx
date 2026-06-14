@@ -5,7 +5,10 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { ProfileProvider } from '../features/admin/ProfileContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
 import { ThemeProvider } from '../hooks/useTheme';
-import { VisionLayoutProvider } from '../features/vision/useVisionLayoutPref';
+import {
+  VisionLayoutProvider,
+  useVisionLayoutPref,
+} from '../features/vision/useVisionLayoutPref';
 
 // Routes where the brand header (compass + app name) is hidden. Content-dense
 // screens omit it to claim the vertical space — Habits (home) and Vision (the
@@ -13,15 +16,40 @@ import { VisionLayoutProvider } from '../features/vision/useVisionLayoutPref';
 const HIDE_BRAND_HEADER_ON: ReadonlySet<string> = new Set(['/', '/vision']);
 
 export function Layout() {
+  // The shell consumes the layout-mode context (for the Course desktop
+  // app-shell), so the provider must wrap it — hence the split into LayoutShell.
+  return (
+    <ProfileProvider>
+      <ThemeProvider>
+        <BlockedGate>
+          <VisionLayoutProvider>
+            <LayoutShell />
+          </VisionLayoutProvider>
+        </BlockedGate>
+      </ThemeProvider>
+    </ProfileProvider>
+  );
+}
+
+function LayoutShell() {
   const headerRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
+  const { mode } = useVisionLayoutPref();
   const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname);
-  // Vision and Course both ship a wide desktop layout; give their routes the
-  // FULL width so the page can use the whole viewport. Every other screen stays
-  // phone-width (max-w-md). Both screens re-constrain their MOBILE layout to
-  // max-w-md themselves, so phones are unaffected.
+  // Vision ships a wide desktop layout; the Course desktop layout is wide too.
+  // Give both routes the FULL width so the page can use the whole viewport.
+  // Every other screen stays phone-width (max-w-md). Both screens re-constrain
+  // their MOBILE layout to max-w-md themselves, so phones are unaffected.
   const wideContainer = pathname === '/vision' || pathname === '/course';
+
+  // Course desktop is a FIXED app-shell: the page itself never scrolls; only the
+  // book rail (and, if a book has many videos, the video column) scrolls
+  // internally. Clamp the whole shell to the viewport height and disable page
+  // scroll. Mobile course (and every other screen) keeps the normal document
+  // scroll. Only the actual desktop MODE triggers this — a wide viewport left in
+  // "נייד" mode still scrolls like a phone.
+  const fixedShell = pathname === '/course' && mode === 'desktop';
 
   // On initial load and on every route change, start the viewport just past
   // the brand header so the screen content is what the user sees first.
@@ -30,6 +58,13 @@ export function Layout() {
   //   - a short timeout elapses (failsafe against bouncing forever).
   // This handles async content loads that grow the page after mount.
   useLayoutEffect(() => {
+    // The fixed app-shell can't scroll at all — keep it parked at the top so the
+    // header stays put and never re-applies the past-header scroll below.
+    if (fixedShell) {
+      window.scrollTo({ top: 0, left: 0 });
+      return;
+    }
+
     // When the brand header isn't rendered, there's nothing to scroll past.
     if (!showBrandHeader) {
       window.scrollTo({ top: 0, left: 0 });
@@ -80,14 +115,14 @@ export function Layout() {
       ro.disconnect();
       window.clearTimeout(stopTimer);
     };
-  }, [pathname, showBrandHeader]);
+  }, [pathname, showBrandHeader, fixedShell]);
 
   return (
-    <ProfileProvider>
-    <ThemeProvider>
-    <BlockedGate>
-    <VisionLayoutProvider>
-    <div className="min-h-screen flex flex-col bg-surface-base">
+    <div
+      className={`flex flex-col bg-surface-base ${
+        fixedShell ? 'h-screen overflow-hidden' : 'min-h-screen'
+      }`}
+    >
       {showBrandHeader && (
         <header ref={headerRef} className="bg-surface-base">
           <div className="max-w-md mx-auto w-full px-4 py-3 flex items-center justify-center gap-2">
@@ -104,9 +139,9 @@ export function Layout() {
       )}
       <main
         ref={mainRef}
-        className={`flex-1 pb-24 mx-auto w-full px-3 sm:px-4 pt-5 min-h-screen ${
+        className={`flex-1 mx-auto w-full px-3 sm:px-4 pt-5 ${
           wideContainer ? 'max-w-none' : 'max-w-md'
-        }`}
+        } ${fixedShell ? 'overflow-hidden' : 'pb-24 min-h-screen'}`}
       >
         {/* App-wide safety net: a crash on any screen shows a recoverable
             notice instead of a black page. Resets on route change. */}
@@ -134,9 +169,5 @@ export function Layout() {
       </main>
       <BottomNav />
     </div>
-    </VisionLayoutProvider>
-    </BlockedGate>
-    </ThemeProvider>
-    </ProfileProvider>
   );
 }

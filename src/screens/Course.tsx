@@ -99,7 +99,7 @@ export function Course() {
     <section
       className={
         desktop
-          ? '-mt-3 pb-6 w-full'
+          ? 'w-full h-[calc(100vh-9.5rem)]'
           : '-mt-3 pb-6 space-y-5 w-full max-w-md mx-auto'
       }
     >
@@ -125,12 +125,19 @@ function CourseDesktop({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="flex gap-6 items-start">
+    <div className="flex gap-6 h-full">
       <BookRail books={books} activeBookId={activeBookId} onSelect={onSelect} />
-      <div className="flex-1 min-w-0">
-        {activeBook && (
-          <BookSection key={activeBook.id} book={activeBook} desktop />
-        )}
+      {/* The active book's videos. Scrolls on its own (green in-app bar) only if
+          a book has more videos than fit; the PAGE itself never scrolls. */}
+      <div
+        dir="ltr"
+        className="flex-1 min-w-0 h-full overflow-y-auto vision-feed-scroll"
+      >
+        <div dir="rtl">
+          {activeBook && (
+            <BookSection key={activeBook.id} book={activeBook} desktop />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -138,9 +145,9 @@ function CourseDesktop({
 
 // ---------------------------------------------------------------------------
 // BookRail — desktop-only right rail. A fixed 3 columns of full-size book cards
-// (same size as the mobile carousel), pinned to the right edge and running the
-// full height of the page (sticky). RTL auto-placement fills right→left, so a
-// short last row stays right-aligned.
+// (same size as the mobile carousel), pinned to the right edge and filling the
+// fixed shell's full height (h-full). The PAGE never scrolls; the rail does.
+// RTL auto-placement fills right→left, so a short last row stays right-aligned.
 //
 // The rail carries its OWN in-app scrollbar — the slim forest-green
 // `vision-feed-scroll`, not the bare OS gray. A `dir="ltr"` wrapper parks that
@@ -157,10 +164,10 @@ function BookRail({
   onSelect: (id: string) => void;
 }) {
   return (
-    <aside className="shrink-0 sticky top-3 self-start">
+    <aside className="shrink-0 h-full">
       <div
         dir="ltr"
-        className="h-[calc(100vh-7rem)] overflow-y-auto vision-feed-scroll"
+        className="h-full overflow-y-auto vision-feed-scroll"
       >
         <ul
           dir="rtl"
