@@ -36,12 +36,6 @@ function LayoutShell() {
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   const { mode } = useVisionLayoutPref();
-  const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname);
-  // Vision ships a wide desktop layout; the Course desktop layout is wide too.
-  // Give both routes the FULL width so the page can use the whole viewport.
-  // Every other screen stays phone-width (max-w-md). Both screens re-constrain
-  // their MOBILE layout to max-w-md themselves, so phones are unaffected.
-  const wideContainer = pathname === '/vision' || pathname === '/course';
 
   // Course desktop is a FIXED app-shell: the page itself never scrolls; only the
   // book rail (and, if a book has many videos, the video column) scrolls
@@ -50,6 +44,16 @@ function LayoutShell() {
   // scroll. Only the actual desktop MODE triggers this — a wide viewport left in
   // "נייד" mode still scrolls like a phone.
   const fixedShell = pathname === '/course' && mode === 'desktop';
+
+  // The brand header (compass + app name) is hidden on the content-dense Habits
+  // and Vision screens — and on the Course desktop app-shell, which claims the
+  // full height for the book rail. Mobile Course still shows it.
+  const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname) && !fixedShell;
+  // Vision ships a wide desktop layout; the Course desktop layout is wide too.
+  // Give both routes the FULL width so the page can use the whole viewport.
+  // Every other screen stays phone-width (max-w-md). Both screens re-constrain
+  // their MOBILE layout to max-w-md themselves, so phones are unaffected.
+  const wideContainer = pathname === '/vision' || pathname === '/course';
 
   // On initial load and on every route change, start the viewport just past
   // the brand header so the screen content is what the user sees first.

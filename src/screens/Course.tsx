@@ -99,7 +99,7 @@ export function Course() {
     <section
       className={
         desktop
-          ? 'w-full h-[calc(100vh-9.5rem)]'
+          ? 'w-full h-[calc(100vh-6rem)]'
           : '-mt-3 pb-6 space-y-5 w-full max-w-md mx-auto'
       }
     >
