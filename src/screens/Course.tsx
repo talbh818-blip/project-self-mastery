@@ -92,14 +92,16 @@ export function Course() {
     </>
   );
 
-  // The Layout gives /course the full viewport width (like /vision); we
-  // re-constrain here so MOBILE stays phone-width and DESKTOP gets a roomy —
-  // but not edge-to-edge — canvas.
+  // The Layout gives /course the full viewport width (like /vision). DESKTOP
+  // uses all of it so the book rail can sit flush on the right edge; MOBILE
+  // re-constrains itself to phone-width and stays centred.
   return (
     <section
-      className={`-mt-3 pb-6 space-y-5 w-full mx-auto ${
-        desktop ? 'max-w-6xl' : 'max-w-md'
-      }`}
+      className={
+        desktop
+          ? '-mt-3 pb-6 w-full'
+          : '-mt-3 pb-6 space-y-5 w-full max-w-md mx-auto'
+      }
     >
       {body}
     </section>
@@ -108,8 +110,8 @@ export function Course() {
 
 // ---------------------------------------------------------------------------
 // CourseDesktop — wide two-column layout. RTL renders the first child on the
-// right, so the book grid sits on the right and the video player fills the
-// space to its left.
+// right, so the book rail sits flush on the right edge and the active book's
+// videos — laid out like a digital course — fill the space to its left.
 // ---------------------------------------------------------------------------
 function CourseDesktop({
   books,
@@ -124,21 +126,28 @@ function CourseDesktop({
 }) {
   return (
     <div className="flex gap-6 items-start">
-      <BookGrid books={books} activeBookId={activeBookId} onSelect={onSelect} />
+      <BookRail books={books} activeBookId={activeBookId} onSelect={onSelect} />
       <div className="flex-1 min-w-0">
-        {activeBook && <BookSection key={activeBook.id} book={activeBook} />}
+        {activeBook && (
+          <BookSection key={activeBook.id} book={activeBook} desktop />
+        )}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// BookGrid — desktop-only. A fixed 3 columns of full-size book cards (same size
-// as the mobile carousel). RTL auto-placement fills right→left, so the cards
-// hug the right edge and a short last row stays right-aligned. Rows stack
-// downward; the panel scrolls vertically once the shelf grows past the cap.
+// BookRail — desktop-only right rail. A fixed 3 columns of full-size book cards
+// (same size as the mobile carousel), pinned to the right edge and running the
+// full height of the page (sticky). RTL auto-placement fills right→left, so a
+// short last row stays right-aligned.
+//
+// The rail carries its OWN in-app scrollbar — the slim forest-green
+// `vision-feed-scroll`, not the bare OS gray. A `dir="ltr"` wrapper parks that
+// bar on the RIGHT (the RTL reading side); the card grid inside is flipped back
+// to rtl so the cards still flow right→left.
 // ---------------------------------------------------------------------------
-function BookGrid({
+function BookRail({
   books,
   activeBookId,
   onSelect,
@@ -148,19 +157,27 @@ function BookGrid({
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="shrink-0 max-h-[72vh] overflow-y-auto p-1">
-      <ul className="grid grid-cols-[repeat(3,100px)] gap-3">
-        {books.map((b) => (
-          <li key={b.id}>
-            <BookCard
-              book={b}
-              active={b.id === activeBookId}
-              onClick={() => onSelect(b.id)}
-            />
-          </li>
-        ))}
-      </ul>
-    </div>
+    <aside className="shrink-0 sticky top-3 self-start">
+      <div
+        dir="ltr"
+        className="h-[calc(100vh-7rem)] overflow-y-auto vision-feed-scroll"
+      >
+        <ul
+          dir="rtl"
+          className="grid grid-cols-[repeat(3,100px)] gap-x-3 gap-y-4 p-1 ps-2"
+        >
+          {books.map((b) => (
+            <li key={b.id}>
+              <BookCard
+                book={b}
+                active={b.id === activeBookId}
+                onClick={() => onSelect(b.id)}
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
   );
 }
 
@@ -329,10 +346,17 @@ function PlaceholderCover() {
 // ---------------------------------------------------------------------------
 // BookSection — the active book's videos, each embedded directly as its own
 // ready-to-play player with the title above it (no list, no "back" step).
-// Loads its own videos on mount; parent passes `key={book.id}` so a book
-// change re-mounts with the new book's videos.
+// MOBILE stacks them full-width; DESKTOP lays them out as a digital-course grid
+// of smaller players. Loads its own videos on mount; parent passes
+// `key={book.id}` so a book change re-mounts with the new book's videos.
 // ---------------------------------------------------------------------------
-function BookSection({ book }: { book: CourseBookWithCount }) {
+function BookSection({
+  book,
+  desktop = false,
+}: {
+  book: CourseBookWithCount;
+  desktop?: boolean;
+}) {
   const [videos, setVideos] = useState<CourseVideo[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -381,7 +405,13 @@ function BookSection({ book }: { book: CourseBookWithCount }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div
+      className={
+        desktop
+          ? 'grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-x-5 gap-y-7'
+          : 'space-y-6'
+      }
+    >
       {videos.map((v) => (
         <VideoPlayer key={v.id} video={v} />
       ))}
