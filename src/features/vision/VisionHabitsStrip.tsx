@@ -25,17 +25,21 @@
 //     skipped from both done and expected, matching how the habit cells treat
 //     them, so an unfinished today never drags the number down.
 //
-// RANGE TOGGLE — a label to the LEFT of the rings ("השבוע הזה" / "החודש הזה" /
-// "השנה הזאת") flips the rings between the OPEN-PERIOD metric above and a
-// TRAILING window ending today ("7 / 30 / 365 ימים אחרונים"). In the trailing
-// mode the same done/expected math runs over [today-(N-1) … today] anchored to
-// today (not the open period), so it reads "how am I doing lately?". The choice
-// is remembered per-user (see useRangeMode).
+// VISIBILITY — every habit ASSIGNED to a slot in the window shows, even one not
+// yet marked: a brand-new week before any tick reads 0% (an EMPTY ring), it does
+// NOT vanish. Only a habit whose assignment began AFTER the window is hidden (it
+// didn't exist in a past period we're looking back at — keyed on habitStartDate).
+//
+// RANGE TOGGLE — a two-line label to the LEFT of the rings ("השבוע" / "הזה",
+// etc.) flips the rings between the OPEN-PERIOD metric above and a TRAILING
+// window ending today ("7 / 30 / 365 ימים אחרונים"). In the trailing mode the
+// same done/expected math runs over [today-(N-1) … today] anchored to today (not
+// the open period), so it reads "how am I doing lately?". Whatever the user
+// picks becomes the persistent default (see useRangeMode).
 //
 // The per-day verdict is the ENGINE's `effectiveByDate` ('V' only counts a
 // genuinely-complete day — a quantitative partial logged as 'V' does not), so
-// the strip agrees with the cells and the data dashboard. A habit with no real
-// activity in the window (e.g. it didn't exist yet for a past year) is hidden.
+// the strip agrees with the cells and the data dashboard.
 //
 // Self-contained: it loads its own habit data via useHabitData. The vision
 // editor persists across cached period steps, so this fetch happens once and
@@ -80,25 +84,22 @@ function periodBounds(scope: VisionScope, key: string): { start: Date; end: Date
  * Completion of the open period for a habit, over [windowStart, windowEnd]
  * (inclusive, windowEnd already clamped to ≤ today). Measures the WHOLE period
  * — un-lived / un-done days count as unfilled — so the value shrinks as the
- * scope widens. Returns null when the habit had no real activity in the period
- * (so it's hidden rather than shown at 0% for a period it didn't exist in).
- * See the file header for the exact metric.
+ * scope widens. Always returns a number in [0, 1]: a habit that's assigned but
+ * not yet marked (e.g. a brand-new week before any tick) reads 0 — an EMPTY
+ * ring — rather than vanishing. WHETHER a habit shows at all is decided by the
+ * caller (it hides habits not yet assigned in the window). See the file header.
  */
 function successRatio(
   habit: Habit,
   eff: HabitScoreResult['effectiveByDate'] | undefined,
   windowStart: Date,
   windowEnd: Date,
-): number | null {
-  if (!eff) return null;
+): number {
+  if (!eff) return 0;
   const target = Math.max(1, habit.frequency_target);
   const cap = habit.frequency_period === 'daily' ? 1 : target;
   // bucketKey → { v: completed days, days: counted (non-neutral) days }
   const buckets = new Map<string, { v: number; days: number }>();
-  // Did the habit genuinely exist / get judged at all in this window? Only a
-  // real verdict (V / X / auto_x) counts — undefined days (pre-existence / gap)
-  // do not, so a period the habit never lived in stays hidden.
-  let active = false;
 
   const d = new Date(windowStart);
   while (d <= windowEnd) {
@@ -115,18 +116,12 @@ function successRatio(
             : `${d.getFullYear()}-${d.getMonth()}`;
       const b = buckets.get(key) ?? { v: 0, days: 0 };
       b.days += 1; // counts toward "expected" even when undefined (unfilled)
-      if (st === 'V') {
-        b.v += 1;
-        active = true;
-      } else if (st === 'X' || st === 'auto_x') {
-        active = true;
-      }
+      if (st === 'V') b.v += 1;
       buckets.set(key, b);
     }
     d.setDate(d.getDate() + 1);
   }
 
-  if (!active) return null; // habit didn't exist in this period → hide it
   let done = 0;
   let expected = 0;
   for (const b of buckets.values()) {
@@ -134,7 +129,9 @@ function successRatio(
     done += Math.min(b.v, exp);
     expected += exp;
   }
-  return expected > 0 ? done / expected : null;
+  // No expected days yet (a fresh week where the only elapsed day is today,
+  // still neutral) → 0%, an empty ring, not a hidden habit.
+  return expected > 0 ? done / expected : 0;
 }
 
 // ─── Range mode (this period vs. trailing window) ───────────────────────────
@@ -163,15 +160,17 @@ const ROLLING_DAYS: Record<VisionScope, number> = {
   monthly: 30,
   yearly: 365,
 };
-const PERIOD_LABEL: Record<VisionScope, string> = {
-  weekly: 'השבוע הזה',
-  monthly: 'החודש הזה',
-  yearly: 'השנה הזאת',
+// Each label is two lines (primary / secondary) so it stacks vertically and
+// stays narrow — keeps the strip compact and flush-left.
+const PERIOD_LABEL: Record<VisionScope, [string, string]> = {
+  weekly: ['השבוע', 'הזה'],
+  monthly: ['החודש', 'הזה'],
+  yearly: ['השנה', 'הזאת'],
 };
-const ROLLING_LABEL: Record<VisionScope, string> = {
-  weekly: '7 ימים אחרונים',
-  monthly: '30 ימים אחרונים',
-  yearly: '365 ימים אחרונים',
+const ROLLING_LABEL: Record<VisionScope, [string, string]> = {
+  weekly: ['7 ימים', 'אחרונים'],
+  monthly: ['30 ימים', 'אחרונים'],
+  yearly: ['365 ימים', 'אחרונים'],
 };
 
 /** The current default for `userId` — session cache if it's for this user,
@@ -276,16 +275,19 @@ export function VisionHabitsStrip({
       winEnd = scope === 'weekly' ? todayEnd : periodEnd;
     }
 
-    // slotsForRange only picks WHICH habits to show (it always returns the
-    // current habit per slot).
+    // slotsForRange returns the CURRENTLY-assigned habit per slot. Show every
+    // assigned habit — even one not yet marked this period (it reads 0%, an
+    // empty ring) — but hide a habit whose assignment only began AFTER this
+    // window (it didn't exist in a past period we're looking back at).
     const slots = slotsForRange({ start: selStart, end: selEnd });
+    const selEndStr = toDateString(selEnd);
     const out: Item[] = [];
     for (const slot of slots) {
       const habit = slot.habit;
       if (!habit) continue;
+      if (slot.habitStartDate && slot.habitStartDate > selEndStr) continue;
       const eff = stats?.byHabit.get(habit.id)?.effectiveByDate;
       const ratio = successRatio(habit, eff, winStart, winEnd);
-      if (ratio === null) continue;
       out.push({ habit, ratio });
     }
     out.sort((a, b) => (a.habit.sort_order ?? 0) - (b.habit.sort_order ?? 0));
@@ -333,20 +335,20 @@ export function VisionHabitsStrip({
           </div>
         </div>
 
-        {/* Range toggle — to the LEFT of the rings. Tap flips
-            "this period" ⇄ "last N days". */}
+        {/* Range toggle — to the LEFT of the rings, two compact lines, flush
+            left. Tap flips "this period" ⇄ "last N days". */}
         <button
           type="button"
           onClick={toggle}
           title="החלפת טווח המדידה"
-          aria-label={`טווח המדידה: ${label} — לחצו להחלפה`}
-          className={`shrink-0 whitespace-nowrap leading-tight text-center font-semibold
-            rounded-full bg-forest-700/10 hover:bg-forest-700/20
-            text-forest-400 hover:text-forest-500 transition-colors ${
-              inline ? 'text-[11px] px-2 py-0.5' : 'text-[13px] px-2.5 py-1'
+          aria-label={`טווח המדידה: ${label[0]} ${label[1]} — לחצו להחלפה`}
+          className={`shrink-0 text-left leading-[1.12] font-semibold
+            text-white/80 hover:text-white transition-colors ${
+              inline ? 'text-[11px]' : 'text-[12px]'
             }`}
         >
-          {label}
+          <span className="block whitespace-nowrap">{label[0]}</span>
+          <span className="block whitespace-nowrap">{label[1]}</span>
         </button>
       </div>
     </div>
