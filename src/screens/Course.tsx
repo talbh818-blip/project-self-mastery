@@ -8,22 +8,22 @@
 //        • Books with no videos render grayscale + a "בקרוב" pill.
 //        • Cover image with onError fallback to a blank placeholder.
 //        • Caption (title + author) is centered under each card.
-//   2. Below the carousel, either:
-//        • the embedded video player (if a video was tapped), OR
-//        • the list of videos for the active book.
+//   2. Below the carousel, the active book's videos are embedded DIRECTLY —
+//      each one is its own ready-to-play player with its title ABOVE it.
+//      There's no clickable list and no "back to list" step: the iframes sit
+//      on the page so the user presses play right where the video is.
 //      We never repeat the active book's title/author here — they live
 //      under the card.
 //
 // There is ALWAYS an active book — the first book in the catalog is selected
-// on mount. Switching books resets the video player.
+// on mount. Switching books re-mounts the section with the new book's videos.
 // ============================================================================
 import { useEffect, useState } from 'react';
-import { BookOpen, Play, ChevronRight } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import {
   fetchBooks,
   fetchVideos,
   videoEmbedUrl,
-  videoThumbnail,
   type CourseBookWithCount,
   type CourseVideo,
 } from '../features/course/queries';
@@ -244,15 +244,15 @@ function PlaceholderCover() {
 }
 
 // ---------------------------------------------------------------------------
-// BookSection — either the embedded player or the list of videos for the
-// active book. Loads its own videos on mount; parent passes `key={book.id}`
-// so a book change re-mounts and resets player state.
+// BookSection — the active book's videos, each embedded directly as its own
+// ready-to-play player with the title above it (no list, no "back" step).
+// Loads its own videos on mount; parent passes `key={book.id}` so a book
+// change re-mounts with the new book's videos.
 // ---------------------------------------------------------------------------
 function BookSection({ book }: { book: CourseBookWithCount }) {
   const [videos, setVideos] = useState<CourseVideo[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [playing, setPlaying] = useState<CourseVideo | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -275,60 +275,6 @@ function BookSection({ book }: { book: CourseBookWithCount }) {
     };
   }, [book.id]);
 
-  return (
-    <div className="space-y-4">
-      {/* Player (when a video is playing) */}
-      {playing && (
-        <div className="space-y-2">
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
-            <iframe
-              src={videoEmbedUrl(playing)}
-              title={playing.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              className="absolute inset-0 w-full h-full"
-            />
-          </div>
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-semibold text-ink-100 line-clamp-1 flex-1">
-              {playing.title}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setPlaying(null)}
-              className="shrink-0 text-xs text-ink-300 hover:text-ink-100 flex items-center gap-1"
-            >
-              <ChevronRight size={14} />
-              חזרה לרשימה
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Video list */}
-      {!playing && (
-        <VideoList
-          videos={videos}
-          loading={loading}
-          error={loadError}
-          onSelect={setPlaying}
-        />
-      )}
-    </div>
-  );
-}
-
-function VideoList({
-  videos,
-  loading,
-  error,
-  onSelect,
-}: {
-  videos: CourseVideo[] | null;
-  loading: boolean;
-  error: string | null;
-  onSelect: (v: CourseVideo) => void;
-}) {
   if (loading) {
     return (
       <div className="py-6">
@@ -336,8 +282,8 @@ function VideoList({
       </div>
     );
   }
-  if (error) {
-    return <p className="text-red-400 text-sm py-6 text-center">{error}</p>;
+  if (loadError) {
+    return <p className="text-red-400 text-sm py-6 text-center">{loadError}</p>;
   }
   if (!videos || videos.length === 0) {
     return (
@@ -350,56 +296,42 @@ function VideoList({
       </div>
     );
   }
+
   return (
-    <ul className="space-y-2">
+    <div className="space-y-6">
       {videos.map((v) => (
-        <li key={v.id}>
-          <VideoRow video={v} onClick={() => onSelect(v)} />
-        </li>
+        <VideoPlayer key={v.id} video={v} />
       ))}
-    </ul>
+    </div>
   );
 }
 
-function VideoRow({
-  video,
-  onClick,
-}: {
-  video: CourseVideo;
-  onClick: () => void;
-}) {
-  const thumb = videoThumbnail(video);
+// ---------------------------------------------------------------------------
+// VideoPlayer — title ABOVE an always-embedded player. The iframe sits ready
+// on the page so the user presses play right where the video is.
+// ---------------------------------------------------------------------------
+function VideoPlayer({ video }: { video: CourseVideo }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 p-2 rounded-2xl bg-surface-card hover:bg-surface-raised transition-colors text-right"
-    >
-      <div className="relative shrink-0 w-24 aspect-video rounded-xl overflow-hidden bg-surface-base">
-        {thumb ? (
-          <img src={thumb} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-ink-500">
-            <Play size={18} />
-          </div>
-        )}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-          <div className="w-8 h-8 rounded-full bg-black/55 flex items-center justify-center">
-            <Play size={14} className="text-cream-50 ms-0.5" fill="currentColor" />
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-ink-100 font-medium line-clamp-2">
-          {video.title}
-        </div>
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-2 px-1">
+        <h3 className="text-sm font-semibold text-ink-100">{video.title}</h3>
         {video.duration_sec ? (
-          <div className="text-xs text-ink-300 mt-1">
+          <span className="shrink-0 text-xs text-ink-300">
             {formatDuration(video.duration_sec)}
-          </div>
+          </span>
         ) : null}
       </div>
-    </button>
+      <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black">
+        <iframe
+          src={videoEmbedUrl(video)}
+          title={video.title}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          loading="lazy"
+          className="absolute inset-0 w-full h-full"
+        />
+      </div>
+    </div>
   );
 }
 
