@@ -954,14 +954,21 @@ html[data-theme="light"] .vision-editor .vision-question {
 
 /* The writing surface is the flex grower and the lone scroll region. min-height:0
    lets it shrink below its content so it scrolls instead of overflowing the card;
-   the inner .ProseMirror fills it so a click anywhere still focuses the editor. */
+   the inner .ProseMirror fills it so a click anywhere still focuses the editor.
+   Scrollbar: NATIVE only (no custom ::-webkit-scrollbar chrome). The container is
+   LTR so the native vertical bar parks on the RIGHT edge (RTL apps read right→
+   left), and the .ProseMirror flips back to RTL for the text. scrollbar-width:thin
+   keeps the clean native bar rather than the chunky classic one. */
 .vision-desktop-write {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  direction: ltr;
+  scrollbar-width: thin;
 }
 .vision-desktop-write .ProseMirror {
   min-height: 100%;
+  direction: rtl;
 }
 
 /* The right navigation rail's scroll body — caps to the viewport so a long
