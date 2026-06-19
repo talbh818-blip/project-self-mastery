@@ -34,8 +34,8 @@ const LEVEL_LABELS: Record<VisionLevelView, string> = {
   yearly: 'שנתי',
   monthly: 'חודשי',
   // The "weekly" slot is the daily-journaling view (year/month strips → weeks →
-  // days), surfaced as "יומי" and gated behind the Journaling feature.
-  weekly: 'יומי',
+  // days), surfaced as "כתיבה יומית" and gated behind the Journaling feature.
+  weekly: 'כתיבה יומית',
 };
 
 // Menu order, top→bottom: weekly(יומי), monthly, yearly (fine→broad, like a
@@ -81,9 +81,10 @@ export function VisionViewBar({
   const menuOrder = dailyEnabled
     ? MENU_ORDER
     : MENU_ORDER.filter((o) => o !== 'weekly');
-  // The left cluster (history + collapse) only makes sense for the views with
-  // a navigator + editor below: yearly and monthly.
-  const showNav = view === 'yearly' || view === 'monthly';
+  // The left cluster (history + collapse) makes sense for EVERY level view —
+  // each has a navigator + an editor below (yearly map / monthly cards / the
+  // daily week-grid). Only the feed (its own search box) is excluded.
+  const showNav = view === 'yearly' || view === 'monthly' || view === 'weekly';
 
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">

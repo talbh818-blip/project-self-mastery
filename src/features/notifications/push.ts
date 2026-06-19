@@ -82,19 +82,33 @@ export async function ensurePushSubscription(): Promise<boolean> {
     const auth = json.keys?.auth ?? bufToBase64Url(sub.getKey('auth'));
     if (!endpoint || !p256dh || !auth) return false;
 
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : null;
     const { error } = await supabase.from('push_subscriptions').upsert(
       {
         user_id: user.id,
         endpoint,
         p256dh,
         auth,
-        user_agent:
-          typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        user_agent: ua,
         last_seen_at: new Date().toISOString(),
       },
       { onConflict: 'endpoint' },
     );
     if (error) return false;
+
+    // Push endpoints rotate across SW updates, leaving stale rows for the SAME
+    // physical device → the sender would deliver a duplicate per stale row.
+    // Drop this device's other (same user-agent) subscriptions so each device
+    // keeps exactly one. Different devices have different user agents → kept.
+    if (ua) {
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('user_agent', ua)
+        .neq('endpoint', endpoint);
+    }
+
     pushActive = true;
     return true;
   } catch {

@@ -129,7 +129,16 @@ export function isFuturePeriod(
   key: string,
   now: Date = new Date(),
 ): boolean {
-  return parsePeriodStart(scope, key).getTime() > now.getTime();
+  const start = parsePeriodStart(scope, key).getTime();
+  if (scope === 'weekly') {
+    // Weekly visions can be written a week ahead: the current week AND the NEXT
+    // week are open; only weeks beyond next-week stay locked. (Daily / monthly /
+    // yearly keep the strict "hasn't started yet" rule.)
+    const nextWeekStart = weekStart(now);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    return start > nextWeekStart.getTime();
+  }
+  return start > now.getTime();
 }
 
 // ─── Hebrew display labels ──────────────────────────────────────────────────

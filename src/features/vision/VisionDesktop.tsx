@@ -61,7 +61,7 @@ import {
 const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
   { value: 'yearly', label: 'שנתי' },
   { value: 'monthly', label: 'חודשי' },
-  { value: 'weekly', label: 'יומי' },
+  { value: 'weekly', label: 'כתיבה יומית' },
 ];
 
 // The desktop's last-chosen LEVEL view is remembered per-user so reopening the
