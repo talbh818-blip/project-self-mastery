@@ -895,7 +895,7 @@ html[data-theme="light"] .vision-editor .vision-question {
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 5rem);
+  height: calc(100vh - 5.5rem);
 }
 
 /* Sticky top toolbar — pins to the top of the viewport as the page scrolls.
