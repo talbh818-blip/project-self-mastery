@@ -12,16 +12,16 @@
   --color-ink-300: #7aa086;
   --color-ink-500: #4a6655;
 
-  /* Green accents — muted, not neon */
-  --color-forest-50: #0f1f16;
-  --color-forest-100: #162a1e;
-  --color-forest-200: #1e3828;
-  --color-forest-400: #4a9962;
-  --color-forest-500: #55b570;
-  --color-forest-600: #4d9e68;
-  --color-forest-700: #56aa70;
-  --color-forest-800: #3d7a52;
-  --color-forest-900: #285238;
+  /* Green accents — NEW brand green (hue 154°, vivid). Local trial. */
+  --color-forest-50: #0f241b;
+  --color-forest-100: #153226;
+  --color-forest-200: #1b4633;
+  --color-forest-400: #31b97e;
+  --color-forest-500: #43d093;
+  --color-forest-600: #32c887;
+  --color-forest-700: #33cc8a;
+  --color-forest-800: #259363;
+  --color-forest-900: #206547;
 
   /* Cream — text on coloured (habit) chips, stays light */
   --color-cream-50: #e8f2eb;
@@ -128,10 +128,19 @@ html[data-theme="light"] {
   --color-ink-300: #4a6655;
   --color-ink-500: #7aa086;
 
-  /* Slightly deeper green on light backgrounds for contrast. */
+  /* Light theme keeps the ORIGINAL production green — the new vivid green
+     (hue 154°) is DARK-MODE ONLY. Pin the full forest ramp to the original
+     values so light mode renders exactly as it did in production, regardless
+     of the new dark @theme values above. */
+  --color-forest-50: #0f1f16;
+  --color-forest-100: #162a1e;
+  --color-forest-200: #1e3828;
+  --color-forest-400: #4a9962;
   --color-forest-500: #3d7a52;
   --color-forest-600: #356b47;
   --color-forest-700: #2f6240;
+  --color-forest-800: #3d7a52;
+  --color-forest-900: #285238;
 
   /* Light theme greens are dark, so on-accent text flips back to cream. */
   --color-on-accent: #e8f2eb;
