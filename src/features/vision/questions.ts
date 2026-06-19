@@ -66,10 +66,24 @@ const FALLBACK_WEEKLY: VisionQuestion[] = [
   { id: 'w-grateful', text: 'על מה אני אסיר תודה השבוע, גם אם זה דבר קטן?' },
 ];
 
+const FALLBACK_DAILY: VisionQuestion[] = [
+  { id: 'd-highlight', text: 'מה הרגע הכי טוב שלי היום?' },
+  { id: 'd-grateful', text: 'על מה אני אסיר תודה היום, גם אם זה דבר קטן?' },
+  { id: 'd-proud', text: 'מה עשיתי היום שאני גאה בו?' },
+  { id: 'd-hard', text: 'מה היה הכי מאתגר היום, ואיך התמודדתי?' },
+  { id: 'd-learn', text: 'מה למדתי היום — על עצמי או על העולם?' },
+  { id: 'd-feel', text: 'איך אני מרגיש כרגע, באמת — ומה גרם לזה?' },
+  { id: 'd-energy', text: 'מה נתן לי אנרגיה היום, ומה גזל אותה?' },
+  { id: 'd-tomorrow', text: 'מה הדבר האחד שארצה לעשות אחרת מחר?' },
+  { id: 'd-kind', text: 'איפה הייתי טוב למישהו היום — או מישהו אליי?' },
+  { id: 'd-let-go', text: 'מה כדאי לי לשחרר מהיום הזה לפני השינה?' },
+];
+
 const FALLBACKS: Record<VisionScope, VisionQuestion[]> = {
   yearly: FALLBACK_YEARLY,
   monthly: FALLBACK_MONTHLY,
   weekly: FALLBACK_WEEKLY,
+  daily: FALLBACK_DAILY,
 };
 
 // ─── Live catalog ────────────────────────────────────────────────────────────
@@ -89,12 +103,13 @@ let userCatalog: Record<VisionScope, VisionQuestion[]> = {
   yearly: [],
   monthly: [],
   weekly: [],
+  daily: [],
 };
 let ownOnly = false;
 let loadPromise: Promise<void> | null = null;
 
 function emptyByScope(): Record<VisionScope, VisionQuestion[]> {
-  return { yearly: [], monthly: [], weekly: [] };
+  return { yearly: [], monthly: [], weekly: [], daily: [] };
 }
 
 export function ensureQuestionsLoaded(): Promise<void> {
@@ -136,6 +151,10 @@ export function ensureQuestionsLoaded(): Promise<void> {
         yearly: admin.yearly.length > 0 ? admin.yearly : FALLBACKS.yearly,
         monthly: admin.monthly.length > 0 ? admin.monthly : FALLBACKS.monthly,
         weekly: admin.weekly.length > 0 ? admin.weekly : FALLBACKS.weekly,
+        // Daily questions aren't managed in the admin panel yet (the
+        // vision_questions table is seeded for yearly/monthly/weekly), so daily
+        // always uses the built-in fallback prompts above.
+        daily: admin.daily.length > 0 ? admin.daily : FALLBACKS.daily,
       };
 
       const own = emptyByScope();

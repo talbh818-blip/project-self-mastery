@@ -208,8 +208,11 @@ export function VisionEditor({
         <EditorContent editor={editor} />
         {/* Per-habit success rings for the open period (week / month / year),
             at the BOTTOM of the vision — below the writing. Self-hides when the
-            user has no habits; carries its own divider above. */}
-        <VisionHabitsStrip userId={userId} scope={scope} periodKey={periodKey} />
+            user has no habits; carries its own divider above. NOT shown on a
+            daily journaling entry — a day is "separate from the vision". */}
+        {scope !== 'daily' && (
+          <VisionHabitsStrip userId={userId} scope={scope} periodKey={periodKey} />
+        )}
       </div>
       {/* Scroll runway: extra space below the card so the last lines of a long
           vision scroll clear of the fixed formatting toolbar (which would

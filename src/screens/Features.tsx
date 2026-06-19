@@ -18,11 +18,18 @@ import {
   requestPermission,
   setNotificationsFeatureEnabled,
 } from '../features/notifications/delivery';
+import {
+  isJournalingEnabled,
+  setJournalingEnabled,
+} from '../features/vision/journalingFeature';
 
 export function Features() {
   const navigate = useNavigate();
 
   const [notifEnabled, setNotifEnabled] = useState(isNotificationsFeatureEnabled);
+  // Daily journaling — opt-in. Enabling it reveals the "יומי" view in the
+  // Vision screen (where each day under a week is its own entry).
+  const [journalEnabled, setJournalEnabled] = useState(isJournalingEnabled);
   // Grid (2-up cards) vs list (one wide row per feature). Persisted per device.
   const [cardLayout, setCardLayout] = useState<FeaturesView>(() =>
     loadFeaturesView(),
@@ -42,6 +49,14 @@ export function Features() {
   };
 
   const openNotifications = () => navigate('/features/notifications');
+
+  const toggleJournaling = (next: boolean) => {
+    setJournalEnabled(next);
+    setJournalingEnabled(next);
+  };
+  // Journaling has no settings page — tapping its card takes you to where it
+  // lives: the Vision screen (its "יומי" view appears once enabled).
+  const openJournaling = () => navigate('/vision');
 
   return (
     <div className="max-w-md mx-auto">
@@ -63,6 +78,17 @@ export function Features() {
             enabled={notifEnabled}
             onToggle={toggleNotifications}
             onOpen={openNotifications}
+          />
+
+          <FeatureCard
+            glyph={<WritingGlyph />}
+            accent={BLOCK.blue}
+            title="כתיבה יומית - Journaling"
+            description="רישום קצר ויומי, נפרד מהחזון"
+            isNew={isWithinNewWindow(JOURNALING_NEW_UNTIL)}
+            enabled={journalEnabled}
+            onToggle={toggleJournaling}
+            onOpen={openJournaling}
           />
 
           {COMING_SOON.map((f) => (
@@ -88,6 +114,17 @@ export function Features() {
             onOpen={openNotifications}
           />
 
+          <FeatureRow
+            glyph={<WritingGlyph />}
+            accent={BLOCK.blue}
+            title="כתיבה יומית - Journaling"
+            description="רישום קצר ויומי, נפרד מהחזון"
+            isNew={isWithinNewWindow(JOURNALING_NEW_UNTIL)}
+            enabled={journalEnabled}
+            onToggle={toggleJournaling}
+            onOpen={openJournaling}
+          />
+
           {COMING_SOON.map((f) => (
             <ComingSoonRow
               key={f.title}
@@ -110,6 +147,8 @@ export function Features() {
 // "חדש" badge shows on a feature until this date (one month from its launch).
 // After that it's just a normal feature.
 const NOTIFICATIONS_NEW_UNTIL = '2026-07-19';
+// "חדש" badge on the journaling feature for a month from its launch.
+const JOURNALING_NEW_UNTIL = '2026-07-19';
 
 // Per-feature "extruded block" accents: a top-face gradient (light → mid) plus
 // a darker `edge` colour rendered as a solid offset bottom shadow, so each tile
@@ -130,7 +169,6 @@ const COMING_SOON: Array<{
   description: string;
 }> = [
   { glyph: <LockGlyph />, accent: BLOCK.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
-  { glyph: <WritingGlyph />, accent: BLOCK.blue, title: 'כתיבה יומית - Journaling', description: 'רישום קצר ויומי, נפרד מהחזון' },
   { glyph: <MeditationGlyph />, accent: BLOCK.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
 ];
 

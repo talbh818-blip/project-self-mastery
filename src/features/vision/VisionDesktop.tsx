@@ -25,7 +25,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Lock,
-  Hammer,
   History,
   GalleryVertical,
   ChevronDown,
@@ -36,6 +35,7 @@ import {
 import { VisionEditorDesktop } from './VisionEditorDesktop';
 import { VisionReminisce } from './VisionReminisce';
 import { VisionYearMap } from './VisionYearMap';
+import { VisionWeekMap } from './VisionWeekMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
 import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
@@ -46,6 +46,7 @@ import {
   VISION_PLACEHOLDERS,
   type VisionController,
 } from './useVisionController';
+import { useJournalingEnabled } from './journalingFeature';
 import {
   addAnchor,
   getPeriodKey,
@@ -55,10 +56,12 @@ import {
 } from './period';
 
 // The level views, right→left in RTL (broad → fine), matching the user's order.
+// The "weekly" slot is the daily-journaling view, surfaced as "יומי" and gated
+// behind the Journaling feature opt-in.
 const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
   { value: 'yearly', label: 'שנתי' },
   { value: 'monthly', label: 'חודשי' },
-  { value: 'weekly', label: 'שבועי' },
+  { value: 'weekly', label: 'יומי' },
 ];
 
 // The desktop's last-chosen LEVEL view is remembered per-user so reopening the
@@ -128,7 +131,15 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     readSavedDesktopLevelView(userId),
   );
   const [feedActive, setFeedActive] = useState(false);
-  const view: VisionView = feedActive ? 'feed' : levelView;
+  // The daily-journaling ("יומי") view is opt-in. When it's locked, a remembered
+  // 'weekly' preference falls back to the yearly map so the view is never shown.
+  const journalingOn = useJournalingEnabled();
+  const safeLevelView: VisionLevelView =
+    !journalingOn && levelView === 'weekly' ? 'yearly' : levelView;
+  const view: VisionView = feedActive ? 'feed' : safeLevelView;
+  const levelOptions = journalingOn
+    ? LEVEL_OPTIONS
+    : LEVEL_OPTIONS.filter((o) => o.value !== 'weekly');
   const [feedQuery, setFeedQuery] = useState('');
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
   const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
@@ -202,7 +213,9 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     setLevelView(v);
     setFeedActive(false);
     if (v === 'yearly') setMapYear(anchor.getFullYear());
-    else if (v === 'monthly') {
+    else if (v === 'monthly' || v === 'weekly') {
+      // Both the monthly cards and the weekly day-grid are anchored to a single
+      // reference month — land on the current one when switching in.
       setMonthlyAnchor(today);
       setMapYear(today.getFullYear());
     }
@@ -297,7 +310,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
             {/* RIGHT group (RTL start): level switch + free-scroll. */}
             <div className="flex items-center gap-2">
               <div className="inline-flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
-                {LEVEL_OPTIONS.map((opt) => {
+                {levelOptions.map((opt) => {
                   const active = view === opt.value;
                   return (
                     <button
@@ -443,13 +456,27 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                     </p>
                   </div>
                 ) : view === 'weekly' ? (
-                  <div className="text-center py-10">
-                    <Hammer size={22} className="text-forest-500 mx-auto mb-2.5" />
-                    <p className="text-ink-100 font-semibold text-sm">
-                      התצוגה השבועית בדרך
-                    </p>
-                    <p className="text-ink-300 text-[12px] mt-1">בקרוב כאן.</p>
-                  </div>
+                  <VisionWeekMap
+                    userId={userId}
+                    today={today}
+                    monthAnchor={monthlyAnchor}
+                    onStepMonth={stepMonthlyWindow}
+                    canStepMonthNext={monthlyCanStepNext}
+                    selectedLevel={level}
+                    selectedKey={periodKey}
+                    onPickYear={(yearKey) =>
+                      goToPeriod('yearly', parsePeriodStart('yearly', yearKey))
+                    }
+                    onPickMonth={(monthKey) =>
+                      goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                    }
+                    onPickWeek={(weekKey) =>
+                      goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                    }
+                    onPickDay={(dayKey) =>
+                      goToPeriod('daily', parsePeriodStart('daily', dayKey))
+                    }
+                  />
                 ) : (
                   <VisionYearMap
                     userId={userId}
@@ -560,7 +587,13 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
 
 function LockedNotice({ level }: { level: VisionScope }) {
   const noun =
-    level === 'yearly' ? 'השנה' : level === 'monthly' ? 'החודש' : 'השבוע';
+    level === 'yearly'
+      ? 'השנה'
+      : level === 'monthly'
+        ? 'החודש'
+        : level === 'daily'
+          ? 'היום'
+          : 'השבוע';
   return (
     <div className="vision-page-desktop text-center">
       <div className="py-16">

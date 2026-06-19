@@ -68,6 +68,9 @@ type Props = {
 /** [start, end] (local midnight) of the period a (scope, key) names. */
 function periodBounds(scope: VisionScope, key: string): { start: Date; end: Date } {
   const start = parsePeriodStart(scope, key);
+  if (scope === 'daily') {
+    return { start, end: start };
+  }
   if (scope === 'weekly') {
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
@@ -162,10 +165,14 @@ function rangeLsKey(userId: string | null, scope: VisionScope) {
   return `${RANGE_MODE_LS}${userId ?? '_'}:${scope}`;
 }
 
+// 'daily' entries exist only to satisfy the Record<VisionScope, …> type — the
+// habit-success strip is never rendered for daily journaling entries (a day is
+// "separate from the vision"; see VisionEditor / VisionEditorDesktop).
 const ROLLING_DAYS: Record<VisionScope, number> = {
   weekly: 7,
   monthly: 30,
   yearly: 365,
+  daily: 1,
 };
 // Each label is two lines (primary / secondary) so it stacks vertically and
 // stays narrow — keeps the strip compact. The lines render right-aligned.
@@ -173,11 +180,13 @@ const PERIOD_LABEL: Record<VisionScope, [string, string]> = {
   weekly: ['השבוע', 'הזה'],
   monthly: ['החודש', 'הזה'],
   yearly: ['השנה', 'הזאת'],
+  daily: ['היום', 'הזה'],
 };
 const ROLLING_LABEL: Record<VisionScope, [string, string]> = {
   weekly: ['7 ימים', 'אחרונים'],
   monthly: ['30 ימים', 'אחרונים'],
   yearly: ['365 ימים', 'אחרונים'],
+  daily: ['היום', ''],
 };
 
 /** Drop the session cache when the signed-in user changes (so user B never

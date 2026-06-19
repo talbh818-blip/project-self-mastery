@@ -18,7 +18,7 @@
 // month even before its Sunday rolls into that month.
 // ============================================================================
 
-export type VisionScope = 'yearly' | 'monthly' | 'weekly';
+export type VisionScope = 'yearly' | 'monthly' | 'weekly' | 'daily';
 
 // ─── Building keys from a Date ──────────────────────────────────────────────
 
@@ -37,6 +37,13 @@ export function getWeekKey(date: Date): string {
   return isoDate(weekStart(date));
 }
 
+/** Day key = the calendar date: 'YYYY-MM-DD' (e.g. "2026-06-18"). Same SHAPE as
+ *  a week key, but a (user, scope, period_key) row never collides because the
+ *  scope differs — readers that key by period_key alone must filter by scope. */
+export function getDayKey(date: Date): string {
+  return isoDate(date);
+}
+
 export function getPeriodKey(scope: VisionScope, date: Date): string {
   switch (scope) {
     case 'yearly':
@@ -45,6 +52,8 @@ export function getPeriodKey(scope: VisionScope, date: Date): string {
       return getMonthKey(date);
     case 'weekly':
       return getWeekKey(date);
+    case 'daily':
+      return getDayKey(date);
   }
 }
 
@@ -71,6 +80,15 @@ export function parsePeriodStart(scope: VisionScope, key: string): Date {
       }
       return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
     }
+    case 'daily': {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+      if (!m) {
+        console.warn(`[period] bad day key "${key}" — using today`);
+        const t = new Date();
+        return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
   }
 }
 
@@ -93,6 +111,11 @@ export function addPeriod(
       const next = new Date(start);
       next.setDate(next.getDate() + delta * 7);
       return getWeekKey(next);
+    }
+    case 'daily': {
+      const next = new Date(start);
+      next.setDate(next.getDate() + delta);
+      return getDayKey(next);
     }
   }
 }
@@ -131,6 +154,12 @@ const HEB_MONTHS_SHORT = [
   'יולי', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳',
 ];
 
+// Hebrew weekday names — getDay(): Sun=0 … Sat=6 (the Israeli week starts Sun).
+const HEB_WEEKDAYS = [
+  'ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת',
+];
+const HEB_WEEKDAYS_SHORT = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+
 export function formatPeriodLabel(scope: VisionScope, key: string): string {
   const start = parsePeriodStart(scope, key);
   switch (scope) {
@@ -148,6 +177,8 @@ export function formatPeriodLabel(scope: VisionScope, key: string): string {
         : `${end.getDate()} ${HEB_MONTHS[end.getMonth()]}`;
       return `${startStr} – ${endStr} ${end.getFullYear()}`;
     }
+    case 'daily':
+      return `יום ${HEB_WEEKDAYS[start.getDay()]} · ${start.getDate()} ${HEB_MONTHS[start.getMonth()]} ${start.getFullYear()}`;
   }
 }
 
@@ -159,6 +190,7 @@ export const SCOPE_TITLES: Record<VisionScope, string> = {
   yearly: 'חזון שנתי',
   monthly: 'חודשי',
   weekly: 'שבועי',
+  daily: 'יומי',
 };
 
 /**
@@ -183,6 +215,10 @@ export function formatScopeSubtitle(
   parentKey: string | null = null,
 ): string {
   const start = parsePeriodStart(scope, key);
+
+  if (scope === 'daily') {
+    return `יום ${HEB_WEEKDAYS[start.getDay()]}`;
+  }
 
   if (scope === 'monthly') {
     return HEB_MONTHS[start.getMonth()];
@@ -231,6 +267,10 @@ export function formatScopeCrumb(
   if (scope === 'yearly') return key;
   if (scope === 'monthly') {
     return HEB_MONTHS[parsePeriodStart('monthly', key).getMonth()];
+  }
+  if (scope === 'daily') {
+    const d = parsePeriodStart('daily', key);
+    return `${HEB_WEEKDAYS_SHORT[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`;
   }
   // weekly
   if (parentKey) return `שבוע ${weekOfMonth(key, parentKey)}`;
@@ -298,6 +338,14 @@ export function isOutsideParent(
     );
     return weekEnd < monthStart || weekStartD > monthEnd;
   }
+  if (scope === 'daily' && parentScope === 'weekly') {
+    // A day is outside its parent week when it's not within [Sun … Sat].
+    const day = parsePeriodStart('daily', key);
+    const wkStart = parsePeriodStart('weekly', parentKey);
+    const wkEnd = new Date(wkStart);
+    wkEnd.setDate(wkStart.getDate() + 6);
+    return day < wkStart || day > wkEnd;
+  }
   return false;
 }
 
@@ -347,6 +395,11 @@ function periodDiff(scope: VisionScope, a: string, b: string): number {
       (aDate.getMonth() - bDate.getMonth())
     );
   }
+  if (scope === 'daily') {
+    // round to nearest whole day to absorb any DST hour shift
+    const ms = aDate.getTime() - bDate.getTime();
+    return Math.round(ms / (1000 * 60 * 60 * 24));
+  }
   // weekly — round to nearest whole week to absorb any DST hour shift
   const ms = aDate.getTime() - bDate.getTime();
   return Math.round(ms / (1000 * 60 * 60 * 24 * 7));
@@ -392,6 +445,7 @@ export function addAnchor(
   const d = new Date(anchor);
   if (level === 'yearly') d.setFullYear(d.getFullYear() + delta);
   else if (level === 'monthly') d.setMonth(d.getMonth() + delta);
+  else if (level === 'daily') d.setDate(d.getDate() + delta);
   else d.setDate(d.getDate() + delta * 7);
   return d;
 }
@@ -404,6 +458,16 @@ export function monthName(date: Date): string {
 /** Short Hebrew month name by 0-indexed month, e.g. monthShort(4) === "מאי". */
 export function monthShort(monthIndex: number): string {
   return HEB_MONTHS_SHORT[monthIndex];
+}
+
+/** Short Hebrew weekday letter by getDay() index (Sun=0): "א׳"…"ש׳". */
+export function weekdayShort(dayIndex: number): string {
+  return HEB_WEEKDAYS_SHORT[dayIndex];
+}
+
+/** Full Hebrew weekday name by getDay() index (Sun=0): "ראשון"…"שבת". */
+export function weekdayName(dayIndex: number): string {
+  return HEB_WEEKDAYS[dayIndex];
 }
 
 /** 1-indexed position of the anchor's ISO week within the anchor's calendar

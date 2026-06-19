@@ -128,7 +128,7 @@ export function VisionEditorDesktop({
       // header has NO rings — DateBar then puts back-to-now back on the LEFT,
       // and the rings render under the writing instead (see below).
       leftSlot={
-        ringsInHeader ? (
+        ringsInHeader && scope !== 'daily' ? (
           <VisionHabitsStrip
             userId={userId}
             scope={scope}
@@ -226,8 +226,10 @@ export function VisionEditorDesktop({
         <EditorContent editor={editor} className="vision-desktop-write" />
 
         {/* When the card is too narrow for the rings in the header, they live
-            here — a full-width row under the writing, exactly like mobile. */}
-        {!ringsInHeader && (
+            here — a full-width row under the writing, exactly like mobile.
+            Never on a daily journaling entry (a day is "separate from the
+            vision"). */}
+        {!ringsInHeader && scope !== 'daily' && (
           <VisionHabitsStrip
             userId={userId}
             scope={scope}

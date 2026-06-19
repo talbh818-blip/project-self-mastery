@@ -12,7 +12,7 @@
 // the data that matters.
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Lock, Hammer } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { VisionEditor } from './VisionEditor';
 import {
   VisionViewBar,
@@ -20,6 +20,7 @@ import {
   type VisionLevelView,
 } from './VisionViewBar';
 import { VisionYearMap } from './VisionYearMap';
+import { VisionWeekMap } from './VisionWeekMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
 import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
@@ -29,6 +30,7 @@ import {
   VISION_PLACEHOLDERS,
   type VisionController,
 } from './useVisionController';
+import { useJournalingEnabled } from './journalingFeature';
 import {
   addAnchor,
   getPeriodKey,
@@ -94,7 +96,12 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
     readSavedLevelView(userId),
   );
   const [feedActive, setFeedActive] = useState(false);
-  const view: VisionView = feedActive ? 'feed' : levelView;
+  // The daily-journaling ("יומי") view is opt-in. When it's locked, a remembered
+  // 'weekly' preference falls back to the yearly map so the view is never shown.
+  const journalingOn = useJournalingEnabled();
+  const safeLevelView: VisionLevelView =
+    !journalingOn && levelView === 'weekly' ? 'yearly' : levelView;
+  const view: VisionView = feedActive ? 'feed' : safeLevelView;
   const [feedQuery, setFeedQuery] = useState('');
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
   // map doesn't move the vision currently open in the editor below it.
@@ -130,7 +137,9 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
       setLevelView(v);
       setFeedActive(false);
       if (v === 'yearly') setMapYear(anchor.getFullYear());
-      else if (v === 'monthly') {
+      else if (v === 'monthly' || v === 'weekly') {
+        // Both the monthly cards and the weekly day-grid are anchored to a
+        // single reference month — land on the current one when switching in.
         setMonthlyAnchor(today);
         setMapYear(today.getFullYear());
       }
@@ -227,12 +236,13 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((v) => !v)}
         view={view}
-        levelView={levelView}
+        levelView={safeLevelView}
         onPickLevelView={pickLevelView}
         onPickFeed={pickFeed}
         onOpenHistory={() => setHistoryOpen(true)}
         searchQuery={feedQuery}
         onSearchChange={setFeedQuery}
+        dailyEnabled={journalingOn}
       />
 
       {view === 'feed' ? (
@@ -243,37 +253,59 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
           query={feedQuery}
           onOpen={openFromFeed}
         />
-      ) : view === 'weekly' ? (
-        <WeeklyComingSoon />
       ) : (
         <>
-          {/* The navigator (yearly map / monthly cards) — collapses as a
-              drawer via the grid 0fr↔1fr trick (no JS measuring). */}
+          {/* The navigator — yearly map / monthly cards / weekly day-grid —
+              collapses as a drawer via the grid 0fr↔1fr trick (no JS measuring). */}
           <div
             className="grid transition-[grid-template-rows] duration-300 ease-in-out"
             style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden min-h-0">
-              <VisionYearMap
-                userId={userId}
-                year={mapYear}
-                today={today}
-                selectedLevel={level}
-                selectedKey={periodKey}
-                scrollable={view === 'yearly'}
-                recentMonths={view === 'monthly'}
-                monthAnchor={monthlyAnchor}
-                onStepMonths={stepMonthlyWindow}
-                canStepMonthsNext={monthlyCanStepNext}
-                onStepYear={(delta) => setMapYear((y) => y + delta)}
-                onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-                onPickMonth={(monthKey) =>
-                  goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                }
-                onPickWeek={(weekKey) =>
-                  goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                }
-              />
+              {view === 'weekly' ? (
+                <VisionWeekMap
+                  userId={userId}
+                  today={today}
+                  monthAnchor={monthlyAnchor}
+                  onStepMonth={stepMonthlyWindow}
+                  canStepMonthNext={monthlyCanStepNext}
+                  selectedLevel={level}
+                  selectedKey={periodKey}
+                  onPickYear={(yearKey) =>
+                    goToPeriod('yearly', parsePeriodStart('yearly', yearKey))
+                  }
+                  onPickMonth={(monthKey) =>
+                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                  }
+                  onPickWeek={(weekKey) =>
+                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                  }
+                  onPickDay={(dayKey) =>
+                    goToPeriod('daily', parsePeriodStart('daily', dayKey))
+                  }
+                />
+              ) : (
+                <VisionYearMap
+                  userId={userId}
+                  year={mapYear}
+                  today={today}
+                  selectedLevel={level}
+                  selectedKey={periodKey}
+                  scrollable={view === 'yearly'}
+                  recentMonths={view === 'monthly'}
+                  monthAnchor={monthlyAnchor}
+                  onStepMonths={stepMonthlyWindow}
+                  canStepMonthsNext={monthlyCanStepNext}
+                  onStepYear={(delta) => setMapYear((y) => y + delta)}
+                  onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+                  onPickMonth={(monthKey) =>
+                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                  }
+                  onPickWeek={(weekKey) =>
+                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                  }
+                />
+              )}
             </div>
           </div>
 
@@ -326,22 +358,15 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
   );
 }
 
-/** Placeholder for the weekly view until its dedicated layout ships. */
-function WeeklyComingSoon() {
-  return (
-    <div className="vision-page text-center">
-      <div className="py-12">
-        <Hammer size={26} className="text-forest-500 mx-auto mb-3" />
-        <p className="text-ink-100 font-semibold">התצוגה השבועית בדרך</p>
-        <p className="text-ink-300 text-sm mt-1">תכף יוצאת — בקרוב כאן.</p>
-      </div>
-    </div>
-  );
-}
-
 function LockedNotice({ level }: { level: VisionScope }) {
   const noun =
-    level === 'yearly' ? 'השנה' : level === 'monthly' ? 'החודש' : 'השבוע';
+    level === 'yearly'
+      ? 'השנה'
+      : level === 'monthly'
+        ? 'החודש'
+        : level === 'daily'
+          ? 'היום'
+          : 'השבוע';
   return (
     <div className="vision-page text-center">
       <div className="py-8">

@@ -24,8 +24,11 @@ const SCOPE_LABELS: Record<VisionScope, string> = {
   yearly: 'שנתי',
   monthly: 'חודשי',
   weekly: 'שבועי',
+  daily: 'יומי',
 };
 
+// Daily prompts use the built-in fallback list (questions.ts) — not managed
+// here yet — so the admin panel only manages yearly / monthly / weekly.
 const SCOPES: VisionScope[] = ['yearly', 'monthly', 'weekly'];
 
 export function VisionQuestionsAdminPanel() {

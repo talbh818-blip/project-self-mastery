@@ -33,10 +33,12 @@ export type VisionView = VisionLevelView | 'feed';
 const LEVEL_LABELS: Record<VisionLevelView, string> = {
   yearly: 'שנתי',
   monthly: 'חודשי',
-  weekly: 'שבועי',
+  // The "weekly" slot is the daily-journaling view (year/month strips → weeks →
+  // days), surfaced as "יומי" and gated behind the Journaling feature.
+  weekly: 'יומי',
 };
 
-// Menu order, top→bottom: weekly, monthly, yearly (fine→broad, like a
+// Menu order, top→bottom: weekly(יומי), monthly, yearly (fine→broad, like a
 // calendar's Day/Week/Month/Year list).
 const MENU_ORDER: VisionLevelView[] = ['weekly', 'monthly', 'yearly'];
 
@@ -51,6 +53,9 @@ type Props = {
   levelView: VisionLevelView;
   onPickLevelView: (v: VisionLevelView) => void;
   onPickFeed: () => void;
+  /** Whether the daily-journaling ("יומי") view is unlocked (its Features
+   *  opt-in). When false it's dropped from the menu entirely. */
+  dailyEnabled: boolean;
   /** Open the version-history (restore) sheet for the open vision. */
   onOpenHistory: () => void;
   /** Feed-view search box. Only shown when `view === 'feed'`. */
@@ -68,9 +73,14 @@ export function VisionViewBar({
   onOpenHistory,
   searchQuery,
   onSearchChange,
+  dailyEnabled,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const onLevelView = view !== 'feed';
+  // Drop the daily-journaling ("יומי") option unless its feature is unlocked.
+  const menuOrder = dailyEnabled
+    ? MENU_ORDER
+    : MENU_ORDER.filter((o) => o !== 'weekly');
   // The left cluster (history + collapse) only makes sense for the views with
   // a navigator + editor below: yearly and monthly.
   const showNav = view === 'yearly' || view === 'monthly';
@@ -116,7 +126,7 @@ export function VisionViewBar({
                 role="listbox"
                 className="absolute z-50 top-full mt-1 right-0 min-w-[148px] rounded-xl bg-surface-card ring-1 ring-surface-border shadow-xl p-1"
               >
-                {MENU_ORDER.map((opt) => {
+                {menuOrder.map((opt) => {
                   const active = view === opt;
                   return (
                     <button

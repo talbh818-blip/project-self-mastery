@@ -32,6 +32,7 @@ const SCOPE_LABELS: Record<VisionScope, string> = {
   yearly: 'שנתי',
   monthly: 'חודשי',
   weekly: 'שבועי',
+  daily: 'יומי',
 };
 
 const SCOPES: VisionScope[] = ['yearly', 'monthly', 'weekly'];

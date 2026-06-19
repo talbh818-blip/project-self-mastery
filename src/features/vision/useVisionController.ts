@@ -25,6 +25,7 @@ import {
   isFuturePeriod,
   monthShort,
   parsePeriodStart,
+  weekdayName,
   type VisionScope,
 } from './period';
 
@@ -35,12 +36,14 @@ const SCOPE_DEPTH: Record<VisionScope, number> = {
   yearly: 0,
   monthly: 1,
   weekly: 2,
+  daily: 3,
 };
 
 export const VISION_PLACEHOLDERS: Record<VisionScope, string> = {
   yearly: 'מה החזון שלך לשנה הזו? מה הכי חשוב לך להשיג?',
   monthly: 'איך אתה רוצה שהחודש הזה ייראה?',
   weekly: 'מה המיקוד שלך לשבוע הזה?',
+  daily: 'מה קרה היום? מה תרצה לזכור — ועל מה כדאי לחשוב לקראת מחר?',
 };
 
 /** The vision's display title: scope name + a compact period range, e.g.
@@ -50,6 +53,10 @@ export function formatVisionTitle(level: VisionScope, anchor: Date): string {
   if (level === 'monthly') {
     const yy = String(anchor.getFullYear()).slice(-2);
     return `חזון חודשי · ${monthShort(anchor.getMonth())} ${yy}`;
+  }
+  if (level === 'daily') {
+    // "יום חמישי · 18.6" — the journaling day.
+    return `יום ${weekdayName(anchor.getDay())} · ${anchor.getDate()}.${anchor.getMonth() + 1}`;
   }
   // weekly — short: just the Sunday that opens the week (day.month).
   const start = parsePeriodStart('weekly', getWeekKey(anchor));
