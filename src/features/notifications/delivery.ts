@@ -21,6 +21,7 @@ import {
   updateReminder,
   type NotificationReminder,
 } from './reminders';
+import { ensurePushSubscription, isPushActive } from './push';
 
 const FEATURE_FLAG_KEY = 'feature:notifications:enabled';
 
@@ -142,6 +143,9 @@ export function useReminderScheduler(): void {
     const tick = async () => {
       if (!isNotificationsFeatureEnabled()) return;
       if (getPermission() !== 'granted') return;
+      // When closed-app push is active on this device, the server delivers —
+      // skip the foreground path so reminders don't fire twice.
+      if (isPushActive()) return;
       // Refresh the cache periodically so edits made elsewhere are picked up.
       if (Date.now() - lastFetchRef.current > 120_000) await refresh();
       if (cancelled) return;
@@ -173,6 +177,11 @@ export function useReminderScheduler(): void {
 
     void (async () => {
       await migrateLegacyRemindersOnce().catch(() => {});
+      // Register this device for Web Push (closed-app delivery) when the user
+      // has the feature on and permission granted. No-op until VAPID is set.
+      if (isNotificationsFeatureEnabled() && getPermission() === 'granted') {
+        void ensurePushSubscription();
+      }
       if (!cancelled) await tick();
     })();
 

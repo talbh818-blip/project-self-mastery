@@ -53,6 +53,9 @@ export default defineConfig({
         // version.json must never be served from cache — the gate needs the
         // freshest copy from the network to detect new deploys.
         globIgnores: ['**/version.json'],
+        // Pull our Web Push handlers (push / notificationclick) into the
+        // generated Workbox service worker. Served from public/ at the root.
+        importScripts: ['/push-sw.js'],
       },
       manifest: {
         name: 'פרויקט מחויבות לעצמי',
