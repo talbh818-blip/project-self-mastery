@@ -897,18 +897,18 @@ html[data-theme="light"] .vision-editor .vision-question {
  * --------------------------------------------------------------------------*/
 
 /* The centre column's inner width — a comfortable, roomy single-column doc.
- * It's a fixed-height flex column that fills the viewport down to just above
- * the bottom nav: the toolbar sits at the top, the writing card flex-GROWS to
- * fill the rest (so the card always reaches the screen bottom regardless of how
- * much text there is), and the habit rings end with a small gap above the dock.
- * Using `height` (not max-height) is what makes an almost-empty editor still
- * fill the screen instead of collapsing. Desktop-only; mobile is untouched. */
+ * Google-Docs behaviour: a flex column whose MIN-height fills the viewport down
+ * to just above the bottom nav, so an empty/short doc still looks full (the
+ * writing card flex-GROWS to fill it, rings near the dock). But it's min-height,
+ * NOT a fixed height — as the text grows past the screen the card grows with it,
+ * the doc grows past the viewport, and the PAGE scrolls (no internal scrollbar).
+ * Desktop-only; mobile is untouched. */
 .vision-desktop-doc {
   max-width: 940px;
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 5.875rem);
+  min-height: calc(100vh - 5.875rem);
 }
 
 /* Sticky top toolbar — pins to the top of the viewport as the page scrolls.
@@ -965,22 +965,16 @@ html[data-theme="light"] .vision-editor .vision-question {
   padding-bottom: 0.6rem;
 }
 
-/* The writing surface is the flex grower and the lone scroll region. min-height:0
-   lets it shrink below its content so it scrolls instead of overflowing the card;
-   the inner .ProseMirror fills it so a click anywhere still focuses the editor.
-   Scrollbar: the slim forest-green `.vision-feed-scroll` (added as a second class
-   on the element) — the SAME themed bar the Course screen uses. `direction: ltr`
-   parks that bar on the RIGHT edge (RTL apps read right→left); the .ProseMirror
-   flips back to RTL for the text. */
+/* The writing surface is the flex grower — NOT a scroll region. flex:1 makes it
+   fill the card when the text is short (rings pushed to the bottom near the dock);
+   as the text grows it expands naturally, growing the card → the doc → the page
+   (Docs-style page scroll, no internal scrollbar). The inner .ProseMirror fills
+   it (min-height:100%) so a click anywhere focuses the editor when it's short. */
 .vision-desktop-write {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  direction: ltr;
 }
 .vision-desktop-write .ProseMirror {
   min-height: 100%;
-  direction: rtl;
 }
 
 /* The right navigation rail's scroll body — caps to the viewport so a long

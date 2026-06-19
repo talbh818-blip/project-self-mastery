@@ -223,7 +223,7 @@ export function VisionEditorDesktop({
           </div>
         )}
 
-        <EditorContent editor={editor} className="vision-desktop-write vision-feed-scroll" />
+        <EditorContent editor={editor} className="vision-desktop-write" />
 
         {/* When the card is too narrow for the rings in the header, they live
             here — a full-width row under the writing, exactly like mobile. */}

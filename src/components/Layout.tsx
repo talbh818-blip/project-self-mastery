@@ -61,11 +61,12 @@ function LayoutShell() {
   // their MOBILE layout to max-w-md themselves, so phones are unaffected.
   const wideContainer = pathname === '/vision' || pathname === '/course';
 
-  // Vision desktop sizes its writing card to fill the viewport down to just
-  // above the bottom nav (the card itself reserves that space). The usual
-  // pb-24 scroll runway would then add a dead ~44px tail below the fold, so we
-  // drop it here — the page fits the screen exactly with no stray scrollbar.
-  // Mobile vision (and every other screen) keeps pb-24.
+  // Vision desktop is a Docs-style page: the writing card's MIN-height fills the
+  // viewport (empty looks full, rings near the dock) and GROWS as you write,
+  // scrolling the page. A slim pb-16 runway (vs the default pb-24) lets the last
+  // lines + rings clear the fixed bottom nav when scrolled to the end, while
+  // being small enough that the empty state has no scroll tail. Mobile vision
+  // (and every other screen) keeps pb-24.
   const visionDesktop = pathname === '/vision' && mode === 'desktop';
 
   // On initial load and on every route change, start the viewport just past
@@ -162,7 +163,7 @@ function LayoutShell() {
           fixedShell
             ? 'overflow-hidden'
             : visionDesktop
-              ? 'min-h-screen'
+              ? 'min-h-screen pb-16'
               : 'pb-24 min-h-screen'
         }`}
       >
