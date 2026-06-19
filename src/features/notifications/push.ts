@@ -60,8 +60,32 @@ function bufToBase64Url(buf: ArrayBuffer | null): string {
  * browser subscription and just refreshes the stored row (last_seen).
  * Requires the OS notification permission to already be 'granted'.
  */
+/** Running as an INSTALLED app (home-screen PWA), not a plain browser tab. */
+export function isStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  const mm = window.matchMedia;
+  const displayStandalone =
+    !!mm &&
+    (mm('(display-mode: standalone)').matches ||
+      mm('(display-mode: fullscreen)').matches ||
+      mm('(display-mode: minimal-ui)').matches);
+  // iOS home-screen apps expose navigator.standalone instead.
+  const iosStandalone =
+    (navigator as unknown as { standalone?: boolean }).standalone === true;
+  return displayStandalone || iosStandalone;
+}
+
 export async function ensurePushSubscription(): Promise<boolean> {
   if (!pushSupported() || !pushConfigured()) return false;
+  // Closed-app push is delivered ONLY to the installed app. In a plain browser
+  // tab we actively remove any subscription, so the user is never notified
+  // twice (once by the browser, once by the installed app — each keeps its own
+  // registration on Android). The browser still shows foreground reminders
+  // while it's open, via the scheduler.
+  if (!isStandalone()) {
+    await removePushSubscription();
+    return false;
+  }
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
