@@ -93,12 +93,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const vapidPublic = process.env.VAPID_PUBLIC_KEY;
   const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
   const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:talbh818@gmail.com';
+  const present = {
+    SUPABASE_URL: !!process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    CRON_SECRET: !!process.env.CRON_SECRET,
+    VAPID_PUBLIC_KEY: !!process.env.VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY: !!process.env.VAPID_PRIVATE_KEY,
+    VAPID_SUBJECT: !!process.env.VAPID_SUBJECT,
+    VITE_VAPID_PUBLIC_KEY: !!process.env.VITE_VAPID_PUBLIC_KEY,
+  };
   if (!url || !serviceKey) {
-    res.status(500).json({ error: 'missing supabase env' });
+    res.status(500).json({ error: 'missing supabase env', present });
     return;
   }
   if (!vapidPublic || !vapidPrivate) {
-    res.status(500).json({ error: 'missing vapid env' });
+    res.status(500).json({ error: 'missing vapid env', present });
     return;
   }
 
