@@ -96,18 +96,17 @@ export async function ensurePushSubscription(): Promise<boolean> {
     );
     if (error) return false;
 
-    // Push endpoints rotate across SW updates, leaving stale rows for the SAME
-    // physical device → the sender would deliver a duplicate per stale row.
-    // Drop this device's other (same user-agent) subscriptions so each device
-    // keeps exactly one. Different devices have different user agents → kept.
-    if (ua) {
-      await supabase
-        .from('push_subscriptions')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('user_agent', ua)
-        .neq('endpoint', endpoint);
-    }
+    // Keep exactly ONE active subscription per user — the most recently
+    // registered surface. This guarantees a SINGLE notification: no duplicate
+    // from the browser AND the installed app, and no leftovers from endpoints
+    // that rotated across SW updates. Whatever the user last opened is the one
+    // that gets notified. (Trade-off: one user is notified on one surface at a
+    // time, not several devices at once — fine for now; revisit for multi-device.)
+    await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', user.id)
+      .neq('endpoint', endpoint);
 
     pushActive = true;
     return true;
