@@ -446,7 +446,7 @@ const GLYPH_STYLE = { filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.22))' } as con
 /** Bell with a small notification "badge" dot. */
 function BellGlyph() {
   return (
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+    <svg viewBox="0 0 32 32" width="38" height="38" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
       <path d="M16 4.8c1.05 0 1.9.85 1.9 1.9v.6c2.9.85 5 3.55 5 6.75v3.25l1.45 2.5c.5.87-.12 1.95-1.12 1.95H8.77c-1 0-1.62-1.08-1.12-1.95L9 17.3v-3.25c0-3.2 2.1-5.9 5-6.75v-.6c0-1.05.85-1.9 2-1.9Z" />
       <path d="M13.1 24.7h5.8a2.9 2.9 0 0 1-5.8 0Z" />
       <circle cx="24" cy="8.2" r="2.9" />
@@ -457,7 +457,7 @@ function BellGlyph() {
 /** Padlock — app blocker. */
 function LockGlyph() {
   return (
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+    <svg viewBox="0 0 32 32" width="38" height="38" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
       {/* shackle */}
       <path
         d="M11.8 14v-3a4.2 4.2 0 0 1 8.4 0v3"
@@ -476,22 +476,24 @@ function LockGlyph() {
   );
 }
 
-/** A page with a pencil writing on it — daily journaling. */
+/** A centered page with handwriting on it — daily journaling. */
 function WritingGlyph() {
   return (
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      {/* page */}
-      <path d="M8.6 4.8h6.6l4 4V19.8A1.8 1.8 0 0 1 17.4 21.6H8.6A1.8 1.8 0 0 1 6.8 19.8V6.6A1.8 1.8 0 0 1 8.6 4.8Z" />
-      <path d="M15.2 4.9 19.2 8.9H16.7A1.5 1.5 0 0 1 15.2 7.4Z" fillOpacity="0.4" />
-      <rect x="9.6" y="11" width="7" height="1.5" rx="0.75" fillOpacity="0.78" />
-      <rect x="9.6" y="14.2" width="7" height="1.5" rx="0.75" fillOpacity="0.78" />
-      <rect x="9.6" y="17.4" width="4.4" height="1.5" rx="0.75" fillOpacity="0.78" />
-      {/* pencil writing, overlapping the page corner and sticking out */}
-      <g transform="rotate(45 20 21)">
-        <rect x="18.1" y="13.4" width="3.8" height="11" rx="1.9" />
-        <rect x="18.1" y="13.4" width="3.8" height="2.2" rx="1.1" fillOpacity="0.4" />
-        <path d="M18.1 24.4h3.8l-1.9 3.3Z" />
-      </g>
+    <svg viewBox="0 0 32 32" width="38" height="38" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      {/* page (centered in the viewBox) */}
+      <path d="M11 5h8.2L23 8.8V25.4A1.6 1.6 0 0 1 21.4 27H11A1.6 1.6 0 0 1 9.4 25.4V6.6A1.6 1.6 0 0 1 11 5Z" />
+      <path d="M19.2 5 23 8.8H20.7A1.5 1.5 0 0 1 19.2 7.3Z" fillOpacity="0.4" />
+      {/* two printed lines + a handwriting squiggle */}
+      <rect x="12.4" y="12.6" width="8" height="1.6" rx="0.8" fillOpacity="0.72" />
+      <rect x="12.4" y="16.2" width="8" height="1.6" rx="0.8" fillOpacity="0.72" />
+      <path
+        d="M12.4 21.4c0.9-1.4 1.8-1.4 2.7 0s1.8 1.4 2.7 0 1.8-1.4 2.7 0"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -499,13 +501,16 @@ function WritingGlyph() {
 /** A lotus flower — meditation / calm. */
 function LotusGlyph() {
   return (
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      <path d="M16 6.5c1.8 2.2 1.8 6.3 0 9.8c-1.8-3.5-1.8-7.6 0-9.8Z" />
-      <path d="M16 16.3C13.3 14.8 11.5 12 11 8.7c2.8 1.1 4.6 3.9 5 7.6Z" />
-      <path d="M16 16.3C18.7 14.8 20.5 12 21 8.7c-2.8 1.1-4.6 3.9-5 7.6Z" />
-      <path d="M15.6 17C12 16.2 9 13.8 7.4 10.4c3.8.3 7 2.8 8.2 6.6Z" />
-      <path d="M16.4 17C20 16.2 23 13.8 24.6 10.4c-3.8.3-7 2.8-8.2 6.6Z" />
-      <path d="M7 18.6c2.4 2.2 5.5 3.4 9 3.4s6.6-1.2 9-3.4c-2.6-1-5.7-1.5-9-1.5s-6.4.5-9 1.5Z" />
+    <svg viewBox="0 0 32 32" width="38" height="38" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      {/* nudged down so the flower sits vertically centered in the viewBox */}
+      <g transform="translate(0 1.5)">
+        <path d="M16 6.5c1.8 2.2 1.8 6.3 0 9.8c-1.8-3.5-1.8-7.6 0-9.8Z" />
+        <path d="M16 16.3C13.3 14.8 11.5 12 11 8.7c2.8 1.1 4.6 3.9 5 7.6Z" />
+        <path d="M16 16.3C18.7 14.8 20.5 12 21 8.7c-2.8 1.1-4.6 3.9-5 7.6Z" />
+        <path d="M15.6 17C12 16.2 9 13.8 7.4 10.4c3.8.3 7 2.8 8.2 6.6Z" />
+        <path d="M16.4 17C20 16.2 23 13.8 24.6 10.4c-3.8.3-7 2.8-8.2 6.6Z" />
+        <path d="M7 18.6c2.4 2.2 5.5 3.4 9 3.4s6.6-1.2 9-3.4c-2.6-1-5.7-1.5-9-1.5s-6.4.5-9 1.5Z" />
+      </g>
     </svg>
   );
 }
