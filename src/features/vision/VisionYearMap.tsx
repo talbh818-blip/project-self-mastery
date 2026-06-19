@@ -456,7 +456,7 @@ function SideStepArrow({
       disabled={disabled}
       className="
         shrink-0 inline-flex items-center justify-center w-7 rounded-xl
-        bg-surface-raised text-forest-500 hover:text-forest-300
+        bg-surface-raised text-forest-500 hover:text-forest-600
         disabled:opacity-25 transition-colors
       "
       {...rest}
@@ -514,7 +514,7 @@ function WeekSquare({
       `}
     >
       {hasContent && (
-        <span aria-hidden className="w-1 h-1 rounded-full bg-white" />
+        <span aria-hidden className="w-1 h-1 rounded-full bg-forest-700" />
       )}
     </button>
   );
@@ -525,7 +525,7 @@ function WrittenDot({ size = 5 }: { size?: number }) {
   return (
     <span
       aria-hidden
-      className="shrink-0 rounded-full bg-white ring-2 ring-white/15"
+      className="shrink-0 rounded-full bg-forest-700 ring-2 ring-forest-700/20"
       style={{ width: size, height: size }}
     />
   );
@@ -550,7 +550,7 @@ function MapArrow({
       disabled={disabled}
       className="
         shrink-0 inline-flex items-center justify-center w-8 h-7 rounded-lg
-        bg-surface-raised text-forest-500 hover:text-forest-300
+        bg-surface-raised text-forest-500 hover:text-forest-600
         disabled:opacity-25 transition-colors
       "
       {...rest}

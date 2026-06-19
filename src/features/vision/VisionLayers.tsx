@@ -253,7 +253,7 @@ function WrittenBadge() {
     <span
       aria-label="נכתב"
       title="נכתב"
-      className="shrink-0 w-1.5 h-1.5 rounded-full bg-white ring-2 ring-white/15"
+      className="shrink-0 w-1.5 h-1.5 rounded-full bg-forest-700 ring-2 ring-forest-700/20"
     />
   );
 }

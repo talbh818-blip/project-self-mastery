@@ -161,7 +161,7 @@ export function TicketSheet({ open, initialKind = 'feedback', onClose }: Props) 
             </div>
 
             {error && (
-              <p className="text-xs text-red-400 bg-red-950/30 rounded-lg px-3 py-2">
+              <p className="text-xs text-red-400 light:text-red-700 bg-red-500/10 rounded-lg px-3 py-2">
                 {error}
               </p>
             )}
@@ -170,7 +170,7 @@ export function TicketSheet({ open, initialKind = 'feedback', onClose }: Props) 
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full bg-forest-700 disabled:bg-forest-700/40 disabled:text-cream-50/60 text-on-accent font-medium rounded-xl py-2.5 flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-forest-700 disabled:bg-forest-700/40 disabled:text-ink-500 text-on-accent font-medium rounded-xl py-2.5 flex items-center justify-center gap-2 transition-colors"
             >
               <Send size={16} />
               {working ? 'שולח…' : 'שלח'}

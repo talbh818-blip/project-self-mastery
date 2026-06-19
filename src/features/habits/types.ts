@@ -1,5 +1,8 @@
 export type HabitType = 'positive' | 'negative';
-export type LogStatus = 'V' | 'X' | 'auto_x';
+// 'V_late' = a scoring-NEUTRAL mark made after the 4-day window closed. It
+// renders like a green V but every scoring path ignores it (they key on 'V'),
+// so it earns nothing, doesn't fill a quota, and never cancels a miss penalty.
+export type LogStatus = 'V' | 'X' | 'auto_x' | 'V_late';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 // How the habit's description text should be rendered. For the list formats
 // the `description` column holds one item per line; for 'text' it's a plain

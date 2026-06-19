@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Light-mode override variant. Dark is the DEFAULT (no attribute); the light
+   theme is `html[data-theme="light"]`. Tailwind's built-in `dark:` keys off
+   prefers-color-scheme, which does NOT match our manual toggle — so use this
+   `light:` variant for the few raw colours that can't be a flipping token
+   (semantic amber/red/sky used as text on the cream surfaces).
+   Usage: `text-amber-400 light:text-amber-700`. */
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
 @theme {
   /* Dark backgrounds — very dark, blue-tinted gray */
   --color-surface-base: #0d1319;

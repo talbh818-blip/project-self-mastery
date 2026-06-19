@@ -21,7 +21,7 @@ export function HabitDescription({
   if (format === 'text') {
     return (
       <p
-        className={`text-[13px] text-white/90 leading-relaxed whitespace-pre-wrap ${className}`}
+        className={`text-[13px] text-ink-100 leading-relaxed whitespace-pre-wrap ${className}`}
       >
         {description}
       </p>
@@ -39,9 +39,9 @@ export function HabitDescription({
       {items.map((item, i) => (
         <li
           key={i}
-          className="flex items-start gap-2 text-[13px] text-white/90 leading-snug"
+          className="flex items-start gap-2 text-[13px] text-ink-100 leading-snug"
         >
-          <span className="shrink-0 text-white/60 tabular-nums mt-px select-none">
+          <span className="shrink-0 text-ink-300 tabular-nums mt-px select-none">
             {format === 'bullets' ? '•' : format === 'numbers' ? `${i + 1}.` : '☐'}
           </span>
           <span className="min-w-0">{item}</span>

@@ -192,7 +192,7 @@ export function VisionQuestionSettingsSheet({
           </div>
 
           {error && (
-            <div className="mb-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+            <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
               {error}
             </div>
           )}
@@ -284,7 +284,7 @@ export function VisionQuestionSettingsSheet({
                           type="button"
                           onClick={() => void handleSaveEdit()}
                           disabled={busy || editText.trim().length === 0}
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-forest-500/60 text-forest-400 hover:bg-forest-500/10 disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-forest-500/60 text-forest-700 hover:bg-forest-500/10 disabled:opacity-50"
                         >
                           <Check size={14} />
                           שמור

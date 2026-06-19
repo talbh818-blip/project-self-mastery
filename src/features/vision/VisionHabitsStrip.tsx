@@ -363,7 +363,7 @@ export function VisionHabitsStrip({
           title="החלפת טווח המדידה"
           aria-label={`טווח המדידה: ${label[0]} ${label[1]} — לחצו להחלפה`}
           className={`shrink-0 grid text-right leading-[1.12] font-semibold
-            text-white/80 hover:text-white transition-colors ${
+            text-ink-300 hover:text-ink-100 transition-colors ${
               inline ? 'text-[11px]' : 'text-[12px]'
             }`}
         >

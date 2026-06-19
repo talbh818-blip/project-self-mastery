@@ -98,7 +98,7 @@ export function VisionHistorySheet({
                         onRestore(snap.content);
                         onClose();
                       }}
-                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] font-semibold bg-forest-700 text-cream-50 hover:bg-forest-600 transition-colors"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg text-[11px] font-semibold bg-forest-700 text-on-accent hover:bg-forest-600 transition-colors"
                     >
                       <RotateCcw size={12} />
                       שחזר

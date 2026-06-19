@@ -52,7 +52,7 @@ export function UsersDirectory() {
         <button
           type="button"
           onClick={inviteOnWhatsApp}
-          className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-forest-700/20 text-cream-50/90 hover:bg-forest-700/30 active:scale-95 px-3 py-1.5 text-[11px] font-semibold transition"
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-full bg-forest-700/15 text-forest-700 hover:bg-forest-700/25 active:scale-95 px-3 py-1.5 text-[11px] font-semibold transition"
         >
           <MessageCirclePlus size={14} className="shrink-0" />
           הזמינו חברים
@@ -60,7 +60,7 @@ export function UsersDirectory() {
       </header>
 
       {error && (
-        <p className="text-xs text-red-400 bg-red-950/30 mx-5 my-2 rounded-lg px-3 py-2">
+        <p className="text-xs text-red-400 light:text-red-700 bg-red-500/10 mx-5 my-2 rounded-lg px-3 py-2">
           {error}
         </p>
       )}
@@ -97,17 +97,17 @@ export function UsersDirectory() {
                       <span dir="ltr">{formatJoinDate(row.created_at)}</span>
                     </span>
                     {row.is_me ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/30 text-forest-400">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/20 text-forest-700">
                         אני
                       </span>
                     ) : row.habits_visibility === 'public' ? (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/20 text-forest-400">
+                      <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-forest-700/15 text-forest-700">
                         <Globe size={10} />
                         פומבי
                       </span>
                     ) : (
                       row.shared_with_me && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-400">
+                        <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-400 light:text-amber-700">
                           <Handshake size={10} />
                           שותף למסע
                         </span>

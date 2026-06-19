@@ -153,7 +153,7 @@ export function VisionScrollFeed({ userId, today, initialKey, query, onOpen }: P
                       {hasText && (
                         <span
                           aria-hidden
-                          className="shrink-0 w-1.5 h-1.5 rounded-full bg-white ring-2 ring-white/15"
+                          className="shrink-0 w-1.5 h-1.5 rounded-full bg-forest-700 ring-2 ring-forest-700/20"
                         />
                       )}
                       {icon && <HabitIcon name={icon} size={15} className="shrink-0" />}

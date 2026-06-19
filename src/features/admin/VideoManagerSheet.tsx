@@ -169,7 +169,7 @@ function VideoListView({
       <button
         type="button"
         onClick={onAdd}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-dashed border-forest-500/60 text-forest-400 text-sm hover:bg-forest-700/10"
+        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl border border-dashed border-forest-500/60 text-forest-700 text-sm hover:bg-forest-700/10"
       >
         <Plus size={16} />
         הוסף סרטון
@@ -290,7 +290,7 @@ function VideoForm({
       {error && (
         <div
           role="alert"
-          className="rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-sm px-3 py-2.5 flex items-start gap-2"
+          className="rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-3 py-2.5 flex items-start gap-2"
         >
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <div className="flex-1 leading-snug">{error}</div>
@@ -334,8 +334,8 @@ function VideoForm({
           <div className="mt-1.5 text-[11px] flex items-center gap-1.5" dir="ltr">
             {parsedId ? (
               <>
-                <Check size={13} className="text-forest-400 shrink-0" />
-                <span className="text-forest-400 truncate">זוהה מזהה: {parsedId}</span>
+                <Check size={13} className="text-forest-700 shrink-0" />
+                <span className="text-forest-700 truncate">זוהה מזהה: {parsedId}</span>
               </>
             ) : (
               <span className="text-red-400">לא זוהה מזהה תקין מהקלט</span>
@@ -401,7 +401,7 @@ function ProviderBtn({
       onClick={onClick}
       className={`py-2 rounded-xl text-sm border transition-colors ${
         active
-          ? 'border-forest-500 bg-forest-700/20 text-forest-400'
+          ? 'border-forest-500 bg-forest-700/20 text-forest-700'
           : 'border-surface-border bg-surface-raised text-ink-300 hover:text-ink-100'
       }`}
     >

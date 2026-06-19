@@ -57,7 +57,7 @@ export function UserDetail() {
     return (
       <section className="pt-2 space-y-3">
         <BackButton onClick={() => navigate(-1)} />
-        <p className="text-xs text-red-400 bg-red-950/30 rounded-lg px-3 py-2">
+        <p className="text-xs text-red-400 light:text-red-700 bg-red-500/10 rounded-lg px-3 py-2">
           {error}
         </p>
       </section>
@@ -241,8 +241,8 @@ function CumulativePointsCard({ daily }: { daily: DailyPoints[] }) {
             onClick={() => setRange(r)}
             className={`flex-1 py-1 rounded-md text-[11px] transition-colors ${
               active
-                ? 'bg-forest-700/25 text-cream-50 ring-1 ring-forest-700/50'
-                : 'text-cream-50/55 hover:text-cream-50'
+                ? 'bg-forest-700/20 text-forest-700 ring-1 ring-forest-700/45'
+                : 'text-ink-300 hover:text-ink-100'
             }`}
           >
             {POINTS_RANGE_LABEL[r]}
@@ -282,17 +282,17 @@ function RelationTag({ relation }: { relation: HabitsRelation }) {
     me: {
       label: 'אני',
       icon: null,
-      cls: 'bg-forest-700/30 text-forest-400',
+      cls: 'bg-forest-700/20 text-forest-700',
     },
     public: {
       label: 'פומבי',
       icon: <Globe size={11} />,
-      cls: 'bg-forest-700/20 text-forest-400',
+      cls: 'bg-forest-700/15 text-forest-700',
     },
     partner: {
       label: 'שותף למסע',
       icon: <Handshake size={11} />,
-      cls: 'bg-amber-400/15 text-amber-400',
+      cls: 'bg-amber-400/15 text-amber-400 light:text-amber-700',
     },
     private: {
       label: 'פרטי',
@@ -340,7 +340,7 @@ function Notice({
 function UserHabitCard({ habit }: { habit: DashboardHabit }) {
   const iconTileStyle: React.CSSProperties = {
     backgroundColor: hexWithAlpha(habit.color, 0.18),
-    color: 'white',
+    color: habit.color,
   };
   const freqText = shortFreq(habit.frequency_period, habit.frequency_target);
   const points = habit.total_points;
@@ -358,18 +358,18 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
           {habit.name}
         </span>
         {freqText && (
-          <span className="shrink-0 text-[9px] text-white/50 tabular-nums">
+          <span className="shrink-0 text-[9px] text-ink-500 tabular-nums">
             {freqText}
           </span>
         )}
       </div>
-      <div className="inline-flex items-center gap-1 text-[10px] text-white/70 leading-none">
-        <Check size={12} strokeWidth={2.5} className="text-forest-400 shrink-0" />
+      <div className="inline-flex items-center gap-1 text-[10px] text-ink-300 leading-none">
+        <Check size={12} strokeWidth={2.5} className="text-forest-700 shrink-0" />
         סומן {habit.v_count} {habit.v_count === 1 ? 'פעם' : 'פעמים'}
       </div>
       <div className="text-base font-bold leading-none text-ink-100">
         <span className="tabular-nums">{habit.success_pct ?? 0}%</span>
-        <span className="text-[10px] font-normal text-white/80 mr-1">הצלחה</span>
+        <span className="text-[10px] font-normal text-ink-300 mr-1">הצלחה</span>
       </div>
       <div className="flex items-center gap-1.5 text-[10px] leading-none">
         <span
@@ -377,8 +377,8 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
             points > 0
               ? 'text-forest-500'
               : points < 0
-              ? 'text-red-400'
-              : 'text-white/70'
+              ? 'text-red-400 light:text-red-600'
+              : 'text-ink-300'
           }`}
         >
           {points > 0 ? `+${points}` : points} נק׳
@@ -386,7 +386,7 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
         {habit.start_date && (
           <>
             <span className="text-ink-500">·</span>
-            <span className="text-white/70">מ-{formatShortDate(habit.start_date)}</span>
+            <span className="text-ink-300">מ-{formatShortDate(habit.start_date)}</span>
           </>
         )}
       </div>

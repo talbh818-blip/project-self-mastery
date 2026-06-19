@@ -195,7 +195,7 @@ export function VisionEditorDesktop({
                   flex-1 inline-flex items-center justify-center gap-1.5 h-10
                   rounded-xl border border-dashed border-surface-border
                   text-sm font-medium text-ink-300
-                  hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
+                  hover:text-forest-700 hover:border-forest-600 hover:bg-forest-700/5
                   transition-colors
                 "
               >
@@ -213,7 +213,7 @@ export function VisionEditorDesktop({
                   shrink-0 w-10 h-10 inline-flex items-center justify-center
                   rounded-xl border border-dashed border-surface-border
                   text-ink-300
-                  hover:text-forest-400 hover:border-forest-600 hover:bg-forest-700/5
+                  hover:text-forest-700 hover:border-forest-600 hover:bg-forest-700/5
                   transition-colors
                 "
               >

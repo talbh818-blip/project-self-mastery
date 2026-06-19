@@ -91,7 +91,7 @@ export function BookEditSheet({ open, book, onClose, onSubmit }: Props) {
         {error && (
           <div
             role="alert"
-            className="mx-5 mt-3 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-sm px-3 py-2.5 flex items-start gap-2"
+            className="mx-5 mt-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-3 py-2.5 flex items-start gap-2"
           >
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <div className="flex-1 leading-snug">{error}</div>
@@ -172,7 +172,7 @@ export function BookEditSheet({ open, book, onClose, onSubmit }: Props) {
                   onClick={() => setIsPublished((v) => !v)}
                   className={`w-full px-3 py-2.5 rounded-xl border text-sm transition-colors ${
                     isPublished
-                      ? 'border-forest-500 bg-forest-700/20 text-forest-400'
+                      ? 'border-forest-500 bg-forest-700/20 text-forest-700'
                       : 'border-surface-border bg-surface-raised text-ink-300'
                   }`}
                 >

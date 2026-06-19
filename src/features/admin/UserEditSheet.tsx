@@ -202,7 +202,7 @@ export function UserEditSheet({
         {error && (
           <div
             role="alert"
-            className="mx-5 mt-3 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-xs px-3 py-2 flex items-start gap-2"
+            className="mx-5 mt-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 light:text-red-700 text-xs px-3 py-2 flex items-start gap-2"
           >
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
             <div className="flex-1 leading-snug">{error}</div>

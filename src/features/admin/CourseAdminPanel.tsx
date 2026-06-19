@@ -108,7 +108,7 @@ export function CourseAdminPanel() {
       </div>
 
       {error && (
-        <div className="mb-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+        <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
           {error}
         </div>
       )}
@@ -246,7 +246,7 @@ function ActionBtn({
       : variant === 'warn'
         ? 'border-amber-500/60 text-amber-400 hover:bg-amber-500/10'
         : variant === 'primary'
-          ? 'border-forest-500/60 text-forest-400 hover:bg-forest-500/10'
+          ? 'border-forest-500/60 text-forest-700 hover:bg-forest-500/10'
           : 'border-surface-border text-ink-100 hover:bg-surface-raised';
   return (
     <button

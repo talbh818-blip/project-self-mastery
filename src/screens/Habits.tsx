@@ -148,10 +148,21 @@ export function Habits() {
     currentAmount: number | null | undefined,
   ) => {
     if (!user) return;
-    // V2 scoring: a date older than the marking window is locked for good —
-    // marking it would earn 0 anyway and would blur the period settlement.
+    // Past the 4-day window the date is locked for SCORING — but the user can
+    // still RECORD it as a personal note. We write a 'V_late' mark: it shows
+    // as a green V, yet every scoring path ignores it (no points, the miss
+    // penalty stays, no streak revival). A real scored 'V' that's now old is
+    // frozen history — leave it untouched so the score never shifts backward.
     if (isDateLockedV2(date, new Date())) {
-      setMutationError('היום הזה כבר ננעל — אפשר לסמן עד 3 ימים אחורה.');
+      if (currentMark === 'V') return; // frozen scored mark — don't disturb it
+      const next: LogStatus | null = currentMark === 'V_late' ? null : 'V_late';
+      try {
+        await data.setLog({ habitId: habit.id, date, status: next, amount: null });
+        setMutationError(null);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'שגיאה בשמירה';
+        setMutationError(msg);
+      }
       return;
     }
     try {
@@ -359,7 +370,7 @@ export function Habits() {
 
       {/* Body */}
       {data.status === 'error' && (
-        <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
           שגיאה: {data.error}
         </div>
       )}
@@ -407,7 +418,7 @@ export function Habits() {
       )}
 
       {mutationError && (
-        <div className="mt-3 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-2">
+        <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-2">
           {mutationError}
         </div>
       )}
@@ -905,7 +916,7 @@ function HabitRow({
   // Subtle color-tinted tile, icon always white for clean contrast.
   const iconTileStyle: React.CSSProperties = {
     backgroundColor: hexWithAlpha(habit.color, 0.12),
-    color: 'white',
+    color: habit.color,
   };
 
   // Count via the engine's verdict only — a raw log can be status 'V' with a
@@ -1035,8 +1046,9 @@ function HabitRow({
                 streakCount = 0;
                 return { dateStr, future, mark, completed, freqFill, streakDepth: 0 };
               }
-              if (mark === 'V' || mark === 'X') {
-                // V = success, X = explicit failure — both reset the streak.
+              if (mark === 'V' || mark === 'X' || mark === 'V_late') {
+                // V = success, X = explicit failure, V_late = backfilled note —
+                // all three break the red missed-streak run (the cell isn't blank).
                 streakCount = 0;
                 return { dateStr, future, mark, completed, freqFill, streakDepth: 0 };
               }
@@ -1085,7 +1097,7 @@ function HabitRow({
               Separated from the name by a bullet, in white at 80% opacity so
               it's clearly secondary to (but not part of) the habit name. */}
           {periodLabel && (
-            <span className="shrink-0 text-[11px] text-white/80">
+            <span className="shrink-0 text-[11px] text-ink-300">
               · {periodLabel}: {periodDone}/{habit.frequency_target}
             </span>
           )}
@@ -1134,14 +1146,14 @@ function HabitRow({
               <span
                 className={`text-[10px] px-2 py-0.5 rounded-full border ${
                   habit.type === 'positive'
-                    ? 'border-forest-500/60 text-forest-400'
+                    ? 'border-forest-500/60 text-forest-700'
                     : 'border-red-500/60 text-red-400'
                 }`}
               >
                 {habit.type === 'positive' ? 'הרגל' : 'התמכרות'}
               </span>
               {/* Difficulty — almost-white for easy reading */}
-              <span className="inline-flex items-center gap-1 text-white/80">
+              <span className="inline-flex items-center gap-1 text-ink-300">
                 <span
                   className={`w-1.5 h-1.5 rounded-full ${
                     habit.difficulty === 'easy'
@@ -1176,7 +1188,7 @@ function HabitRow({
                     ? 'text-forest-500'
                     : totalPoints < 0
                     ? 'text-red-400'
-                    : 'text-white/80'
+                    : 'text-ink-300'
                 }
               >
                 {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
@@ -1269,8 +1281,9 @@ function DayCell({
         {amount}
       </span>
     );
-  } else if (mark === 'V') {
-    // Full habit color — the screenshot's "filled square" look.
+  } else if (mark === 'V' || mark === 'V_late') {
+    // Full habit color — the screenshot's "filled square" look. 'V_late' is a
+    // scoring-neutral backfill but renders identically to a real V.
     style = { backgroundColor: habit.color };
   } else if (freqFill) {
     // Weekly / monthly habit, unmarked day. Colour by the PERIOD's goal
@@ -1388,7 +1401,7 @@ function MonthHeatmap({
 }) {
   if (error) {
     return (
-      <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-4 py-3">
+      <div className="rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
         שגיאה: {error}
       </div>
     );
@@ -1464,7 +1477,7 @@ function MonthHabitRow({
   const habit = slot.habit!;
   const iconTileStyle: React.CSSProperties = {
     backgroundColor: hexWithAlpha(habit.color, 0.12),
-    color: 'white',
+    color: habit.color,
   };
 
   // Count Vs in the visible month.
@@ -1515,7 +1528,7 @@ function MonthHabitRow({
             <span
               className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full border ${
                 habit.type === 'positive'
-                  ? 'border-forest-500/60 text-forest-400'
+                  ? 'border-forest-500/60 text-forest-700'
                   : 'border-red-500/60 text-red-400'
               }`}
             >
@@ -1600,7 +1613,8 @@ function MonthCell({
       bg = hexWithAlpha(habit.color, 0.4 + intensity * 0.55);
     }
     filled = true;
-  } else if (mark === 'V') {
+  } else if (mark === 'V' || mark === 'V_late') {
+    // 'V_late' = scoring-neutral backfill; same green tile as a real V.
     bg = habit.color;
     filled = true;
   }
@@ -1929,7 +1943,7 @@ function HabitDataCard({
 }) {
   const iconTileStyle: React.CSSProperties = {
     backgroundColor: hexWithAlpha(habit.color, 0.18),
-    color: 'white',
+    color: habit.color,
   };
   // Effective denominator: habit can't have a higher rate than days it was
   // actually being tracked. Cap by both the range length and days-since-start.
@@ -1969,20 +1983,20 @@ function HabitDataCard({
           {habit.name}
         </span>
         {freqText && (
-          <span className="shrink-0 text-[9px] text-white/50 tabular-nums">
+          <span className="shrink-0 text-[9px] text-ink-500 tabular-nums">
             {freqText}
           </span>
         )}
       </div>
       {/* How many times the habit was marked done in the selected range —
           with a check icon (right side in RTL), above the success %. */}
-      <div className="inline-flex items-center gap-1 text-[10px] text-white/70 leading-none">
-        <Check size={12} strokeWidth={2.5} className="text-forest-400 shrink-0" />
+      <div className="inline-flex items-center gap-1 text-[10px] text-ink-300 leading-none">
+        <Check size={12} strokeWidth={2.5} className="text-forest-700 shrink-0" />
         סומן {vCountInRange} {vCountInRange === 1 ? 'פעם' : 'פעמים'}
       </div>
       <div className="text-base font-bold leading-none text-ink-100">
         <span className="tabular-nums">{successRate}%</span>
-        <span className="text-[10px] font-normal text-white/80 mr-1">הצלחה</span>
+        <span className="text-[10px] font-normal text-ink-300 mr-1">הצלחה</span>
       </div>
       {/* Points · start date on a single line. */}
       <div className="flex items-center gap-1.5 text-[10px] leading-none">
@@ -1992,7 +2006,7 @@ function HabitDataCard({
               ? 'text-forest-500'
               : totalPoints < 0
               ? 'text-red-400'
-              : 'text-white/70'
+              : 'text-ink-300'
           }`}
         >
           {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
@@ -2000,7 +2014,7 @@ function HabitDataCard({
         {startDate && (
           <>
             <span className="text-ink-500">·</span>
-            <span className="text-white/70">מ-{formatStartDate(startDate)}</span>
+            <span className="text-ink-300">מ-{formatStartDate(startDate)}</span>
           </>
         )}
       </div>

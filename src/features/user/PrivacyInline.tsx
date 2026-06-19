@@ -80,8 +80,8 @@ export function PrivacyInline() {
               onClick={() => handlePick(opt.value)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-md text-[11px] transition-colors ${
                 active
-                  ? 'bg-forest-700/25 text-cream-50 ring-1 ring-forest-700/50'
-                  : 'text-cream-50/55 hover:text-cream-50'
+                  ? 'bg-forest-700/20 text-forest-700 ring-1 ring-forest-700/45'
+                  : 'text-ink-300 hover:text-ink-100'
               }`}
             >
               <Icon size={12} className="shrink-0" />

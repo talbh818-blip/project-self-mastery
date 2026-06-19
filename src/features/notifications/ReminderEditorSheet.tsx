@@ -272,7 +272,7 @@ export function ReminderEditorSheet({
                     onClick={() => patch({ days: [...p.days] })}
                     className={`text-[11px] px-2 py-0.5 rounded-full transition-colors ${
                       sameDays(draft.days, p.days)
-                        ? 'bg-forest-700/25 text-forest-300'
+                        ? 'bg-forest-700/25 text-forest-700'
                         : 'text-ink-300 hover:text-ink-100'
                     }`}
                   >
@@ -292,7 +292,7 @@ export function ReminderEditorSheet({
                     aria-pressed={active}
                     className={`flex-1 h-9 rounded-xl text-sm font-medium transition-colors ${
                       active
-                        ? 'bg-forest-700 text-cream-50'
+                        ? 'bg-forest-700 text-on-accent'
                         : 'bg-surface-raised/60 text-ink-300 hover:text-ink-100'
                     }`}
                   >
@@ -310,7 +310,7 @@ export function ReminderEditorSheet({
               <button
                 type="button"
                 onClick={addTime}
-                className="inline-flex items-center gap-1 text-[12px] text-forest-400 hover:text-forest-300"
+                className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
               >
                 <Plus size={14} />
                 הוסף שעה
@@ -336,7 +336,7 @@ export function ReminderEditorSheet({
                     <button
                       type="button"
                       onClick={() => removeTime(i)}
-                      className="p-1.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-950/30"
+                      className="p-1.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15"
                       aria-label="הסר שעה"
                     >
                       <Trash2 size={16} />
@@ -356,7 +356,7 @@ export function ReminderEditorSheet({
               <button
                 type="button"
                 onClick={addMessage}
-                className="inline-flex items-center gap-1 text-[12px] text-forest-400 hover:text-forest-300"
+                className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
               >
                 <Plus size={14} />
                 הוסף נוסח
@@ -387,7 +387,7 @@ export function ReminderEditorSheet({
                     <button
                       type="button"
                       onClick={() => removeMessage(i)}
-                      className="p-1.5 mt-0.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-950/30 shrink-0"
+                      className="p-1.5 mt-0.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15 shrink-0"
                       aria-label="הסר נוסח"
                     >
                       <Trash2 size={16} />
@@ -464,7 +464,7 @@ export function ReminderEditorSheet({
               type="button"
               onClick={handleDelete}
               disabled={saving}
-              className="px-4 py-3 rounded-2xl bg-surface-raised text-red-400 text-sm hover:bg-red-950/30 transition-colors disabled:opacity-50"
+              className="px-4 py-3 rounded-2xl bg-surface-raised text-red-400 text-sm hover:bg-red-500/15 transition-colors disabled:opacity-50"
             >
               מחק
             </button>
@@ -473,7 +473,7 @@ export function ReminderEditorSheet({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 py-3 rounded-2xl bg-forest-700 hover:bg-forest-600 text-cream-50 font-medium transition-colors disabled:opacity-50"
+            className="flex-1 py-3 rounded-2xl bg-forest-700 hover:bg-forest-600 text-on-accent font-medium transition-colors disabled:opacity-50"
           >
             {saving ? 'שומר…' : 'שמירה'}
           </button>
@@ -498,7 +498,7 @@ function ChipButton({
       onClick={onClick}
       className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-xl text-[13px] font-medium border transition-colors ${
         active
-          ? 'bg-forest-700 border-forest-700 text-cream-50'
+          ? 'bg-forest-700 border-forest-700 text-on-accent'
           : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
       }`}
     >
@@ -522,7 +522,7 @@ function OrderButton({
       onClick={onClick}
       className={`flex-1 h-9 rounded-xl text-[13px] font-medium transition-colors ${
         active
-          ? 'bg-forest-700 text-cream-50'
+          ? 'bg-forest-700 text-on-accent'
           : 'bg-surface-raised/60 text-ink-300 hover:text-ink-100'
       }`}
     >

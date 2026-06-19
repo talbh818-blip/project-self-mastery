@@ -52,7 +52,7 @@ export function CompassLoader({
           <span
             key={i}
             aria-hidden="true"
-            className="absolute rounded-full bg-white"
+            className="absolute rounded-full bg-forest-700"
             style={{
               width: dot,
               height: dot,

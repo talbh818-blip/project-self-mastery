@@ -96,7 +96,7 @@ export function DateBar({
         ${
           jumpToNow.enabled
             ? // Soft green tint instead of a loud solid fill.
-              'bg-forest-700/15 text-forest-300 hover:bg-forest-700/25'
+              'bg-forest-700/15 text-forest-700 hover:bg-forest-700/25'
             : 'bg-surface-raised text-ink-300/40 ring-1 ring-surface-border cursor-default'
         }
       `}
@@ -216,7 +216,7 @@ function StepArrow({
       disabled={disabled}
       className="
         shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-md
-        text-ink-300 hover:text-forest-400 hover:bg-surface-raised
+        text-ink-300 hover:text-forest-700 hover:bg-surface-raised
         disabled:opacity-25 disabled:pointer-events-none transition-colors
       "
       {...rest}

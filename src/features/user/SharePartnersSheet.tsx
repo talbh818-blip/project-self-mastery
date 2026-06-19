@@ -177,7 +177,7 @@ export function SharePartnersSheet({ open, onClose }: Props) {
         </div>
 
         {error && (
-          <p className="text-xs text-red-400 bg-red-950/30 mx-5 my-1 rounded-lg px-3 py-2 shrink-0">
+          <p className="text-xs text-red-400 light:text-red-700 bg-red-500/10 mx-5 my-1 rounded-lg px-3 py-2 shrink-0">
             {error}
           </p>
         )}

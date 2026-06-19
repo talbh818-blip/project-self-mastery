@@ -133,7 +133,7 @@ export function VisionViewBar({
                         text-[13px] transition-colors
                         ${
                           active
-                            ? 'text-forest-400 font-semibold bg-forest-700/10'
+                            ? 'text-forest-700 font-semibold bg-forest-700/10'
                             : 'text-ink-100 hover:bg-surface-raised'
                         }
                       `}

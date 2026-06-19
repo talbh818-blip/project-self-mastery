@@ -292,7 +292,7 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
                   <button
                     type="button"
                     onClick={retry}
-                    className="mt-3 inline-flex items-center h-9 px-4 rounded-lg bg-forest-700 text-cream-50 text-sm font-medium hover:bg-forest-600 transition-colors"
+                    className="mt-3 inline-flex items-center h-9 px-4 rounded-lg bg-forest-700 text-on-accent text-sm font-medium hover:bg-forest-600 transition-colors"
                   >
                     נסה שוב
                   </button>

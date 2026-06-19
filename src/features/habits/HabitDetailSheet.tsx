@@ -74,8 +74,8 @@ export function HabitDetailSheet({
 
   const typeBadge =
     habit.type === 'positive'
-      ? { label: 'בניית הרגל', cls: 'bg-forest-700/20 text-forest-400' }
-      : { label: 'שבירת התמכרות', cls: 'bg-red-950/40 text-red-400' };
+      ? { label: 'בניית הרגל', cls: 'bg-forest-700/20 text-forest-700' }
+      : { label: 'שבירת התמכרות', cls: 'bg-red-500/10 text-red-400 light:text-red-700' };
 
   return (
     <div
@@ -106,10 +106,11 @@ export function HabitDetailSheet({
           {/* Identity row */}
           <div className="flex items-start gap-3">
             <span
-              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 text-cream-50"
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
               style={{
                 backgroundColor: hexWithAlpha(habit.color, 0.20),
                 border: `1px solid ${hexWithAlpha(habit.color, 0.45)}`,
+                color: habit.color,
               }}
             >
               <HabitIcon name={habit.icon} size={28} strokeWidth={1.7} />
@@ -162,13 +163,13 @@ export function HabitDetailSheet({
               <>
                 <Row
                   label="רצף נוכחי"
-                  icon={<Flame size={14} className="text-cream-50" />}
+                  icon={<Flame size={14} className="text-ink-300" />}
                 >
                   {stats.currentStreak} {stats.currentStreak === 1 ? 'יום' : 'ימים'}
                 </Row>
                 <Row
                   label="רצף שיא"
-                  icon={<Trophy size={14} className="text-cream-50" />}
+                  icon={<Trophy size={14} className="text-ink-300" />}
                 >
                   {stats.longestStreak} {stats.longestStreak === 1 ? 'יום' : 'ימים'}
                 </Row>
@@ -191,7 +192,7 @@ export function HabitDetailSheet({
           </div>
 
           {error && (
-            <div className="rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-3 py-2">
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-3 py-2">
               {error}
             </div>
           )}
@@ -233,7 +234,7 @@ export function HabitDetailSheet({
               type="button"
               onClick={() => setConfirmingArchive(true)}
               disabled={working}
-              className="flex-1 py-3 rounded-2xl bg-surface-raised hover:bg-red-950/50 hover:text-red-400 text-ink-100 font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              className="flex-1 py-3 rounded-2xl bg-surface-raised hover:bg-red-500/20 hover:text-red-400 text-ink-100 font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               <Archive size={16} />
               ארכיון

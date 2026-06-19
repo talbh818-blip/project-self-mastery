@@ -280,7 +280,7 @@ export function HabitPickerSheet({
         {error && (
           <div
             role="alert"
-            className="mx-5 mt-3 mb-1 rounded-xl border border-red-800/60 bg-red-950/40 text-red-300 text-sm px-3 py-2.5 flex items-start gap-2"
+            className="mx-5 mt-3 mb-1 rounded-xl border border-red-500/40 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-3 py-2.5 flex items-start gap-2"
           >
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <div className="flex-1 leading-snug">{error}</div>
@@ -304,14 +304,14 @@ export function HabitPickerSheet({
               <div className="grid grid-cols-2 gap-3">
                 <TypeCard
                   selected={type === 'positive'}
-                  accentClass="border-forest-500 bg-forest-700/20 text-forest-400"
+                  accentClass="border-forest-500 bg-forest-700/20 text-forest-700"
                   onClick={() => handleTypeChange('positive')}
                   Icon={CheckCircle2}
                   title="הרגל חיובי"
                 />
                 <TypeCard
                   selected={type === 'negative'}
-                  accentClass="border-red-500/70 bg-red-950/30 text-red-400"
+                  accentClass="border-red-500/70 bg-red-500/10 text-red-400 light:text-red-700"
                   onClick={() => handleTypeChange('negative')}
                   Icon={XCircle}
                   title="התמכרות שלילית"
@@ -587,7 +587,7 @@ export function HabitPickerSheet({
                       }`}
                     >
                       {maxEnabled && (
-                        <Check size={13} strokeWidth={3} className="text-cream-50" />
+                        <Check size={13} strokeWidth={3} className="text-on-accent" />
                       )}
                     </span>
                     {/* Stays ink-300 whether or not it's checked, so it reads
@@ -637,7 +637,7 @@ export function HabitPickerSheet({
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full py-3 rounded-2xl font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-cream-50"
+            className="w-full py-3 rounded-2xl font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-ink-500"
             style={{
               backgroundColor: canSubmit ? color : 'var(--color-surface-raised)',
               // Light swatches need dark text to stay legible.
@@ -782,10 +782,10 @@ function DifficultyButton({
 }) {
   const selectedClass =
     level === 'easy'
-      ? 'border-forest-500 bg-forest-700/25 text-forest-400'
+      ? 'border-forest-500 bg-forest-700/25 text-forest-700'
       : level === 'medium'
       ? 'border-yellow-500 bg-yellow-500/15 text-yellow-300'
-      : 'border-red-500/70 bg-red-950/35 text-red-400';
+      : 'border-red-500/70 bg-red-500/12 text-red-400 light:text-red-700';
   return (
     <button
       type="button"

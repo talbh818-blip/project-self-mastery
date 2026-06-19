@@ -349,7 +349,7 @@ export function TreeCard({
             e.stopPropagation();
             setShowTooltip(false);
           }}
-          className="absolute inset-x-3 top-2 z-10 rounded-xl bg-forest-200/95 backdrop-blur-sm px-3 py-2.5 text-right shadow-lg w-[calc(100%-1.5rem)] text-start"
+          className="absolute inset-x-3 top-2 z-10 rounded-xl bg-surface-raised/95 backdrop-blur-sm px-3 py-2.5 text-right shadow-lg w-[calc(100%-1.5rem)] text-start"
           aria-label="סגור הסבר"
         >
           <p className="text-sm font-semibold text-ink-100 leading-snug inline-flex items-center gap-1.5">
@@ -398,7 +398,7 @@ export function TreeCard({
             </span>
             <span className="text-[10px] tabular-nums">
               {isMature ? (
-                <span className="text-forest-400 font-bold inline-flex items-center gap-1">מוכן לשתילה! <Emoji emoji="🎉" size={13} /></span>
+                <span className="text-forest-700 font-bold inline-flex items-center gap-1">מוכן לשתילה! <Emoji emoji="🎉" size={13} /></span>
               ) : (
                 <span className="text-ink-300 font-semibold">{progressPct}%</span>
               )}
@@ -1667,7 +1667,7 @@ function TreeFieldModal({
                 {stageLabel}
               </span>
               {isMature ? (
-                <span className="text-[11px] font-bold text-forest-400 inline-flex items-center gap-1">
+                <span className="text-[11px] font-bold text-forest-700 inline-flex items-center gap-1">
                   מוכן לשתילה! <Emoji emoji="🎉" size={12} />
                 </span>
               ) : (

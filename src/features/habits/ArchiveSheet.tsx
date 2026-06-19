@@ -82,7 +82,7 @@ export function ArchiveSheet({
         {/* Body */}
         <div className="flex-1 overflow-y-auto themed-scroll">
           {error && (
-            <div className="m-4 rounded-xl border border-red-800/50 bg-red-950/30 text-red-400 text-sm px-3 py-2">
+            <div className="m-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-3 py-2">
               {error}
             </div>
           )}
@@ -157,7 +157,7 @@ export function ArchiveSheet({
                           type="button"
                           onClick={() => setConfirmDeleteId(habit.id)}
                           disabled={isBusy}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-950/30 disabled:opacity-40"
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-red-400 hover:bg-red-500/15 disabled:opacity-40"
                           aria-label="מחק לצמיתות"
                           title="מחק"
                         >
