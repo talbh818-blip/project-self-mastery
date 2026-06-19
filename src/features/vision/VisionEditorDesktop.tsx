@@ -176,7 +176,7 @@ export function VisionEditorDesktop({
       <div
         key={scope}
         ref={measureCard}
-        className={`vision-editor vision-page-desktop vision-zoom-${zoomDir}`}
+        className={`vision-editor vision-page-desktop vision-desktop-card vision-zoom-${zoomDir}`}
       >
         {docHeader}
 
@@ -223,7 +223,7 @@ export function VisionEditorDesktop({
           </div>
         )}
 
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} className="vision-desktop-write" />
 
         {/* When the card is too narrow for the rings in the header, they live
             here — a full-width row under the writing, exactly like mobile. */}

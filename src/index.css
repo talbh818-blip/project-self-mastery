@@ -925,6 +925,33 @@ html[data-theme="light"] .vision-editor .vision-question {
   line-height: 1.65;
 }
 
+/* ---------------------------------------------------------------------------
+ * Keep the whole writing card within the viewport so it ENDS above the fixed
+ * bottom nav — the habit rings (header or the footer strip below the writing)
+ * are never swallowed under the dock. The card becomes a flex column: the
+ * DateBar header (+ assist) and the rings footer stay pinned; only the writing
+ * surface scrolls INSIDE the card. Desktop-only (scoped to .vision-desktop-*);
+ * the mobile layout — which scrolls the whole page — is untouched.
+ * Height budget ≈ viewport − (top offset + sticky toolbar) − (bottom nav).
+ * --------------------------------------------------------------------------*/
+.vision-desktop-card {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 9rem);
+}
+
+/* The writing surface is the flex grower and the lone scroll region. min-height:0
+   lets it shrink below its content so it scrolls instead of overflowing the card;
+   the inner .ProseMirror fills it so a click anywhere still focuses the editor. */
+.vision-desktop-write {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.vision-desktop-write .ProseMirror {
+  min-height: 100%;
+}
+
 /* The right navigation rail's scroll body — caps to the viewport so a long
    year map scrolls inside the rail instead of growing the page. */
 .vision-desktop-rail-body {
