@@ -34,7 +34,14 @@ export default defineConfig({
     emitVersionJson(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.png'],
+      includeAssets: [
+        'logo.png',
+        'icon-192.png',
+        'icon-512.png',
+        'icon-maskable.png',
+        'apple-touch-icon.png',
+        'favicon-48.png',
+      ],
       // Make new SW activate immediately and take control of all open tabs,
       // so a single Ctrl+Shift+R after a deploy is enough to pick up new code.
       // Combined with the controllerchange listener in main.tsx, the app will
@@ -62,22 +69,25 @@ export default defineConfig({
         display: 'standalone',
         start_url: '/',
         icons: [
-          // Three entries so Android picks the right asset at each density,
-          // plus a separate maskable variant for the adaptive-icon system.
+          // Square, padded icons (compass centered on the dark splash color).
+          // The raw logo.png is non-square and edge-to-edge, so OS rounding
+          // clipped its rim on the home screen — these fix that.
           {
-            src: '/logo.png?v=3',
+            src: '/icon-192.png?v=4',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/logo.png?v=3',
+            src: '/icon-512.png?v=4',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
+          // Extra padding (center safe zone) so Android's adaptive mask never
+          // crops the compass, whatever shape the launcher uses.
           {
-            src: '/logo.png?v=3',
+            src: '/icon-maskable.png?v=4',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
