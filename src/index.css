@@ -883,10 +883,19 @@ html[data-theme="light"] .vision-editor .vision-question {
  * on-screen keyboard to ride at the bottom).
  * --------------------------------------------------------------------------*/
 
-/* The centre column's inner width — a comfortable, roomy single-column doc. */
+/* The centre column's inner width — a comfortable, roomy single-column doc.
+ * It's a fixed-height flex column that fills the viewport down to just above
+ * the bottom nav: the toolbar sits at the top, the writing card flex-GROWS to
+ * fill the rest (so the card always reaches the screen bottom regardless of how
+ * much text there is), and the habit rings end with a small gap above the dock.
+ * Using `height` (not max-height) is what makes an almost-empty editor still
+ * fill the screen instead of collapsing. Desktop-only; mobile is untouched. */
 .vision-desktop-doc {
   max-width: 940px;
   margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4.5rem);
 }
 
 /* Sticky top toolbar — pins to the top of the viewport as the page scrolls.
@@ -926,18 +935,18 @@ html[data-theme="light"] .vision-editor .vision-question {
 }
 
 /* ---------------------------------------------------------------------------
- * Keep the whole writing card within the viewport so it ENDS above the fixed
- * bottom nav — the habit rings (header or the footer strip below the writing)
- * are never swallowed under the dock. The card becomes a flex column: the
- * DateBar header (+ assist) and the rings footer stay pinned; only the writing
- * surface scrolls INSIDE the card. Desktop-only (scoped to .vision-desktop-*);
- * the mobile layout — which scrolls the whole page — is untouched.
- * Height budget ≈ viewport − (top offset + sticky toolbar) − (bottom nav).
+ * The writing card FILLS the fixed-height doc (flex grower): it always reaches
+ * from under the toolbar down to just above the bottom nav, so the habit rings
+ * (header, or the footer strip below the writing) sit a small gap above the
+ * dock and never get swallowed under it — no matter how short the text is. Only
+ * the writing surface inside scrolls; the DateBar header and rings footer stay
+ * pinned. Desktop-only (scoped to .vision-desktop-*); mobile is untouched.
  * --------------------------------------------------------------------------*/
 .vision-desktop-card {
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 9rem);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* The writing surface is the flex grower and the lone scroll region. min-height:0
