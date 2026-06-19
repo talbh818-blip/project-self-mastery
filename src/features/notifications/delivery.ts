@@ -1,0 +1,188 @@
+// ============================================================================
+// Notification delivery — feature switch, OS permission, the actual show call,
+// and the foreground scheduler.
+// ----------------------------------------------------------------------------
+// Two layers of on/off:
+//   • feature-level master switch  (isNotificationsFeatureEnabled) — per device
+//   • per-reminder `enabled` flag  (notification_reminders.enabled)
+// A reminder fires only when BOTH are on and the day/time matches.
+//
+// PHASE 1 (this file): a lightweight foreground scheduler fires reminders while
+// the app is OPEN. Delivery while the app is CLOSED needs Web Push (a service-
+// worker `push` handler + a backend that sends at the scheduled time) — the
+// next step. When Push lands, the foreground scheduler becomes a fallback for
+// devices without a push subscription.
+// ============================================================================
+import { useEffect, useRef } from 'react';
+import {
+  fetchReminders,
+  migrateLegacyRemindersOnce,
+  pickReminderMessage,
+  updateReminder,
+  type NotificationReminder,
+} from './reminders';
+
+const FEATURE_FLAG_KEY = 'feature:notifications:enabled';
+
+// ---------------------------------------------------------------------------
+// Feature-level master switch (per device, localStorage)
+// ---------------------------------------------------------------------------
+
+export function isNotificationsFeatureEnabled(): boolean {
+  try {
+    return localStorage.getItem(FEATURE_FLAG_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function setNotificationsFeatureEnabled(on: boolean): void {
+  try {
+    localStorage.setItem(FEATURE_FLAG_KEY, on ? '1' : '0');
+  } catch {
+    /* blocked — non-fatal */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Permission
+// ---------------------------------------------------------------------------
+
+export function notificationsSupported(): boolean {
+  return typeof window !== 'undefined' && 'Notification' in window;
+}
+
+export function getPermission(): NotificationPermission {
+  return notificationsSupported() ? Notification.permission : 'denied';
+}
+
+export async function requestPermission(): Promise<NotificationPermission> {
+  if (!notificationsSupported()) return 'denied';
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return getPermission();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Show a notification (prefers the SW registration; falls back to the
+// Notification constructor). No-op unless permission is granted.
+// ---------------------------------------------------------------------------
+
+export async function showReminderNotification(
+  title: string,
+  body: string,
+  tag: string,
+): Promise<void> {
+  if (getPermission() !== 'granted') return;
+  const options: NotificationOptions = {
+    body,
+    icon: '/logo.png?v=5',
+    badge: '/logo.png?v=5',
+    lang: 'he',
+    dir: 'rtl',
+    // Same tag collapses a repeat of the SAME reminder instead of stacking.
+    tag,
+    data: { url: '/' },
+  };
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.showNotification(title || 'תזכורת', options);
+        return;
+      }
+    }
+  } catch {
+    /* fall through to the constructor */
+  }
+  try {
+    new Notification(title || 'תזכורת', options);
+  } catch {
+    /* some browsers require the SW path — ignore */
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Foreground scheduler
+// ---------------------------------------------------------------------------
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * While the app is open, fires each enabled reminder at its chosen day + time.
+ * Mounted once at the app shell (Layout) so it runs on every screen. Caches the
+ * reminder list and refreshes it every couple of minutes (and on first run,
+ * after migrating any legacy localStorage reminders).
+ */
+export function useReminderScheduler(): void {
+  // Which (reminder, minute) firings already happened, so the 20s poll inside
+  // the same minute doesn't double-fire.
+  const firedRef = useRef<Set<string>>(new Set());
+  const cacheRef = useRef<NotificationReminder[]>([]);
+  const lastFetchRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!notificationsSupported()) return;
+    let cancelled = false;
+
+    const refresh = async () => {
+      try {
+        const list = await fetchReminders();
+        if (!cancelled) {
+          cacheRef.current = list;
+          lastFetchRef.current = Date.now();
+        }
+      } catch {
+        /* keep the stale cache on a transient failure */
+      }
+    };
+
+    const tick = async () => {
+      if (!isNotificationsFeatureEnabled()) return;
+      if (getPermission() !== 'granted') return;
+      // Refresh the cache periodically so edits made elsewhere are picked up.
+      if (Date.now() - lastFetchRef.current > 120_000) await refresh();
+      if (cancelled) return;
+
+      const now = new Date();
+      const time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      const day = now.getDay();
+      const fired = firedRef.current;
+
+      for (const r of cacheRef.current) {
+        if (!r.enabled) continue;
+        if (!r.days.includes(day)) continue;
+        if (!r.times.includes(time)) continue;
+        const key = `${now.toDateString()} ${time} ${r.id}`;
+        if (fired.has(key)) continue;
+        fired.add(key);
+
+        const { body, nextIndex } = pickReminderMessage(r);
+        void showReminderNotification(r.title || 'תזכורת', body, `reminder-${r.id}`);
+        if (nextIndex !== null) {
+          r.next_index = nextIndex; // advance the local cache immediately
+          void updateReminder(r.id, { next_index: nextIndex }).catch(() => {});
+        }
+      }
+
+      // Keep the dedupe set bounded — by the time it's large the day has rolled.
+      if (fired.size > 500) fired.clear();
+    };
+
+    void (async () => {
+      await migrateLegacyRemindersOnce().catch(() => {});
+      if (!cancelled) await tick();
+    })();
+
+    const id = window.setInterval(() => {
+      void tick();
+    }, 20_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+}
