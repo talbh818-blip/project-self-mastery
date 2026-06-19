@@ -5,9 +5,8 @@
 // the habit (data preserved).
 // ============================================================================
 import { useEffect, useState } from 'react';
-import { X, Pencil, Archive, Flame, Trophy, Bell } from 'lucide-react';
+import { X, Pencil, Archive, Flame, Trophy } from 'lucide-react';
 import { HabitIcon } from './HabitIcon';
-import { HabitNotificationsSheet } from './HabitNotificationsSheet';
 import type { Habit } from './types';
 import type { HabitScoreResult } from './scoring';
 
@@ -31,7 +30,6 @@ export function HabitDetailSheet({
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notifOpen, setNotifOpen] = useState(false);
 
   // Lock body scroll while the sheet is open so the page underneath can't
   // bounce around on mobile.
@@ -52,7 +50,6 @@ export function HabitDetailSheet({
       setConfirmingArchive(false);
       setWorking(false);
       setError(null);
-      setNotifOpen(false);
     }
   }, [open, habit?.id]);
 
@@ -81,7 +78,6 @@ export function HabitDetailSheet({
       : { label: 'שבירת התמכרות', cls: 'bg-red-950/40 text-red-400' };
 
   return (
-    <>
     <div
       className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
@@ -202,19 +198,7 @@ export function HabitDetailSheet({
         </div>
 
         {/* Actions */}
-        <div className="px-5 py-4 border-t border-surface-border space-y-2">
-          {/* Notifications — dedicated row above the primary actions. */}
-          <button
-            type="button"
-            onClick={() => setNotifOpen(true)}
-            disabled={working}
-            className="w-full py-3 rounded-2xl border border-forest-700/40 bg-forest-700/10 hover:bg-forest-700/20 text-forest-300 font-medium flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-          >
-            <Bell size={16} />
-            תזכורות והתראות
-          </button>
-
-          <div className="flex gap-2">
+        <div className="px-5 py-4 border-t border-surface-border flex gap-2">
           <button
             type="button"
             onClick={onEdit}
@@ -255,17 +239,9 @@ export function HabitDetailSheet({
               ארכיון
             </button>
           )}
-          </div>
         </div>
       </div>
     </div>
-
-    <HabitNotificationsSheet
-      open={notifOpen}
-      habit={habit}
-      onClose={() => setNotifOpen(false)}
-    />
-    </>
   );
 }
 

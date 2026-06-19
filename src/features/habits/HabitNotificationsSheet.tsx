@@ -116,7 +116,13 @@ export function HabitNotificationsSheet({ open, habit, onClose }: Props) {
   };
 
   const handleSave = () => {
-    saveSettings(habit.id, settings);
+    // Snapshot the habit identity so the (localStorage-only) scheduler can fire
+    // the reminder without loading the habit list.
+    saveSettings(habit.id, {
+      ...settings,
+      habitName: habit.name,
+      habitType: habit.type,
+    });
     setSaved(true);
   };
 

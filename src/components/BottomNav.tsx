@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   Target,
+  Sparkles,
   BookOpen,
   PlayCircle,
   UserCircle,
@@ -20,6 +21,7 @@ type NavItem = {
 
 const BASE_ITEMS: NavItem[] = [
   { to: '/', label: 'הרגלים', icon: Target, end: true },
+  { to: '/features', label: 'פיצ\'רים', icon: Sparkles },
   { to: '/vision', label: 'חזון', icon: BookOpen },
   { to: '/course', label: 'קורס', icon: PlayCircle },
   { to: '/user', label: 'משתמש', icon: UserCircle },

@@ -9,6 +9,7 @@ import {
   VisionLayoutProvider,
   useVisionLayoutPref,
 } from '../features/vision/useVisionLayoutPref';
+import { useHabitReminderScheduler } from '../features/habits/notifications';
 
 // Routes where the brand header (compass + app name) is hidden. Content-dense
 // screens omit it to claim the vertical space — Habits (home) and Vision (the
@@ -36,6 +37,11 @@ function LayoutShell() {
   const mainRef = useRef<HTMLElement>(null);
   const { pathname } = useLocation();
   const { mode } = useVisionLayoutPref();
+
+  // App-wide notification scheduler — fires per-habit reminders (configured on
+  // the "פיצ'רים" screen) at their chosen day/time while the app is open. Lives
+  // here so it runs on every tab, not only the Habits screen.
+  useHabitReminderScheduler();
 
   // Course desktop is a FIXED app-shell: the page itself never scrolls; only the
   // book rail (and, if a book has many videos, the video column) scrolls
