@@ -1783,7 +1783,7 @@ function DataView({
         <KpiCard
           icon={
             <img
-              src="/logo.png?v=3"
+              src="/logo.png?v=5"
               alt=""
               className="w-7 h-7 object-contain"
             />

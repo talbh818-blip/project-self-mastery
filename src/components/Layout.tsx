@@ -144,7 +144,7 @@ function LayoutShell() {
         <header ref={headerRef} className="bg-surface-base">
           <div className="max-w-md mx-auto w-full px-4 py-3 flex items-center justify-center gap-2">
             <img
-              src="/logo.png?v=3"
+              src="/logo.png?v=5"
               alt=""
               className="w-8 h-8"
             />

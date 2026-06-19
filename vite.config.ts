@@ -73,13 +73,13 @@ export default defineConfig({
           // The raw logo.png is non-square and edge-to-edge, so OS rounding
           // clipped its rim on the home screen — these fix that.
           {
-            src: '/icon-192.png?v=4',
+            src: '/icon-192.png?v=5',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/icon-512.png?v=4',
+            src: '/icon-512.png?v=5',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
@@ -87,7 +87,7 @@ export default defineConfig({
           // Extra padding (center safe zone) so Android's adaptive mask never
           // crops the compass, whatever shape the launcher uses.
           {
-            src: '/icon-maskable.png?v=4',
+            src: '/icon-maskable.png?v=5',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',

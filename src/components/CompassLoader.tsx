@@ -36,7 +36,7 @@ export function CompassLoader({
       style={{ width: container, height: container }}
     >
       <img
-        src="/logo.png?v=3"
+        src="/logo.png?v=5"
         alt=""
         aria-hidden="true"
         draggable={false}

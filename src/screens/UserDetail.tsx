@@ -127,7 +127,7 @@ export function UserDetail() {
         <Kpi
           icon={
             <img
-              src="/logo.png?v=3"
+              src="/logo.png?v=5"
               alt=""
               className="w-[22px] h-[22px] object-contain"
             />

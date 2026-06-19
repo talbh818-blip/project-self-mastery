@@ -186,8 +186,8 @@ export async function showHabitReminder(
   const body = (message ?? '').trim() || defaultMessageFor(habit.type);
   const options: NotificationOptions = {
     body,
-    icon: '/logo.png',
-    badge: '/logo.png',
+    icon: '/logo.png?v=5',
+    badge: '/logo.png?v=5',
     lang: 'he',
     dir: 'rtl',
     // Same tag per habit collapses a repeat reminder instead of stacking.
