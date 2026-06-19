@@ -69,6 +69,7 @@ import {
   nextMarkInCycle,
 } from '../features/habits/mutations';
 import { useHabitData } from '../features/habits/useHabitData';
+import { useHabitReminderScheduler } from '../features/habits/notifications';
 import {
   type HabitScoreResult,
   type UserStats,
@@ -121,6 +122,14 @@ export function Habits() {
   // Single source of truth for the user's habit data. Mutations are optimistic
   // — UI updates immediately and persists in the background. No refetching.
   const data = useHabitData(user?.id ?? null);
+
+  // Fire per-habit reminders (configured in HabitNotificationsSheet) while the
+  // app is open. Scoped to active habits — archived ones don't nag.
+  const activeHabits = useMemo(
+    () => data.habits.filter((h) => h.archived_at === null),
+    [data.habits],
+  );
+  useHabitReminderScheduler(activeHabits);
 
   // Derive slots for the visible week and for today (used by + button +
   // monthly heatmap which always shows the user's CURRENT habits).
