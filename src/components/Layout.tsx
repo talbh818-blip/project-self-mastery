@@ -12,9 +12,14 @@ import {
 import { useHabitReminderScheduler } from '../features/habits/notifications';
 
 // Routes where the brand header (compass + app name) is hidden. Content-dense
-// screens omit it to claim the vertical space — Habits (home) and Vision (the
-// journaling pyramid + year map). Other screens keep it for app identity.
-const HIDE_BRAND_HEADER_ON: ReadonlySet<string> = new Set(['/', '/vision']);
+// screens omit it to claim the vertical space — Habits (home), Vision (the
+// journaling pyramid + year map) and Features (its own title + view switcher).
+// Other screens keep it for app identity.
+const HIDE_BRAND_HEADER_ON: ReadonlySet<string> = new Set([
+  '/',
+  '/vision',
+  '/features',
+]);
 
 export function Layout() {
   // The shell consumes the layout-mode context (for the Course desktop
