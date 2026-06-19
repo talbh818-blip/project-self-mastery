@@ -7,6 +7,7 @@ import { AdminRoute } from './features/admin/AdminRoute';
 import { Login } from './screens/Login';
 import { Habits } from './screens/Habits';
 import { Features } from './screens/Features';
+import { NotificationsSettings } from './screens/NotificationsSettings';
 import { Vision } from './screens/Vision';
 import { Course } from './screens/Course';
 import { User } from './screens/User';
@@ -26,6 +27,10 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Habits />} />
               <Route path="features" element={<Features />} />
+              <Route
+                path="features/notifications"
+                element={<NotificationsSettings />}
+              />
               <Route path="vision" element={<Vision />} />
               <Route path="course" element={<Course />} />
               <Route path="user" element={<User />} />
