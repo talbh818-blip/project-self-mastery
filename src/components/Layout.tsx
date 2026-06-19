@@ -61,14 +61,6 @@ function LayoutShell() {
   // their MOBILE layout to max-w-md themselves, so phones are unaffected.
   const wideContainer = pathname === '/vision' || pathname === '/course';
 
-  // Vision desktop is a Docs-style page: the writing card's MIN-height fills the
-  // viewport (empty looks full, rings near the dock) and GROWS as you write,
-  // scrolling the page. A slim pb-16 runway (vs the default pb-24) lets the last
-  // lines + rings clear the fixed bottom nav when scrolled to the end, while
-  // being small enough that the empty state has no scroll tail. Mobile vision
-  // (and every other screen) keeps pb-24.
-  const visionDesktop = pathname === '/vision' && mode === 'desktop';
-
   // On initial load and on every route change, start the viewport just past
   // the brand header so the screen content is what the user sees first.
   // We keep re-applying the scroll until either:
@@ -159,13 +151,7 @@ function LayoutShell() {
         ref={mainRef}
         className={`flex-1 mx-auto w-full px-3 sm:px-4 pt-5 ${
           wideContainer ? 'max-w-none' : 'max-w-md'
-        } ${
-          fixedShell
-            ? 'overflow-hidden'
-            : visionDesktop
-              ? 'min-h-screen pb-16'
-              : 'pb-24 min-h-screen'
-        }`}
+        } ${fixedShell ? 'overflow-hidden' : 'pb-24 min-h-screen'}`}
       >
         {/* App-wide safety net: a crash on any screen shows a recoverable
             notice instead of a black page. Resets on route change. */}
