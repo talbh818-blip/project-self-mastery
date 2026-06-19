@@ -8,12 +8,19 @@
 // here so the Habits screen stays focused on tracking.
 // ============================================================================
 import { useState } from 'react';
-import { Bell, Check, ChevronRight } from 'lucide-react';
+import {
+  Bell,
+  Check,
+  ChevronRight,
+  Ban,
+  NotebookPen,
+  Flower2,
+  type LucideIcon,
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useHabitData } from '../features/habits/useHabitData';
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { HabitNotificationsSheet } from '../features/habits/HabitNotificationsSheet';
-import { Emoji } from '../components/Emoji';
 import type { Habit } from '../features/habits/types';
 import {
   HEBREW_DAY_LETTERS,
@@ -67,7 +74,8 @@ export function Features() {
 
       <div className="grid grid-cols-2 gap-3">
         <FeatureCard
-          emoji="🔔"
+          icon={Bell}
+          accent={ACCENT.green}
           title="התראות"
           description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
           isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
@@ -79,7 +87,8 @@ export function Features() {
         {COMING_SOON.map((f) => (
           <ComingSoonCard
             key={f.title}
-            emoji={f.emoji}
+            icon={f.icon}
+            accent={f.accent}
             title={f.title}
             description={f.description}
           />
@@ -97,14 +106,26 @@ export function Features() {
 // After that it's just a normal feature.
 const NOTIFICATIONS_NEW_UNTIL = '2026-07-19';
 
+// Per-feature accent gradients (light → dark) for the icon tiles. Each feature
+// gets its own hue so the grid reads as a varied, colorful set — not all one
+// colour. Glyphs render white on top, "app-icon" style.
+type Accent = { from: string; to: string };
+const ACCENT: Record<'green' | 'red' | 'blue' | 'purple', Accent> = {
+  green: { from: '#5fbf7e', to: '#2f7a4a' },
+  red: { from: '#f47171', to: '#b23b3b' },
+  blue: { from: '#4f9be6', to: '#275fa5' },
+  purple: { from: '#9b7ef0', to: '#5b46b0' },
+};
+
 const COMING_SOON: Array<{
-  emoji: string;
+  icon: LucideIcon;
+  accent: Accent;
   title: string;
   description: string;
 }> = [
-  { emoji: '🚫', title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
-  { emoji: '📒', title: 'יומן יומי', description: 'רישום קצר על כל יום, נפרד מהחזון' },
-  { emoji: '🤝', title: 'משתתפים', description: 'לראות התקדמות של חברים ולהתחרות' },
+  { icon: Ban, accent: ACCENT.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
+  { icon: NotebookPen, accent: ACCENT.blue, title: 'יומן יומי', description: 'רישום קצר על כל יום, נפרד מהחזון' },
+  { icon: Flower2, accent: ACCENT.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
 ];
 
 function isWithinNewWindow(until: string): boolean {
@@ -117,7 +138,8 @@ function isWithinNewWindow(until: string): boolean {
 // ---------------------------------------------------------------------------
 
 function FeatureCard({
-  emoji,
+  icon,
+  accent,
   title,
   description,
   isNew,
@@ -125,7 +147,8 @@ function FeatureCard({
   onToggle,
   onOpen,
 }: {
-  emoji: string;
+  icon: LucideIcon;
+  accent: Accent;
   title: string;
   description: string;
   isNew?: boolean;
@@ -139,7 +162,9 @@ function FeatureCard({
       onClick={onOpen}
       className="relative text-right rounded-2xl border border-surface-border bg-surface-card p-4 flex flex-col gap-2 min-h-[150px] hover:border-forest-700/50 transition-colors"
     >
-      {/* Enable checkbox — its own click target, doesn't open settings. */}
+      {/* Enable checkbox — its own click target, doesn't open settings. The
+          unchecked box sits on the darker surface-base with a bright ring so
+          it reads as a tappable target instead of blending into the card. */}
       <span
         role="checkbox"
         aria-checked={enabled}
@@ -156,18 +181,18 @@ function FeatureCard({
             onToggle(!enabled);
           }
         }}
-        className={`absolute top-3 left-3 w-6 h-6 rounded-md flex items-center justify-center border transition-colors ${
+        className={`absolute top-3 left-3 w-7 h-7 rounded-lg flex items-center justify-center border-2 transition-colors ${
           enabled
-            ? 'bg-forest-700 border-forest-700 text-cream-50'
-            : 'border-surface-border bg-surface-raised/40 text-transparent'
+            ? 'bg-forest-700 border-forest-700 text-cream-50 shadow-sm'
+            : 'border-ink-300/70 bg-surface-base text-transparent'
         }`}
       >
-        <Check size={15} strokeWidth={3} />
+        <Check size={16} strokeWidth={3} />
       </span>
 
       {isNew && <NewBadge />}
 
-      <FeatureLogo emoji={emoji} accent />
+      <FeatureLogo icon={icon} accent={accent} />
       <div className="mt-auto">
         <div className="text-[15px] font-semibold text-ink-100 leading-tight">
           {title}
@@ -181,11 +206,13 @@ function FeatureCard({
 }
 
 function ComingSoonCard({
-  emoji,
+  icon,
+  accent,
   title,
   description,
 }: {
-  emoji: string;
+  icon: LucideIcon;
+  accent: Accent;
   title: string;
   description: string;
 }) {
@@ -194,8 +221,8 @@ function ComingSoonCard({
       <span className="absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full bg-surface-raised text-ink-300">
         בקרוב
       </span>
-      <span className="opacity-80">
-        <FeatureLogo emoji={emoji} />
+      <span className="opacity-90">
+        <FeatureLogo icon={icon} accent={accent} />
       </span>
       <div className="mt-auto">
         <div className="text-[15px] font-semibold text-ink-100/80 leading-tight">
@@ -209,25 +236,22 @@ function ComingSoonCard({
   );
 }
 
-/** A raised, glossy tile that lifts the 3D emoji off the card for depth. */
-function FeatureLogo({ emoji, accent }: { emoji: string; accent?: boolean }) {
+/** A glossy "app-icon" tile: a per-feature colour gradient with a white glyph
+ *  lifted off the surface for a designed, non-emoji look. */
+function FeatureLogo({ icon: Icon, accent }: { icon: LucideIcon; accent: Accent }) {
   return (
     <span
       className="w-14 h-14 rounded-2xl flex items-center justify-center"
       style={{
-        background: accent
-          ? 'radial-gradient(120% 120% at 30% 18%, rgba(86,170,112,0.38), rgba(25,38,58,0.65))'
-          : 'radial-gradient(120% 120% at 30% 18%, rgba(122,160,134,0.20), rgba(25,38,58,0.6))',
-        boxShadow:
-          '0 10px 20px -10px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.10)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: `linear-gradient(155deg, ${accent.from}, ${accent.to})`,
+        boxShadow: `0 10px 18px -8px ${accent.to}b3, inset 0 1px 0 rgba(255,255,255,0.35)`,
       }}
     >
-      <Emoji
-        emoji={emoji}
-        size={34}
-        ariaLabel=""
-        style={{ filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.45))' }}
+      <Icon
+        size={28}
+        strokeWidth={2}
+        color="#ffffff"
+        style={{ filter: 'drop-shadow(0 1px 1.5px rgba(0,0,0,0.30))' }}
       />
     </span>
   );
