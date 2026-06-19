@@ -40,6 +40,16 @@ body,
   height: 100%;
 }
 
+/* Declare the UI's colour scheme so the browser renders NATIVE chrome —
+ * scrollbars first and foremost, but also form controls, the caret, etc. — to
+ * MATCH the theme instead of defaulting to light. Without this, a dark app
+ * shows a glaring white native scrollbar (the bar IS native, it's just drawn in
+ * light mode). Dark is the base; the light theme flips it (see below). This is
+ * what makes "always-native scrollbars" actually look native in the dark UI. */
+html {
+  color-scheme: dark;
+}
+
 /* Safety net: never let any child cause horizontal page scrolling.
    Prevents the bottom nav from being pushed off-screen when something
    inside the page accidentally overflows on narrow viewports. */
@@ -106,6 +116,9 @@ input[type='number'] {
  * text per CLAUDE.md design language.
  * --------------------------------------------------------------------------*/
 html[data-theme="light"] {
+  /* Flip native chrome (scrollbars, controls) to light to match this theme. */
+  color-scheme: light;
+
   --color-surface-base:   #f6f1e8;
   --color-surface-card:   #ffffff;
   --color-surface-raised: #f0ead9;
