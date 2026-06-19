@@ -7,16 +7,8 @@
 // Notifications used to live inside the habit detail sheet — they were moved
 // here so the Habits screen stays focused on tracking.
 // ============================================================================
-import { useState } from 'react';
-import {
-  Bell,
-  Check,
-  ChevronRight,
-  Ban,
-  NotebookPen,
-  Flower2,
-  type LucideIcon,
-} from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Bell, Check, ChevronRight } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useHabitData } from '../features/habits/useHabitData';
 import { HabitIcon } from '../features/habits/HabitIcon';
@@ -74,8 +66,8 @@ export function Features() {
 
       <div className="grid grid-cols-2 gap-3">
         <FeatureCard
-          icon={Bell}
-          accent={ACCENT.green}
+          glyph={<BellGlyph />}
+          accent={BLOCK.green}
           title="התראות"
           description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
           isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
@@ -87,7 +79,7 @@ export function Features() {
         {COMING_SOON.map((f) => (
           <ComingSoonCard
             key={f.title}
-            icon={f.icon}
+            glyph={f.glyph}
             accent={f.accent}
             title={f.title}
             description={f.description}
@@ -106,26 +98,26 @@ export function Features() {
 // After that it's just a normal feature.
 const NOTIFICATIONS_NEW_UNTIL = '2026-07-19';
 
-// Per-feature accent gradients (light → dark) for the icon tiles. Each feature
-// gets its own hue so the grid reads as a varied, colorful set — not all one
-// colour. Glyphs render white on top, "app-icon" style.
-type Accent = { from: string; to: string };
-const ACCENT: Record<'green' | 'red' | 'blue' | 'purple', Accent> = {
-  green: { from: '#5fbf7e', to: '#2f7a4a' },
-  red: { from: '#f47171', to: '#b23b3b' },
-  blue: { from: '#4f9be6', to: '#275fa5' },
-  purple: { from: '#9b7ef0', to: '#5b46b0' },
+// Per-feature "extruded block" accents: a top-face gradient (light → mid) plus
+// a darker `edge` colour rendered as a solid offset bottom shadow, so each tile
+// reads as a chunky 3D block. Each feature gets its own hue — a varied set.
+type BlockAccent = { from: string; to: string; edge: string };
+const BLOCK: Record<'green' | 'red' | 'blue' | 'purple', BlockAccent> = {
+  green: { from: '#5fc487', to: '#46955f', edge: '#2f6e48' },
+  red: { from: '#ff8c7e', to: '#e85f5f', edge: '#b23b3b' },
+  blue: { from: '#5aa6f0', to: '#3f7fe0', edge: '#2a5aa8' },
+  purple: { from: '#9b86f2', to: '#6f54d4', edge: '#4e379e' },
 };
 
 const COMING_SOON: Array<{
-  icon: LucideIcon;
-  accent: Accent;
+  glyph: ReactNode;
+  accent: BlockAccent;
   title: string;
   description: string;
 }> = [
-  { icon: Ban, accent: ACCENT.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
-  { icon: NotebookPen, accent: ACCENT.blue, title: 'יומן יומי', description: 'רישום קצר על כל יום, נפרד מהחזון' },
-  { icon: Flower2, accent: ACCENT.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
+  { glyph: <HourglassGlyph />, accent: BLOCK.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
+  { glyph: <PageGlyph />, accent: BLOCK.blue, title: 'יומן יומי', description: 'רישום קצר על כל יום, נפרד מהחזון' },
+  { glyph: <MeditationGlyph />, accent: BLOCK.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
 ];
 
 function isWithinNewWindow(until: string): boolean {
@@ -138,7 +130,7 @@ function isWithinNewWindow(until: string): boolean {
 // ---------------------------------------------------------------------------
 
 function FeatureCard({
-  icon,
+  glyph,
   accent,
   title,
   description,
@@ -147,8 +139,8 @@ function FeatureCard({
   onToggle,
   onOpen,
 }: {
-  icon: LucideIcon;
-  accent: Accent;
+  glyph: ReactNode;
+  accent: BlockAccent;
   title: string;
   description: string;
   isNew?: boolean;
@@ -192,7 +184,7 @@ function FeatureCard({
 
       {isNew && <NewBadge />}
 
-      <FeatureLogo icon={icon} accent={accent} />
+      <FeatureLogo glyph={glyph} accent={accent} />
       <div className="mt-auto">
         <div className="text-[15px] font-semibold text-ink-100 leading-tight">
           {title}
@@ -206,23 +198,23 @@ function FeatureCard({
 }
 
 function ComingSoonCard({
-  icon,
+  glyph,
   accent,
   title,
   description,
 }: {
-  icon: LucideIcon;
-  accent: Accent;
+  glyph: ReactNode;
+  accent: BlockAccent;
   title: string;
   description: string;
 }) {
   return (
     <div className="relative rounded-2xl border border-surface-border bg-surface-card/50 p-4 flex flex-col gap-2 min-h-[150px]">
-      <span className="absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full bg-surface-raised text-ink-300">
+      <span className="absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full bg-surface-raised text-ink-300 z-10">
         בקרוב
       </span>
-      <span className="opacity-90">
-        <FeatureLogo icon={icon} accent={accent} />
+      <span className="opacity-95">
+        <FeatureLogo glyph={glyph} accent={accent} />
       </span>
       <div className="mt-auto">
         <div className="text-[15px] font-semibold text-ink-100/80 leading-tight">
@@ -236,32 +228,82 @@ function ComingSoonCard({
   );
 }
 
-/** A glossy "app-icon" tile: a per-feature colour gradient with a white glyph
- *  lifted off the surface for a designed, non-emoji look. */
-function FeatureLogo({ icon: Icon, accent }: { icon: LucideIcon; accent: Accent }) {
+/** An "extruded block" tile: a gradient top face with a solid darker bottom
+ *  edge (the `0 Npx 0 edge` shadow) so it reads as a chunky 3D block, plus a
+ *  soft cast shadow underneath. A custom white glyph sits on top. */
+function FeatureLogo({ glyph, accent }: { glyph: ReactNode; accent: BlockAccent }) {
   return (
     <span
-      className="w-14 h-14 rounded-2xl flex items-center justify-center"
+      className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1"
       style={{
-        background: `linear-gradient(155deg, ${accent.from}, ${accent.to})`,
-        boxShadow: `0 10px 18px -8px ${accent.to}b3, inset 0 1px 0 rgba(255,255,255,0.35)`,
+        background: `linear-gradient(160deg, ${accent.from}, ${accent.to})`,
+        boxShadow: `0 5px 0 ${accent.edge}, 0 13px 14px -6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3)`,
       }}
     >
-      <Icon
-        size={28}
-        strokeWidth={2}
-        color="#ffffff"
-        style={{ filter: 'drop-shadow(0 1px 1.5px rgba(0,0,0,0.30))' }}
-      />
+      {glyph}
     </span>
   );
 }
 
 function NewBadge() {
   return (
-    <span className="absolute top-3 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-700 text-cream-50">
+    <span className="absolute top-3 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-700 text-cream-50 z-10">
       חדש
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Custom feature glyphs — hand-drawn marks (not an icon library) with a bit of
+// character, white-filled to sit on the coloured block tiles.
+// ---------------------------------------------------------------------------
+
+const GLYPH_STYLE = { filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.22))' } as const;
+
+/** Bell with a small notification "badge" dot. */
+function BellGlyph() {
+  return (
+    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      <path d="M16 4.8c1.05 0 1.9.85 1.9 1.9v.6c2.9.85 5 3.55 5 6.75v3.25l1.45 2.5c.5.87-.12 1.95-1.12 1.95H8.77c-1 0-1.62-1.08-1.12-1.95L9 17.3v-3.25c0-3.2 2.1-5.9 5-6.75v-.6c0-1.05.85-1.9 2-1.9Z" />
+      <path d="M13.1 24.7h5.8a2.9 2.9 0 0 1-5.8 0Z" />
+      <circle cx="24" cy="8.2" r="2.9" />
+    </svg>
+  );
+}
+
+/** Hourglass — time / screen-time limit. */
+function HourglassGlyph() {
+  return (
+    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      <rect x="8" y="5" width="16" height="2.6" rx="1.3" />
+      <path d="M11 8.4h10l-5 7.6 5 7.6H11l5-7.6Z" />
+      <rect x="8" y="24.4" width="16" height="2.6" rx="1.3" />
+    </svg>
+  );
+}
+
+/** Page with a folded corner + text lines — a journal. */
+function PageGlyph() {
+  return (
+    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      <path d="M9.4 4.8h8l5.4 5.4V25.2A1.8 1.8 0 0 1 21 27H9.4A1.8 1.8 0 0 1 7.6 25.2V6.6A1.8 1.8 0 0 1 9.4 4.8Z" />
+      <path d="M17.4 4.9 22.8 10.3H19.1A1.7 1.7 0 0 1 17.4 8.6Z" fillOpacity="0.45" />
+      <rect x="10.7" y="15.2" width="9.8" height="1.7" rx="0.85" fillOpacity="0.8" />
+      <rect x="10.7" y="19" width="9.8" height="1.7" rx="0.85" fillOpacity="0.8" />
+      <rect x="10.7" y="22.8" width="6" height="1.7" rx="0.85" fillOpacity="0.8" />
+    </svg>
+  );
+}
+
+/** A seated figure in a meditation pose. */
+function MeditationGlyph() {
+  return (
+    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      <circle cx="16" cy="9" r="3.3" />
+      <path d="M7.6 23.4c0-4.2 3.76-7.4 8.4-7.4s8.4 3.2 8.4 7.4c0 .9-.7 1.6-1.6 1.6H9.2c-.9 0-1.6-.7-1.6-1.6Z" />
+      <circle cx="8.4" cy="21.6" r="1.5" />
+      <circle cx="23.6" cy="21.6" r="1.5" />
+    </svg>
   );
 }
 
