@@ -130,8 +130,8 @@ const COMING_SOON: Array<{
   description: string;
 }> = [
   { glyph: <LockGlyph />, accent: BLOCK.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
-  { glyph: <WritingGlyph />, accent: BLOCK.blue, title: 'כתיבה יומית', description: 'Journaling · רישום קצר ויומי, נפרד מהחזון' },
-  { glyph: <LotusGlyph />, accent: BLOCK.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
+  { glyph: <WritingGlyph />, accent: BLOCK.blue, title: 'כתיבה יומית - Journaling', description: 'רישום קצר ויומי, נפרד מהחזון' },
+  { glyph: <MeditationGlyph />, accent: BLOCK.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
 ];
 
 function isWithinNewWindow(until: string): boolean {
@@ -498,18 +498,14 @@ function WritingGlyph() {
   );
 }
 
-/** A lotus flower — meditation / calm. */
-function LotusGlyph() {
+/** A person seated in a meditation pose (head + arms resting on crossed legs). */
+function MeditationGlyph() {
   return (
     <svg viewBox="0 0 32 32" width="38" height="38" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      {/* nudged down so the flower sits vertically centered in the viewBox */}
-      <g transform="translate(0 1.5)">
-        <path d="M16 6.5c1.8 2.2 1.8 6.3 0 9.8c-1.8-3.5-1.8-7.6 0-9.8Z" />
-        <path d="M16 16.3C13.3 14.8 11.5 12 11 8.7c2.8 1.1 4.6 3.9 5 7.6Z" />
-        <path d="M16 16.3C18.7 14.8 20.5 12 21 8.7c-2.8 1.1-4.6 3.9-5 7.6Z" />
-        <path d="M15.6 17C12 16.2 9 13.8 7.4 10.4c3.8.3 7 2.8 8.2 6.6Z" />
-        <path d="M16.4 17C20 16.2 23 13.8 24.6 10.4c-3.8.3-7 2.8-8.2 6.6Z" />
-        <path d="M7 18.6c2.4 2.2 5.5 3.4 9 3.4s6.6-1.2 9-3.4c-2.6-1-5.7-1.5-9-1.5s-6.4.5-9 1.5Z" />
+      {/* nudged down so the figure sits vertically centered in the viewBox */}
+      <g transform="translate(0 1.9)">
+        <circle cx="16" cy="8" r="3.3" />
+        <path d="M16 12.8c-2.5 0-4.6 1.6-5.4 3.9-.4 1.1-1.3 1.9-2.4 2.3-1.4.5-1.9 2.2-.9 3.3.5.5 1.1.8 1.8.8h13.8c.7 0 1.3-.3 1.8-.8 1-1.1.5-2.8-.9-3.3-1.1-.4-2-1.2-2.4-2.3-.8-2.3-2.9-3.9-5.4-3.9Z" />
       </g>
     </svg>
   );
