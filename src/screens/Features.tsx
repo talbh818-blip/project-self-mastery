@@ -170,32 +170,32 @@ function ViewToggle({
   onChange: (v: FeaturesView) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 gap-1 rounded-xl border border-surface-border bg-surface-card p-1">
+    <div className="inline-flex shrink-0 gap-0.5 rounded-xl border border-surface-border bg-surface-card p-0.5">
       <button
         type="button"
         onClick={() => onChange('grid')}
         aria-label="תצוגת רשת"
         aria-pressed={view === 'grid'}
-        className={`p-2 rounded-lg transition-colors ${
+        className={`p-1.5 rounded-lg transition-colors ${
           view === 'grid'
             ? 'bg-forest-700 text-cream-50'
             : 'text-ink-300 hover:text-ink-100'
         }`}
       >
-        <LayoutGrid size={24} />
+        <LayoutGrid size={20} />
       </button>
       <button
         type="button"
         onClick={() => onChange('list')}
         aria-label="תצוגת שורות"
         aria-pressed={view === 'list'}
-        className={`p-2 rounded-lg transition-colors ${
+        className={`p-1.5 rounded-lg transition-colors ${
           view === 'list'
             ? 'bg-forest-700 text-cream-50'
             : 'text-ink-300 hover:text-ink-100'
         }`}
       >
-        <Rows3 size={24} />
+        <Rows3 size={20} />
       </button>
     </div>
   );
@@ -237,12 +237,13 @@ function FeatureCard({
         className="absolute top-3 left-3"
       />
 
-      {isNew && <NewBadge className="absolute top-3 right-3 z-10" />}
-
       <FeatureLogo glyph={glyph} accent={accent} />
       <div className="mt-auto">
-        <div className="text-[15px] font-semibold text-ink-100 leading-tight">
-          {title}
+        <div className="flex items-center gap-2">
+          <span className="text-[15px] font-semibold text-ink-100 leading-tight">
+            {title}
+          </span>
+          {isNew && <NewBadge />}
         </div>
         <p className="text-[11px] text-ink-300 mt-1 leading-snug">
           {description}
@@ -427,7 +428,7 @@ function NewBadge({ className = '' }: { className?: string }) {
   // too light for the cream text), plus a celebratory emoji.
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-900 text-cream-50 ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-900 text-cream-50 ${className}`}
     >
       חדש
       <Emoji emoji="🎉" size={11} ariaLabel="" />
