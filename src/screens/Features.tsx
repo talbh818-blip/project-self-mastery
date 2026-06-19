@@ -72,7 +72,7 @@ export function Features() {
           <FeatureCard
             glyph={<BellGlyph />}
             accent={BLOCK.sky}
-            title="התראות"
+            title="התראות לטלפון"
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
             enabled={notifEnabled}
@@ -106,7 +106,7 @@ export function Features() {
           <FeatureRow
             glyph={<BellGlyph />}
             accent={BLOCK.sky}
-            title="התראות"
+            title="התראות לטלפון"
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
             enabled={notifEnabled}

@@ -145,6 +145,31 @@ export async function fetchReminders(): Promise<NotificationReminder[]> {
   return (data ?? []) as NotificationReminder[];
 }
 
+// ---------------------------------------------------------------------------
+// Session cache (memory-only, keyed by user) for the reminders list — lets
+// re-opening the התראות screen paint instantly instead of flashing "טוען…".
+// Keyed by user so a different account never sees stale rows; cleared on
+// sign-out (private data). The screen revalidates on every mount.
+// ---------------------------------------------------------------------------
+let remindersCache: { userId: string; list: NotificationReminder[] } | null = null;
+
+export function getCachedReminders(userId: string): NotificationReminder[] | null {
+  return remindersCache && remindersCache.userId === userId
+    ? remindersCache.list
+    : null;
+}
+
+export function setCachedReminders(
+  userId: string,
+  list: NotificationReminder[],
+): void {
+  remindersCache = { userId, list };
+}
+
+export function clearRemindersCache(): void {
+  remindersCache = null;
+}
+
 export async function createReminder(
   input: ReminderInput,
 ): Promise<NotificationReminder> {

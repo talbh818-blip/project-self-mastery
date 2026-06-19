@@ -9,14 +9,16 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, BellRing, ChevronRight, Plus } from 'lucide-react';
+import { Bell, ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useHabitData } from '../features/habits/useHabitData';
 import { HabitIcon } from '../features/habits/HabitIcon';
 import { ReminderEditorSheet } from '../features/notifications/ReminderEditorSheet';
 import {
   fetchReminders,
+  getCachedReminders,
   migrateLegacyRemindersOnce,
+  setCachedReminders,
   summarizeReminder,
   updateReminder,
   type NotificationReminder,
@@ -36,14 +38,21 @@ import {
 export function NotificationsSettings() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const data = useHabitData(user?.id ?? null);
+  const uid = user?.id ?? null;
+  const data = useHabitData(uid);
   const activeHabits = data.habits.filter((h) => h.archived_at === null);
   const habitsById = new Map(activeHabits.map((h) => [h.id, h]));
 
+  // Seed from the session cache so re-entering the screen paints the saved
+  // reminders instantly (no "טוען…" flash); we still revalidate on mount.
+  const cachedReminders = uid ? getCachedReminders(uid) : null;
+
   const [enabled, setEnabled] = useState(isNotificationsFeatureEnabled);
   const [permission, setPermission] = useState<NotificationPermission>('default');
-  const [reminders, setReminders] = useState<NotificationReminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [reminders, setReminders] = useState<NotificationReminder[]>(
+    cachedReminders ?? [],
+  );
+  const [loading, setLoading] = useState(cachedReminders === null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<NotificationReminder | null>(null);
 
@@ -60,6 +69,13 @@ export function NotificationsSettings() {
     }
   };
 
+  // Mirror the list into the session cache once loaded — covers both the
+  // initial fetch and optimistic toggles — so a quick re-entry paints the
+  // latest state instantly instead of flashing the loader.
+  useEffect(() => {
+    if (!loading && uid) setCachedReminders(uid, reminders);
+  }, [reminders, loading, uid]);
+
   useEffect(() => {
     setPermission(getPermission());
     void (async () => {
@@ -70,16 +86,26 @@ export function NotificationsSettings() {
   }, []);
 
   const toggleFeature = async (next: boolean) => {
-    setEnabled(next);
-    setNotificationsFeatureEnabled(next);
-    if (next && supported) {
-      const p = await requestPermission();
-      setPermission(p);
-      // Register this device for closed-app push once permission is granted.
-      if (p === 'granted') void ensurePushSubscription();
-    } else if (!next) {
+    if (!next) {
+      // Turning off — flip immediately and drop this device's push subscription.
+      setEnabled(false);
+      setNotificationsFeatureEnabled(false);
       void removePushSubscription();
+      return;
     }
+    // Turning ON requires the OS permission. Ask for it now; if the user
+    // doesn't grant it the switch stays OFF — there's nothing to deliver to.
+    const p = supported ? await requestPermission() : 'denied';
+    setPermission(p);
+    if (p !== 'granted') {
+      setEnabled(false);
+      setNotificationsFeatureEnabled(false);
+      return;
+    }
+    setEnabled(true);
+    setNotificationsFeatureEnabled(true);
+    // Register this device for closed-app push now that permission is granted.
+    void ensurePushSubscription();
   };
 
   const toggleReminderEnabled = async (r: NotificationReminder) => {
@@ -119,7 +145,7 @@ export function NotificationsSettings() {
         </button>
         <h1 className="text-xl font-bold text-ink-100 flex items-center gap-2">
           <Bell size={20} className="text-forest-500" />
-          התראות
+          התראות לטלפון
         </h1>
       </header>
 
@@ -133,7 +159,7 @@ export function NotificationsSettings() {
       >
         <span className="min-w-0">
           <span className="block text-sm font-medium text-ink-100">
-            הפעל התראות
+            הפעל התראות לטלפון
           </span>
           <span className="block text-[11px] text-ink-300 leading-snug mt-0.5">
             כשכבוי — אף תזכורת לא תופיע, גם אם הוגדרה
@@ -153,7 +179,9 @@ export function NotificationsSettings() {
         </span>
       </button>
 
-      {/* Permission status */}
+      {/* Only surface a blocker when the device itself can't deliver. When all
+          is well there's no status text — the toggle handles the permission
+          request, and won't turn on unless it's granted. */}
       {!supported ? (
         <div className="mb-4 rounded-xl border border-yellow-800/50 bg-yellow-950/20 text-yellow-300/90 light:border-yellow-600/50 light:bg-yellow-400/15 light:text-yellow-800 text-[13px] px-3 py-2.5 leading-snug">
           הדפדפן הזה לא תומך בהתראות. נסה דרך Chrome / Safari או התקן את
@@ -161,24 +189,8 @@ export function NotificationsSettings() {
         </div>
       ) : permission === 'denied' ? (
         <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 light:border-red-500/40 light:bg-red-400/10 light:text-red-700 text-[13px] px-3 py-2.5 leading-snug">
-          ההתראות חסומות בדפדפן. כדי להפעיל — אפשר התראות לאתר זה בהגדרות הדפדפן.
-        </div>
-      ) : permission === 'default' && enabled ? (
-        <button
-          type="button"
-          onClick={async () => {
-            const p = await requestPermission();
-            setPermission(p);
-            if (p === 'granted') void ensurePushSubscription();
-          }}
-          className="mb-4 w-full rounded-xl border border-forest-700/40 bg-forest-700/15 text-forest-700 text-[13px] px-3 py-2.5 leading-snug text-right hover:bg-forest-700/25 transition-colors"
-        >
-          כדי לקבל תזכורות צריך לאשר הרשאת התראות — הקש כאן לאישור.
-        </button>
-      ) : permission === 'granted' ? (
-        <div className="mb-4 rounded-xl border border-forest-700/30 bg-forest-700/10 text-forest-700 text-[12px] px-3 py-2 flex items-center gap-2">
-          <BellRing size={14} />
-          ההתראות מאושרות במכשיר הזה
+          ההתראות חסומות בטלפון. כדי להפעיל — אפשר התראות לאתר זה בהגדרות
+          הדפדפן/הטלפון.
         </div>
       ) : null}
 
@@ -188,10 +200,10 @@ export function NotificationsSettings() {
         <button
           type="button"
           onClick={openNew}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-forest-700 hover:text-forest-600"
+          className="inline-flex items-center gap-1 rounded-full border border-ink-100/40 px-3 py-1 text-[13px] font-medium text-ink-100 hover:bg-ink-100/10 transition-colors"
         >
           <Plus size={16} />
-          הוסף תזכורת
+          תזכורת
         </button>
       </div>
 
@@ -251,12 +263,28 @@ export function NotificationsSettings() {
                     )}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-ink-100 truncate">
-                      {r.title || habit?.name || 'תזכורת'}
-                    </span>
-                    <span className="block text-[11px] text-ink-300 mt-0.5" dir="rtl">
-                      {summarizeReminder(r)}
-                    </span>
+                    {habit ? (
+                      // Linked to a habit → lead with the schedule (big, white)
+                      // and show the habit name underneath (small, green). The
+                      // icon already conveys which habit it is.
+                      <>
+                        <span className="block text-sm font-medium text-ink-100" dir="rtl">
+                          {summarizeReminder(r)}
+                        </span>
+                        <span className="block text-[11px] font-medium text-forest-700 truncate mt-0.5">
+                          {r.title || habit.name}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="block text-sm font-medium text-ink-100 truncate">
+                          {r.title || 'תזכורת'}
+                        </span>
+                        <span className="block text-[11px] text-ink-300 mt-0.5" dir="rtl">
+                          {summarizeReminder(r)}
+                        </span>
+                      </>
+                    )}
                   </span>
                 </button>
                 <button
