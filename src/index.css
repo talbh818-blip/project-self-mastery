@@ -895,7 +895,7 @@ html[data-theme="light"] .vision-editor .vision-question {
   margin-inline: auto;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 5.5rem);
+  height: calc(100vh - 5.875rem);
 }
 
 /* Sticky top toolbar — pins to the top of the viewport as the page scrolls.
@@ -947,6 +947,9 @@ html[data-theme="light"] .vision-editor .vision-question {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  /* Tighter than the default 1.25rem bottom padding so the habit rings sit
+     close to the card's bottom edge (less dead space under them). */
+  padding-bottom: 0.6rem;
 }
 
 /* The writing surface is the flex grower and the lone scroll region. min-height:0
