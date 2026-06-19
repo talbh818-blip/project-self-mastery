@@ -5,7 +5,7 @@
 // (public / shared), it also shows the habit list and a condensed success
 // heatmap. Otherwise a "private" notice.
 // ============================================================================
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   UserCircle,
@@ -22,10 +22,12 @@ import {
   fetchUserDashboard,
   type UserDashboard,
   type DashboardHabit,
+  type DailyPoints,
 } from '../features/user/queries';
 import { GenderIcon } from '../features/user/GenderIcon';
 import { MiniHeatmap } from '../features/user/MiniHeatmap';
 import { HabitIcon } from '../features/habits/HabitIcon';
+import { CumulativeScoreChart } from '../features/habits/CumulativeScoreChart';
 import { Emoji } from '../components/Emoji';
 
 export function UserDetail() {
@@ -153,6 +155,9 @@ export function UserDetail() {
               </div>
             </div>
 
+            {/* Cumulative points trend — same chart as the owner's Habits view */}
+            <CumulativePointsCard daily={data.daily_points ?? []} />
+
             <div className="bg-surface-card rounded-2xl p-5 space-y-3">
               <h2 className="text-sm font-semibold text-ink-100">עקביות (חצי שנה אחרונה)</h2>
               <MiniHeatmap
@@ -180,6 +185,82 @@ export function UserDetail() {
       )}
     </section>
   );
+}
+
+// Cumulative-points trend with a range toggle (השבוע / החודש / השנה), matching
+// the owner's Habits data view. Accumulates the per-day deltas from the RPC
+// into a running total over the chosen window (resets to 0 at the window start).
+type PointsRange = '7d' | '30d' | '365d';
+
+const POINTS_RANGE_DAYS: Record<PointsRange, number> = {
+  '7d': 7,
+  '30d': 30,
+  '365d': 365,
+};
+
+const POINTS_RANGE_LABEL: Record<PointsRange, string> = {
+  '7d': 'השבוע',
+  '30d': 'החודש',
+  '365d': 'השנה',
+};
+
+function CumulativePointsCard({ daily }: { daily: DailyPoints[] }) {
+  const [range, setRange] = useState<PointsRange>('30d');
+
+  const points = useMemo(() => {
+    const days = POINTS_RANGE_DAYS[range];
+    const byDate = new Map(daily.map((d) => [d.date, d.points]));
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - days + 1);
+    const series: { date: Date; value: number }[] = [];
+    let running = 0;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      running += byDate.get(toDateStr(d)) ?? 0;
+      series.push({ date: d, value: running });
+    }
+    return series;
+  }, [daily, range]);
+
+  const toggle = (
+    <div
+      role="radiogroup"
+      aria-label="טווח זמן"
+      className="flex bg-surface-raised rounded-lg p-0.5 gap-0.5"
+    >
+      {(Object.keys(POINTS_RANGE_DAYS) as PointsRange[]).map((r) => {
+        const active = range === r;
+        return (
+          <button
+            key={r}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => setRange(r)}
+            className={`flex-1 py-1 rounded-md text-[11px] transition-colors ${
+              active
+                ? 'bg-forest-700/25 text-cream-50 ring-1 ring-forest-700/50'
+                : 'text-cream-50/55 hover:text-cream-50'
+            }`}
+          >
+            {POINTS_RANGE_LABEL[r]}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  return <CumulativeScoreChart points={points} headerExtra={toggle} />;
+}
+
+// Date → "YYYY-MM-DD" in local time (matches the RPC's per-day keys).
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 // The viewer's habits-visibility relationship to this profile. Mirrors the

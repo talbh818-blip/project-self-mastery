@@ -28,6 +28,10 @@ export type DashboardHabit = {
 // Per-day count of successful (V) marks across the user's habits.
 export type DailyV = { date: string; v: number };
 
+// Per-day point delta across the user's habits (v2 earned snapshots + v1
+// +5/-3). The client accumulates these into the cumulative-points trend chart.
+export type DailyPoints = { date: string; points: number };
+
 // Shape returned by get_user_dashboard(target). habits/daily present only
 // when can_view_habits is true.
 export type UserDashboard = {
@@ -46,6 +50,7 @@ export type UserDashboard = {
   can_view_habits: boolean;
   habits?: DashboardHabit[];
   daily?: DailyV[];
+  daily_points?: DailyPoints[];
 };
 
 export async function fetchUserDashboard(
