@@ -1,38 +1,28 @@
 // ============================================================================
 // Features screen ("פיצ'רים") — a hub of opt-in features. Each feature is a
 // card in a 2-up grid with a checkbox to enable it and a tap to open its
-// settings. The first real feature is per-habit notification reminders;
-// the rest are "בקרוב" (coming soon) placeholders that show the layout.
+// settings. The first real feature is notification reminders (a free-form list
+// of reminders); the rest are "בקרוב" (coming soon) placeholders.
 //
-// Notifications used to live inside the habit detail sheet — they were moved
-// here so the Habits screen stays focused on tracking.
+// The notifications settings live on their own route (/features/notifications)
+// so granting the OS permission — which can reload the page — lands the user
+// back on the settings screen, not here on the hub.
 // ============================================================================
 import { useState, type ReactNode } from 'react';
-import { Bell, Check, ChevronRight, LayoutGrid, Rows3 } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
-import { useHabitData } from '../features/habits/useHabitData';
-import { HabitIcon } from '../features/habits/HabitIcon';
-import { HabitNotificationsSheet } from '../features/habits/HabitNotificationsSheet';
-import type { Habit } from '../features/habits/types';
+import { useNavigate } from 'react-router-dom';
+import { Check, LayoutGrid, Rows3 } from 'lucide-react';
+import { Emoji } from '../components/Emoji';
 import {
-  HEBREW_DAY_LETTERS,
   isNotificationsFeatureEnabled,
-  loadSettings,
   notificationsSupported,
   requestPermission,
   setNotificationsFeatureEnabled,
-  type HabitNotificationSettings,
-} from '../features/habits/notifications';
+} from '../features/notifications/delivery';
 
 export function Features() {
-  const { user } = useAuth();
-  const data = useHabitData(user?.id ?? null);
-  const activeHabits = data.habits.filter((h) => h.archived_at === null);
+  const navigate = useNavigate();
 
-  const [view, setView] = useState<'hub' | 'notifications'>('hub');
-  const [notifEnabled, setNotifEnabled] = useState(() =>
-    isNotificationsFeatureEnabled(),
-  );
+  const [notifEnabled, setNotifEnabled] = useState(isNotificationsFeatureEnabled);
   // Grid (2-up cards) vs list (one wide row per feature). Persisted per device.
   const [cardLayout, setCardLayout] = useState<FeaturesView>(() =>
     loadFeaturesView(),
@@ -51,28 +41,13 @@ export function Features() {
     }
   };
 
-  if (view === 'notifications') {
-    return (
-      <NotificationsFeatureSettings
-        habits={activeHabits}
-        enabled={notifEnabled}
-        onToggle={toggleNotifications}
-        onBack={() => setView('hub')}
-      />
-    );
-  }
+  const openNotifications = () => navigate('/features/notifications');
 
   return (
     <div className="max-w-md mx-auto">
       <header className="mb-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-ink-100">פיצ'רים חדשים</h1>
-            <p className="text-sm text-ink-300 mt-1">
-              הפעל פיצ'רים והתאם אותם לעצמך. סמן ✓ כדי להפעיל, או הקש לכניסה
-              להגדרות.
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-ink-100">פיצ'רים חדשים</h1>
           <ViewToggle view={cardLayout} onChange={changeCardLayout} />
         </div>
       </header>
@@ -81,13 +56,13 @@ export function Features() {
         <div className="grid grid-cols-2 gap-3">
           <FeatureCard
             glyph={<BellGlyph />}
-            accent={BLOCK.green}
+            accent={BLOCK.sky}
             title="התראות"
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
             enabled={notifEnabled}
             onToggle={toggleNotifications}
-            onOpen={() => setView('notifications')}
+            onOpen={openNotifications}
           />
 
           {COMING_SOON.map((f) => (
@@ -104,13 +79,13 @@ export function Features() {
         <div className="flex flex-col gap-3">
           <FeatureRow
             glyph={<BellGlyph />}
-            accent={BLOCK.green}
+            accent={BLOCK.sky}
             title="התראות"
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
             enabled={notifEnabled}
             onToggle={toggleNotifications}
-            onOpen={() => setView('notifications')}
+            onOpen={openNotifications}
           />
 
           {COMING_SOON.map((f) => (
@@ -140,7 +115,8 @@ const NOTIFICATIONS_NEW_UNTIL = '2026-07-19';
 // a darker `edge` colour rendered as a solid offset bottom shadow, so each tile
 // reads as a chunky 3D block. Each feature gets its own hue — a varied set.
 type BlockAccent = { from: string; to: string; edge: string };
-const BLOCK: Record<'green' | 'red' | 'blue' | 'purple', BlockAccent> = {
+const BLOCK: Record<'sky' | 'green' | 'red' | 'blue' | 'purple', BlockAccent> = {
+  sky: { from: '#62c8f0', to: '#2f9fd4', edge: '#1f7aac' },
   green: { from: '#5fc487', to: '#46955f', edge: '#2f6e48' },
   red: { from: '#ff8c7e', to: '#e85f5f', edge: '#b23b3b' },
   blue: { from: '#5aa6f0', to: '#3f7fe0', edge: '#2a5aa8' },
@@ -153,9 +129,9 @@ const COMING_SOON: Array<{
   title: string;
   description: string;
 }> = [
-  { glyph: <HourglassGlyph />, accent: BLOCK.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
-  { glyph: <PageGlyph />, accent: BLOCK.blue, title: 'יומן יומי', description: 'רישום קצר על כל יום, נפרד מהחזון' },
-  { glyph: <MeditationGlyph />, accent: BLOCK.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
+  { glyph: <LockGlyph />, accent: BLOCK.red, title: 'חוסם אפליקציות', description: 'הגבלת זמן מסך לאפליקציות מסיחות' },
+  { glyph: <WritingGlyph />, accent: BLOCK.blue, title: 'כתיבה יומית', description: 'Journaling · רישום קצר ויומי, נפרד מהחזון' },
+  { glyph: <LotusGlyph />, accent: BLOCK.purple, title: 'מדיטציה', description: 'תרגולי נשימה והרגעה מודרכים' },
 ];
 
 function isWithinNewWindow(until: string): boolean {
@@ -194,32 +170,32 @@ function ViewToggle({
   onChange: (v: FeaturesView) => void;
 }) {
   return (
-    <div className="inline-flex shrink-0 rounded-xl border border-surface-border bg-surface-card p-0.5">
+    <div className="inline-flex shrink-0 gap-1 rounded-xl border border-surface-border bg-surface-card p-1">
       <button
         type="button"
         onClick={() => onChange('grid')}
         aria-label="תצוגת רשת"
         aria-pressed={view === 'grid'}
-        className={`p-1.5 rounded-lg transition-colors ${
+        className={`p-2 rounded-lg transition-colors ${
           view === 'grid'
             ? 'bg-forest-700 text-cream-50'
             : 'text-ink-300 hover:text-ink-100'
         }`}
       >
-        <LayoutGrid size={18} />
+        <LayoutGrid size={24} />
       </button>
       <button
         type="button"
         onClick={() => onChange('list')}
         aria-label="תצוגת שורות"
         aria-pressed={view === 'list'}
-        className={`p-1.5 rounded-lg transition-colors ${
+        className={`p-2 rounded-lg transition-colors ${
           view === 'list'
             ? 'bg-forest-700 text-cream-50'
             : 'text-ink-300 hover:text-ink-100'
         }`}
       >
-        <Rows3 size={18} />
+        <Rows3 size={24} />
       </button>
     </div>
   );
@@ -261,7 +237,7 @@ function FeatureCard({
         className="absolute top-3 left-3"
       />
 
-      {isNew && <NewBadge />}
+      {isNew && <NewBadge className="absolute top-3 right-3 z-10" />}
 
       <FeatureLogo glyph={glyph} accent={accent} />
       <div className="mt-auto">
@@ -342,11 +318,7 @@ function FeatureRow({
           <span className="text-[15px] font-semibold text-ink-100 leading-tight">
             {title}
           </span>
-          {isNew && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-700 text-cream-50">
-              חדש
-            </span>
-          )}
+          {isNew && <NewBadge />}
         </div>
         <p className="text-[12px] text-ink-300 mt-1 leading-snug">
           {description}
@@ -450,10 +422,15 @@ function FeatureLogo({ glyph, accent }: { glyph: ReactNode; accent: BlockAccent 
   );
 }
 
-function NewBadge() {
+function NewBadge({ className = '' }: { className?: string }) {
+  // Dark-green pill so the cream "חדש" reads clearly (the old forest-700 was
+  // too light for the cream text), plus a celebratory emoji.
   return (
-    <span className="absolute top-3 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-700 text-cream-50 z-10">
+    <span
+      className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-900 text-cream-50 ${className}`}
+    >
       חדש
+      <Emoji emoji="🎉" size={11} ariaLabel="" />
     </span>
   );
 }
@@ -476,195 +453,61 @@ function BellGlyph() {
   );
 }
 
-/** Hourglass — time / screen-time limit. */
-function HourglassGlyph() {
+/** Padlock — app blocker. */
+function LockGlyph() {
   return (
     <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      <rect x="8" y="5" width="16" height="2.6" rx="1.3" />
-      <path d="M11 8.4h10l-5 7.6 5 7.6H11l5-7.6Z" />
-      <rect x="8" y="24.4" width="16" height="2.6" rx="1.3" />
-    </svg>
-  );
-}
-
-/** Page with a folded corner + text lines — a journal. */
-function PageGlyph() {
-  return (
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      <path d="M9.4 4.8h8l5.4 5.4V25.2A1.8 1.8 0 0 1 21 27H9.4A1.8 1.8 0 0 1 7.6 25.2V6.6A1.8 1.8 0 0 1 9.4 4.8Z" />
-      <path d="M17.4 4.9 22.8 10.3H19.1A1.7 1.7 0 0 1 17.4 8.6Z" fillOpacity="0.45" />
-      <rect x="10.7" y="15.2" width="9.8" height="1.7" rx="0.85" fillOpacity="0.8" />
-      <rect x="10.7" y="19" width="9.8" height="1.7" rx="0.85" fillOpacity="0.8" />
-      <rect x="10.7" y="22.8" width="6" height="1.7" rx="0.85" fillOpacity="0.8" />
-    </svg>
-  );
-}
-
-/** A seated figure in a meditation pose. */
-function MeditationGlyph() {
-  return (
-    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      <circle cx="16" cy="9" r="3.3" />
-      <path d="M7.6 23.4c0-4.2 3.76-7.4 8.4-7.4s8.4 3.2 8.4 7.4c0 .9-.7 1.6-1.6 1.6H9.2c-.9 0-1.6-.7-1.6-1.6Z" />
-      <circle cx="8.4" cy="21.6" r="1.5" />
-      <circle cx="23.6" cy="21.6" r="1.5" />
-    </svg>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Notifications settings (entered by tapping the התראות card)
-// ---------------------------------------------------------------------------
-
-function NotificationsFeatureSettings({
-  habits,
-  enabled,
-  onToggle,
-  onBack,
-}: {
-  habits: Habit[];
-  enabled: boolean;
-  onToggle: (next: boolean) => void;
-  onBack: () => void;
-}) {
-  const [selected, setSelected] = useState<Habit | null>(null);
-
-  return (
-    <div className="max-w-md mx-auto">
-      <header className="mb-4 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-1 -mr-1 text-ink-300 hover:text-ink-100"
-          aria-label="חזרה"
-        >
-          <ChevronRight size={24} />
-        </button>
-        <h1 className="text-xl font-bold text-ink-100 flex items-center gap-2">
-          <Bell size={20} className="text-forest-500" />
-          התראות
-        </h1>
-      </header>
-
-      {/* Master switch */}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={() => onToggle(!enabled)}
-        className="w-full mb-4 flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3.5 text-right"
-      >
-        <span className="min-w-0">
-          <span className="block text-sm font-medium text-ink-100">
-            הפעל התראות
-          </span>
-          <span className="block text-[11px] text-ink-300 leading-snug mt-0.5">
-            כשכבוי — אף תזכורת לא תופיע, גם אם הוגדרה להרגל
-          </span>
-        </span>
-        <span
-          aria-hidden
-          className={`shrink-0 w-11 h-6 rounded-full p-0.5 transition-colors ${
-            enabled ? 'bg-forest-700' : 'bg-surface-border'
-          }`}
-        >
-          <span
-            className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
-              enabled ? '-translate-x-5' : 'translate-x-0'
-            }`}
-          />
-        </span>
-      </button>
-
-      <h2 className="text-sm font-medium text-ink-300 mb-2 px-1">
-        תזכורות לפי הרגל
-      </h2>
-
-      {habits.length === 0 ? (
-        <div className="rounded-2xl border border-surface-border bg-surface-card px-4 py-8 text-center text-sm text-ink-300">
-          אין הרגלים פעילים. הוסף הרגל במסך "הרגלים" כדי להגדיר לו תזכורת.
-        </div>
-      ) : (
-        <ul className="space-y-2">
-          {habits.map((habit) => {
-            const s = loadSettings(habit.id);
-            return (
-              <li key={habit.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(habit)}
-                  className={`w-full flex items-center gap-3 rounded-2xl border bg-surface-card px-3 py-3 text-right transition-colors ${
-                    s.enabled
-                      ? 'border-forest-700/40'
-                      : 'border-surface-border'
-                  } hover:border-forest-700/50`}
-                >
-                  <span
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-cream-50"
-                    style={{
-                      backgroundColor: hexWithAlpha(habit.color, 0.2),
-                      border: `1px solid ${hexWithAlpha(habit.color, 0.45)}`,
-                    }}
-                  >
-                    <HabitIcon name={habit.icon} size={20} strokeWidth={1.7} />
-                  </span>
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-sm font-medium text-ink-100 truncate">
-                      {habit.name}
-                    </span>
-                    <span className="block text-[11px] text-ink-300 mt-0.5">
-                      {summarize(s)}
-                    </span>
-                  </span>
-                  <span
-                    className={`text-[11px] px-2 py-0.5 rounded-full ${
-                      s.enabled
-                        ? 'bg-forest-700/20 text-forest-400'
-                        : 'bg-surface-raised text-ink-300'
-                    }`}
-                  >
-                    {s.enabled ? 'פעיל' : 'כבוי'}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <HabitNotificationsSheet
-        open={selected !== null}
-        habit={selected}
-        onClose={() => setSelected(null)}
+      {/* shackle */}
+      <path
+        d="M11.8 14v-3a4.2 4.2 0 0 1 8.4 0v3"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="2.6"
+        strokeLinecap="round"
       />
-    </div>
+      {/* body with a keyhole cut out (the gradient shows through) */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M11 13.2h10a2.8 2.8 0 0 1 2.8 2.8v8.2A2.8 2.8 0 0 1 21 27H11a2.8 2.8 0 0 1-2.8-2.8v-8.2A2.8 2.8 0 0 1 11 13.2Zm5 4.3a1.95 1.95 0 0 0-1.1 3.55V23a1.1 1.1 0 0 0 2.2 0v-1.95A1.95 1.95 0 0 0 16 17.5Z"
+      />
+    </svg>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function summarize(s: HabitNotificationSettings): string {
-  if (!s.enabled) return 'אין תזכורת';
-  const times = s.times.join(', ');
-  const days =
-    s.days.length === 7
-      ? 'כל יום'
-      : s.days
-          .slice()
-          .sort((a, b) => a - b)
-          .map((d) => HEBREW_DAY_LETTERS[d])
-          .join(' ');
-  return `${times} · ${days}`;
+/** A page with a pencil writing on it — daily journaling. */
+function WritingGlyph() {
+  return (
+    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      {/* page */}
+      <path d="M8.6 4.8h6.6l4 4V19.8A1.8 1.8 0 0 1 17.4 21.6H8.6A1.8 1.8 0 0 1 6.8 19.8V6.6A1.8 1.8 0 0 1 8.6 4.8Z" />
+      <path d="M15.2 4.9 19.2 8.9H16.7A1.5 1.5 0 0 1 15.2 7.4Z" fillOpacity="0.4" />
+      <rect x="9.6" y="11" width="7" height="1.5" rx="0.75" fillOpacity="0.78" />
+      <rect x="9.6" y="14.2" width="7" height="1.5" rx="0.75" fillOpacity="0.78" />
+      <rect x="9.6" y="17.4" width="4.4" height="1.5" rx="0.75" fillOpacity="0.78" />
+      {/* pencil writing, overlapping the page corner and sticking out */}
+      <g transform="rotate(45 20 21)">
+        <rect x="18.1" y="13.4" width="3.8" height="11" rx="1.9" />
+        <rect x="18.1" y="13.4" width="3.8" height="2.2" rx="1.1" fillOpacity="0.4" />
+        <path d="M18.1 24.4h3.8l-1.9 3.3Z" />
+      </g>
+    </svg>
+  );
 }
 
-function hexWithAlpha(hex: string, alpha: number): string {
-  const m = /^#?([0-9a-fA-F]{6})$/.exec(hex);
-  if (!m) return hex;
-  const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return `rgba(${r},${g},${b},${alpha})`;
+/** A lotus flower — meditation / calm. */
+function LotusGlyph() {
+  return (
+    <svg viewBox="0 0 32 32" width="30" height="30" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
+      <path d="M16 6.5c1.8 2.2 1.8 6.3 0 9.8c-1.8-3.5-1.8-7.6 0-9.8Z" />
+      <path d="M16 16.3C13.3 14.8 11.5 12 11 8.7c2.8 1.1 4.6 3.9 5 7.6Z" />
+      <path d="M16 16.3C18.7 14.8 20.5 12 21 8.7c-2.8 1.1-4.6 3.9-5 7.6Z" />
+      <path d="M15.6 17C12 16.2 9 13.8 7.4 10.4c3.8.3 7 2.8 8.2 6.6Z" />
+      <path d="M16.4 17C20 16.2 23 13.8 24.6 10.4c-3.8.3-7 2.8-8.2 6.6Z" />
+      <path d="M7 18.6c2.4 2.2 5.5 3.4 9 3.4s6.6-1.2 9-3.4c-2.6-1-5.7-1.5-9-1.5s-6.4.5-9 1.5Z" />
+    </svg>
+  );
 }
+
+// The notifications settings screen now lives at /features/notifications
+// (see src/screens/NotificationsSettings.tsx).
