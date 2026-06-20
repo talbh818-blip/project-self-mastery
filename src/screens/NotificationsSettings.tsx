@@ -169,18 +169,7 @@ export function NotificationsSettings() {
           aria-label="הפעלת התראות לטלפון"
           className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-surface-border bg-surface-base p-0.5"
         >
-          <button
-            type="button"
-            aria-pressed={enabled}
-            onClick={() => {
-              if (!enabled) void toggleFeature(true);
-            }}
-            className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
-              enabled ? 'bg-forest-700 text-on-accent' : 'text-ink-300'
-            }`}
-          >
-            מופעל
-          </button>
+          {/* RTL: first child renders on the right → כבוי right, מופעל left. */}
           <button
             type="button"
             aria-pressed={!enabled}
@@ -192,6 +181,18 @@ export function NotificationsSettings() {
             }`}
           >
             כבוי
+          </button>
+          <button
+            type="button"
+            aria-pressed={enabled}
+            onClick={() => {
+              if (!enabled) void toggleFeature(true);
+            }}
+            className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
+              enabled ? 'bg-forest-700 text-on-accent' : 'text-ink-300'
+            }`}
+          >
+            מופעל
           </button>
         </div>
       </div>
