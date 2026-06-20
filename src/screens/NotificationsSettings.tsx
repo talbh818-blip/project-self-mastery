@@ -149,14 +149,10 @@ export function NotificationsSettings() {
         </h1>
       </header>
 
-      {/* Master switch */}
-      <button
-        type="button"
-        role="switch"
-        aria-checked={enabled}
-        onClick={() => toggleFeature(!enabled)}
-        className="w-full mb-3 flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3.5 text-right"
-      >
+      {/* Master switch — a segmented on/off control (so it reads differently
+          from the per-reminder toggles below). RTL: מופעל on the right, כבוי
+          on the left; each segment is its own tap target. */}
+      <div className="w-full mb-3 flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-card px-4 py-3.5 text-right">
         <span className="min-w-0">
           <span className="block text-sm font-medium text-ink-100">
             הפעל התראות לטלפון
@@ -165,19 +161,37 @@ export function NotificationsSettings() {
             כשכבוי — אף תזכורת לא תופיע, גם אם הוגדרה
           </span>
         </span>
-        <span
-          aria-hidden
-          className={`shrink-0 w-11 h-6 rounded-full p-0.5 transition-colors ${
-            enabled ? 'bg-forest-700' : 'bg-surface-border'
-          }`}
+        <div
+          role="group"
+          aria-label="הפעלת התראות לטלפון"
+          className="shrink-0 inline-flex items-center gap-0.5 rounded-full border border-surface-border bg-surface-base p-0.5"
         >
-          <span
-            className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
-              enabled ? '-translate-x-5' : 'translate-x-0'
+          <button
+            type="button"
+            aria-pressed={enabled}
+            onClick={() => {
+              if (!enabled) void toggleFeature(true);
+            }}
+            className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
+              enabled ? 'bg-forest-700 text-on-accent' : 'text-ink-300'
             }`}
-          />
-        </span>
-      </button>
+          >
+            מופעל
+          </button>
+          <button
+            type="button"
+            aria-pressed={!enabled}
+            onClick={() => {
+              if (enabled) void toggleFeature(false);
+            }}
+            className={`rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
+              !enabled ? 'bg-surface-raised text-ink-100' : 'text-ink-300'
+            }`}
+          >
+            כבוי
+          </button>
+        </div>
+      </div>
 
       {/* Only surface a blocker when the device itself can't deliver. When all
           is well there's no status text — the toggle handles the permission
@@ -226,7 +240,11 @@ export function NotificationsSettings() {
           </div>
         </button>
       ) : (
-        <ul className="space-y-2">
+        <ul
+          className={`space-y-2 transition-opacity ${
+            enabled ? '' : 'opacity-50'
+          }`}
+        >
           {reminders.map((r) => {
             const habit = r.habit_id ? habitsById.get(r.habit_id) : null;
             return (
@@ -287,16 +305,27 @@ export function NotificationsSettings() {
                     )}
                   </span>
                 </button>
+                {/* Per-reminder control = a sliding toggle. */}
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={r.enabled}
+                  aria-label={r.enabled ? 'כבה תזכורת' : 'הפעל תזכורת'}
                   onClick={() => toggleReminderEnabled(r)}
-                  className={`text-[11px] px-2.5 py-1 rounded-full shrink-0 transition-colors ${
-                    r.enabled
-                      ? 'bg-forest-700/20 text-forest-700'
-                      : 'bg-surface-raised text-ink-300'
-                  }`}
+                  className="shrink-0"
                 >
-                  {r.enabled ? 'פעיל' : 'כבוי'}
+                  <span
+                    aria-hidden
+                    className={`block w-11 h-6 rounded-full p-0.5 transition-colors ${
+                      r.enabled ? 'bg-forest-700' : 'bg-surface-border'
+                    }`}
+                  >
+                    <span
+                      className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                        r.enabled ? '-translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </span>
                 </button>
               </li>
             );
