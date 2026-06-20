@@ -211,6 +211,18 @@ export async function fetchAllTickets(): Promise<TicketWithSubmitter[]> {
   return ticketRows.map((t) => ({ ...t, submitter: byId.get(t.user_id) ?? null }));
 }
 
+// Just the number of open (unanswered) tickets — feedback + support together.
+// Powers the notification badge on the admin nav icon, so we use a HEAD count
+// (no rows, no profile join) to keep the polled request as cheap as possible.
+export async function fetchOpenTicketCount(): Promise<number> {
+  const { count, error } = await supabase
+    .from('support_tickets')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'open');
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function updateTicketStatus(
   ticketId: string,
   status: TicketStatus,

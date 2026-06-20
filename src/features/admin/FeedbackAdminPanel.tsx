@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
 import { fetchAllTickets, updateTicketStatus } from './queries';
+import { useOpenTickets } from './OpenTicketsContext';
 import type { TicketKind, TicketStatus, TicketWithSubmitter } from './types';
 
 type KindFilter = 'all' | TicketKind;
@@ -35,16 +36,20 @@ export function FeedbackAdminPanel() {
   const [busy, setBusy] = useState(false);
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
+  const { refresh: refreshBadge } = useOpenTickets();
 
   const load = useCallback(async () => {
     setError(null);
     try {
       setTickets(await fetchAllTickets());
+      // Keep the nav badge in sync whenever this panel (re)loads — covers both
+      // opening the tab and the reload after marking a ticket handled.
+      void refreshBadge();
     } catch (e) {
       console.error('[admin/feedback] load failed:', e);
       setError(describeError(e, 'שגיאה בטעינה'));
     }
-  }, []);
+  }, [refreshBadge]);
 
   useEffect(() => {
     void load();

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ProfileProvider } from '../features/admin/ProfileContext';
+import { OpenTicketsProvider } from '../features/admin/OpenTicketsContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
 import { ThemeProvider } from '../hooks/useTheme';
 import {
@@ -30,7 +31,9 @@ export function Layout() {
       <ThemeProvider>
         <BlockedGate>
           <VisionLayoutProvider>
-            <LayoutShell />
+            <OpenTicketsProvider>
+              <LayoutShell />
+            </OpenTicketsProvider>
           </VisionLayoutProvider>
         </BlockedGate>
       </ThemeProvider>

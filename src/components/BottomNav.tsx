@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useCurrentProfile } from '../features/admin/ProfileContext';
+import { useOpenTickets } from '../features/admin/OpenTicketsContext';
 import { useVisionLayoutPref } from '../features/vision/useVisionLayoutPref';
 import { VisionLayoutToggle } from '../features/vision/VisionLayoutToggle';
 
@@ -17,6 +18,8 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   end?: boolean;
+  /** When > 0, a red count badge is drawn on the icon (admin "ניהול" only). */
+  badge?: number;
 };
 
 const BASE_ITEMS: NavItem[] = [
@@ -35,11 +38,15 @@ const ADMIN_ITEM: NavItem = {
 
 export function BottomNav() {
   const { isAdmin } = useCurrentProfile();
+  const { openTickets } = useOpenTickets();
   const { mode, isWide, setMode } = useVisionLayoutPref();
   // In RTL the first DOM child renders rightmost. "משתמש" is the last BASE
   // item, and the spec asks for "ניהול" to sit to the LEFT of it, so we
-  // simply append the admin item at the end of the array.
-  const items = isAdmin ? [...BASE_ITEMS, ADMIN_ITEM] : BASE_ITEMS;
+  // simply append the admin item at the end of the array. The admin item
+  // carries the open-ticket count so a badge can be drawn on its icon.
+  const items = isAdmin
+    ? [...BASE_ITEMS, { ...ADMIN_ITEM, badge: openTickets }]
+    : BASE_ITEMS;
 
   // The desktop/mobile layout toggle lives in the dock — pinned to the RIGHT of
   // the nav items (RTL → the start edge). Shown on EVERY page on a wide viewport
@@ -53,7 +60,7 @@ export function BottomNav() {
           items stay centred (max-w-md). */}
       <div className="relative">
         <ul className="flex items-stretch justify-around max-w-md mx-auto">
-          {items.map(({ to, label, icon: Icon, end }) => (
+          {items.map(({ to, label, icon: Icon, end, badge }) => (
             <li key={to} className="flex-1">
               <NavLink
                 to={to}
@@ -66,11 +73,18 @@ export function BottomNav() {
               >
                 {({ isActive }) => (
                   <>
-                    <Icon
-                      size={22}
-                      strokeWidth={isActive ? 2.2 : 1.6}
-                      className="shrink-0"
-                    />
+                    <span className="relative shrink-0">
+                      <Icon size={22} strokeWidth={isActive ? 2.2 : 1.6} />
+                      {badge != null && badge > 0 && (
+                        <span
+                          className="absolute -top-1.5 -right-2 min-w-[1.05rem] h-[1.05rem] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none tabular-nums ring-2 ring-surface-card"
+                          title="פידבק/שאלות שממתינים למענה"
+                          aria-label={`${badge} ממתינים למענה`}
+                        >
+                          {badge > 9 ? '9+' : badge}
+                        </span>
+                      )}
+                    </span>
                     <span className={isActive ? 'font-semibold' : 'font-normal'}>
                       {label}
                     </span>
