@@ -22,6 +22,7 @@ import {
   type NotificationReminder,
 } from './reminders';
 import { ensurePushSubscription, isPushActive } from './push';
+import { initFeatureFlags, setFeatureFlag } from '../settings/featureFlags';
 
 const FEATURE_FLAG_KEY = 'feature:notifications:enabled';
 
@@ -38,11 +39,9 @@ export function isNotificationsFeatureEnabled(): boolean {
 }
 
 export function setNotificationsFeatureEnabled(on: boolean): void {
-  try {
-    localStorage.setItem(FEATURE_FLAG_KEY, on ? '1' : '0');
-  } catch {
-    /* blocked — non-fatal */
-  }
+  // Writes the local mirror (FEATURE_FLAG_KEY) synchronously AND syncs the
+  // on/off state to the user's profile so it matches their other devices.
+  void setFeatureFlag('notifications', on);
 }
 
 // ---------------------------------------------------------------------------
@@ -125,6 +124,9 @@ export function useReminderScheduler(): void {
   const lastFetchRef = useRef<number>(0);
 
   useEffect(() => {
+    // Pull the user's synced feature on/off flags into the local mirrors so
+    // this device matches the others (runs even where Notifications is absent).
+    void initFeatureFlags();
     if (!notificationsSupported()) return;
     let cancelled = false;
 

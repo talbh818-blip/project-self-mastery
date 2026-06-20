@@ -10,26 +10,20 @@
 // ============================================================================
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, LayoutGrid, Rows3 } from 'lucide-react';
+import { LayoutGrid, Rows3 } from 'lucide-react';
 import { Emoji } from '../components/Emoji';
-import {
-  isNotificationsFeatureEnabled,
-  notificationsSupported,
-  requestPermission,
-  setNotificationsFeatureEnabled,
-} from '../features/notifications/delivery';
-import {
-  isJournalingEnabled,
-  setJournalingEnabled,
-} from '../features/vision/journalingFeature';
+import { useFeatureActive } from '../features/settings/featureFlags';
+import { FeatureIntroSheet } from '../features/settings/FeatureIntroSheet';
+import { setJournalingEnabled } from '../features/vision/journalingFeature';
 
 export function Features() {
   const navigate = useNavigate();
 
-  const [notifEnabled, setNotifEnabled] = useState(isNotificationsFeatureEnabled);
-  // Daily journaling — opt-in. Enabling it reveals the "יומי" view in the
-  // Vision screen (where each day under a week is its own entry).
-  const [journalEnabled, setJournalEnabled] = useState(isJournalingEnabled);
+  // Feature on/off is READ-ONLY here (synced per-user across devices); it's
+  // toggled from INSIDE each feature, not from the card.
+  const notifEnabled = useFeatureActive('notifications');
+  const journalEnabled = useFeatureActive('journaling');
+  const [journalSheetOpen, setJournalSheetOpen] = useState(false);
   // Grid (2-up cards) vs list (one wide row per feature). Persisted per device.
   const [cardLayout, setCardLayout] = useState<FeaturesView>(() =>
     loadFeaturesView(),
@@ -39,24 +33,10 @@ export function Features() {
     saveFeaturesView(v);
   };
 
-  const toggleNotifications = async (next: boolean) => {
-    setNotifEnabled(next);
-    setNotificationsFeatureEnabled(next);
-    // Enabling the feature is the natural moment to ask for the OS permission.
-    if (next && notificationsSupported()) {
-      await requestPermission();
-    }
-  };
-
   const openNotifications = () => navigate('/features/notifications');
-
-  const toggleJournaling = (next: boolean) => {
-    setJournalEnabled(next);
-    setJournalingEnabled(next);
-  };
-  // Journaling has no settings page — tapping its card takes you to where it
-  // lives: the Vision screen (its "יומי" view appears once enabled).
-  const openJournaling = () => navigate('/vision');
+  // Journaling has no settings screen of its own — its on/off toggle + "open"
+  // live in a small sheet (the button takes you to the Vision screen).
+  const openJournaling = () => setJournalSheetOpen(true);
 
   return (
     <div className="max-w-md mx-auto">
@@ -75,9 +55,7 @@ export function Features() {
             title="התראות לטלפון"
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
-            enabled={notifEnabled}
-            onToggle={toggleNotifications}
-            onOpen={openNotifications}
+            enabled={notifEnabled}            onOpen={openNotifications}
           />
 
           <FeatureCard
@@ -86,9 +64,7 @@ export function Features() {
             title="כתיבה יומית - Journaling"
             description="רישום קצר ויומי, נפרד מהחזון"
             isNew={isWithinNewWindow(JOURNALING_NEW_UNTIL)}
-            enabled={journalEnabled}
-            onToggle={toggleJournaling}
-            onOpen={openJournaling}
+            enabled={journalEnabled}            onOpen={openJournaling}
           />
 
           {COMING_SOON.map((f) => (
@@ -109,9 +85,7 @@ export function Features() {
             title="התראות לטלפון"
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
-            enabled={notifEnabled}
-            onToggle={toggleNotifications}
-            onOpen={openNotifications}
+            enabled={notifEnabled}            onOpen={openNotifications}
           />
 
           <FeatureRow
@@ -120,9 +94,7 @@ export function Features() {
             title="כתיבה יומית - Journaling"
             description="רישום קצר ויומי, נפרד מהחזון"
             isNew={isWithinNewWindow(JOURNALING_NEW_UNTIL)}
-            enabled={journalEnabled}
-            onToggle={toggleJournaling}
-            onOpen={openJournaling}
+            enabled={journalEnabled}            onOpen={openJournaling}
           />
 
           {COMING_SOON.map((f) => (
@@ -136,6 +108,21 @@ export function Features() {
           ))}
         </div>
       )}
+
+      <FeatureIntroSheet
+        open={journalSheetOpen}
+        onClose={() => setJournalSheetOpen(false)}
+        title="כתיבה יומית"
+        description="רישום קצר על כל יום, נפרד מהחזון. כשמופעל — מופיע מצב 'יומי' במסך החזון."
+        glyph={<FeatureLogo glyph={<WritingGlyph />} accent={BLOCK.blue} />}
+        enabled={journalEnabled}
+        onToggle={setJournalingEnabled}
+        openLabel="פתח כתיבה יומית"
+        onOpenFeature={() => {
+          setJournalSheetOpen(false);
+          navigate('/vision');
+        }}
+      />
     </div>
   );
 }
@@ -250,7 +237,6 @@ function FeatureCard({
   description,
   isNew,
   enabled,
-  onToggle,
   onOpen,
 }: {
   glyph: ReactNode;
@@ -259,21 +245,20 @@ function FeatureCard({
   description: string;
   isNew?: boolean;
   enabled: boolean;
-  onToggle: (next: boolean) => void;
   onOpen: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="relative text-right rounded-2xl border border-surface-border bg-surface-card p-4 flex flex-col gap-2 min-h-[150px] hover:border-forest-700/50 transition-colors"
+      className={`relative text-right rounded-2xl border bg-surface-card p-4 flex flex-col gap-2 min-h-[150px] transition-colors ${
+        enabled
+          ? 'border-forest-700/60 shadow-[0_0_0_1px_rgba(86,160,109,0.25)]'
+          : 'border-surface-border hover:border-forest-700/50'
+      }`}
     >
-      {/* Enable checkbox — its own click target, doesn't open settings. */}
-      <EnableCheckbox
-        enabled={enabled}
-        onToggle={onToggle}
-        className="absolute top-3 left-3"
-      />
+      {/* Active indicator (not a control — the toggle lives inside the feature). */}
+      <ActiveBadge enabled={enabled} className="absolute top-3 left-3" />
 
       <FeatureLogo glyph={glyph} accent={accent} />
       <div className="mt-auto">
@@ -333,7 +318,6 @@ function FeatureRow({
   description,
   isNew,
   enabled,
-  onToggle,
   onOpen,
 }: {
   glyph: ReactNode;
@@ -342,14 +326,17 @@ function FeatureRow({
   description: string;
   isNew?: boolean;
   enabled: boolean;
-  onToggle: (next: boolean) => void;
   onOpen: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="w-full text-right rounded-2xl border border-surface-border bg-surface-card p-4 flex items-center gap-4 hover:border-forest-700/50 transition-colors"
+      className={`w-full text-right rounded-2xl border bg-surface-card p-4 flex items-center gap-4 transition-colors ${
+        enabled
+          ? 'border-forest-700/60 shadow-[0_0_0_1px_rgba(86,160,109,0.25)]'
+          : 'border-surface-border hover:border-forest-700/50'
+      }`}
     >
       <FeatureLogo glyph={glyph} accent={accent} />
       <div className="flex-1 min-w-0">
@@ -363,7 +350,7 @@ function FeatureRow({
           {description}
         </p>
       </div>
-      <EnableCheckbox enabled={enabled} onToggle={onToggle} />
+      <ActiveBadge enabled={enabled} />
     </button>
   );
 }
@@ -405,41 +392,33 @@ function ComingSoonRow({
 // Shared bits
 // ---------------------------------------------------------------------------
 
-/** The enable checkbox — used in both grid (absolute-positioned) and list
- *  (inline) layouts. Stops propagation so it never opens the settings. */
-function EnableCheckbox({
+/** Active indicator — shows whether a feature is on. NOT a control; each
+ *  feature is toggled from inside it (its settings screen / sheet). Used in
+ *  both grid (absolute-positioned) and list (inline) layouts. */
+function ActiveBadge({
   enabled,
-  onToggle,
   className = '',
 }: {
   enabled: boolean;
-  onToggle: (next: boolean) => void;
   className?: string;
 }) {
   return (
     <span
-      role="checkbox"
-      aria-checked={enabled}
-      aria-label={enabled ? 'כבה את הפיצ\'ר' : 'הפעל את הפיצ\'ר'}
-      tabIndex={0}
-      onClick={(e) => {
-        e.stopPropagation();
-        onToggle(!enabled);
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          e.stopPropagation();
-          onToggle(!enabled);
-        }
-      }}
-      className={`w-7 h-7 shrink-0 rounded-lg flex items-center justify-center border-2 transition-colors ${
+      aria-label={enabled ? 'פעיל' : 'כבוי'}
+      className={`inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
         enabled
-          ? 'bg-forest-700 border-forest-700 text-cream-50 shadow-sm'
-          : 'border-ink-300/70 bg-surface-base text-transparent'
+          ? 'bg-forest-700/20 text-forest-400'
+          : 'bg-surface-raised text-ink-300'
       } ${className}`}
     >
-      <Check size={16} strokeWidth={3} />
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          enabled
+            ? 'bg-forest-400 shadow-[0_0_6px_1px_rgba(86,160,109,0.85)]'
+            : 'bg-ink-300/70'
+        }`}
+      />
+      {enabled ? 'פעיל' : 'כבוי'}
     </span>
   );
 }

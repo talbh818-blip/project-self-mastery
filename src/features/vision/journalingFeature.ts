@@ -12,6 +12,7 @@
 // event) or another tab (the storage event).
 // ============================================================================
 import { useEffect, useState } from 'react';
+import { setFeatureFlag } from '../settings/featureFlags';
 
 const FLAG_KEY = 'feature:journaling:enabled';
 const CHANGE_EVENT = 'journaling-feature-changed';
@@ -35,6 +36,8 @@ export function setJournalingEnabled(on: boolean): void {
   } catch {
     /* no window — non-fatal */
   }
+  // Sync the on/off state to the user's profile (matches their other devices).
+  void setFeatureFlag('journaling', on);
 }
 
 /** Reactive read — re-renders when the flag flips (same tab via the custom
