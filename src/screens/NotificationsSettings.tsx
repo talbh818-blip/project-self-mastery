@@ -17,9 +17,9 @@ import { ReminderEditorSheet } from '../features/notifications/ReminderEditorShe
 import {
   fetchReminders,
   getCachedReminders,
+  HEBREW_DAY_LETTERS,
   migrateLegacyRemindersOnce,
   setCachedReminders,
-  summarizeReminder,
   updateReminder,
   type NotificationReminder,
 } from '../features/notifications/reminders';
@@ -210,15 +210,15 @@ export function NotificationsSettings() {
         </div>
       ) : null}
 
-      {/* List header + add */}
-      <div className="flex items-center justify-between mb-2 px-1">
-        <h2 className="text-sm font-medium text-ink-300">התזכורות שלי</h2>
+      {/* Add reminder — the button stands on its own (no "my reminders"
+          heading) with room to breathe above and below. */}
+      <div className="flex items-center px-1 mt-4 mb-4">
         <button
           type="button"
           onClick={openNew}
-          className="inline-flex items-center gap-1 rounded-full border border-ink-100/40 px-3 py-1 text-[13px] font-medium text-ink-100 hover:bg-ink-100/10 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink-100/40 px-4 py-1.5 text-sm font-medium text-ink-100 hover:bg-ink-100/10 transition-colors"
         >
-          <Plus size={16} />
+          <Plus size={18} />
           תזכורת
         </button>
       </div>
@@ -282,29 +282,26 @@ export function NotificationsSettings() {
                       <Bell size={18} className="text-forest-700" />
                     )}
                   </span>
-                  <span className="flex-1 min-w-0">
-                    {habit ? (
-                      // Linked to a habit → lead with the schedule (big, white)
-                      // and show the habit name underneath (small, green). The
-                      // icon already conveys which habit it is.
-                      <>
-                        <span className="block text-sm font-medium text-ink-100" dir="rtl">
-                          {summarizeReminder(r)}
-                        </span>
-                        <span className="block text-[11px] font-medium text-forest-700 truncate mt-0.5">
-                          {r.title || habit.name}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="block text-sm font-medium text-ink-100 truncate">
-                          {r.title || 'תזכורת'}
-                        </span>
-                        <span className="block text-[11px] text-ink-300 mt-0.5" dir="rtl">
-                          {summarizeReminder(r)}
-                        </span>
-                      </>
-                    )}
+                  {/* The time is the focal point — big & white. */}
+                  <span
+                    className="shrink-0 text-[28px] font-semibold text-ink-100 leading-none tabular-nums"
+                    dir="ltr"
+                  >
+                    {timesLabel(r)}
+                  </span>
+                  {/* To the left of the time: the title, with the day info
+                      beneath it (habit name in green, plain reminder in white). */}
+                  <span className="flex-1 min-w-0 text-right">
+                    <span
+                      className={`block text-sm font-medium truncate ${
+                        habit ? 'text-forest-700' : 'text-ink-100'
+                      }`}
+                    >
+                      {habit ? r.title || habit.name : r.title || 'תזכורת'}
+                    </span>
+                    <span className="block text-[11px] text-ink-300 mt-0.5">
+                      {daysLabel(r)}
+                    </span>
                   </span>
                 </button>
                 {/* Per-reminder control = a sliding toggle. */}
@@ -335,11 +332,6 @@ export function NotificationsSettings() {
         </ul>
       )}
 
-      <p className="text-[11px] text-ink-500 leading-snug mt-4 px-1">
-        שלב א': התזכורות מופיעות כל עוד האפליקציה פתוחה במכשיר. בקרוב — גם כשהיא
-        סגורה.
-      </p>
-
       <ReminderEditorSheet
         open={editorOpen}
         reminder={editing}
@@ -348,6 +340,23 @@ export function NotificationsSettings() {
         onSaved={load}
       />
     </div>
+  );
+}
+
+/** Times of day for a reminder, e.g. "18:44" or "08:00 · 20:00". */
+function timesLabel(r: NotificationReminder): string {
+  return r.times.slice().sort().join(' · ') || '—';
+}
+
+/** Day summary, e.g. "כל יום" or "א ב ג". */
+function daysLabel(r: NotificationReminder): string {
+  if (r.days.length >= 7) return 'כל יום';
+  return (
+    r.days
+      .slice()
+      .sort((a, b) => a - b)
+      .map((d) => HEBREW_DAY_LETTERS[d])
+      .join(' ') || 'אף יום'
   );
 }
 
