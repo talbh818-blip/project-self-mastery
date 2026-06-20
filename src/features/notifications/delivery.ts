@@ -18,7 +18,7 @@ import {
   fetchReminders,
   migrateLegacyRemindersOnce,
   pickReminderMessage,
-  randomTimeForDay,
+  randomTimesForDay,
   updateReminder,
   type NotificationReminder,
 } from './reminders';
@@ -171,10 +171,10 @@ export function useReminderScheduler(): void {
       for (const r of cacheRef.current) {
         if (!r.enabled) continue;
         if (!r.days.includes(day)) continue;
-        // Random-time reminders fire at a deterministic surprise minute; fixed
-        // ones at any of their chosen times.
+        // Random-time reminders fire at deterministic surprise minutes (one per
+        // bucket); fixed ones at any of their chosen times.
         const matches = r.random_time
-          ? randomTimeForDay(r.id, dateStr) === time
+          ? randomTimesForDay(r.id, dateStr, r.random_count).includes(time)
           : r.times.includes(time);
         if (!matches) continue;
         const key = `${now.toDateString()} ${time} ${r.id}`;

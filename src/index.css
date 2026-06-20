@@ -863,19 +863,6 @@ html[data-theme="light"] .vision-editor .vision-question {
 @media (prefers-reduced-motion: reduce) {
   .assist-reveal { transition: none; }
 }
-
-/* Reminder time field: hide the browser's built-in clock/picker indicator so
-   the big time shows a SINGLE (our own) clock icon. Tapping the field still
-   opens the native picker; our clock button calls showPicker() too. */
-.reminder-time-input::-webkit-calendar-picker-indicator {
-  display: none;
-  -webkit-appearance: none;
-}
-.reminder-time-input::-webkit-inner-spin-button,
-.reminder-time-input::-webkit-clear-button {
-  display: none;
-  -webkit-appearance: none;
-}
 .vision-editor .vision-question__actions {
   display: inline-flex;
   align-items: center;

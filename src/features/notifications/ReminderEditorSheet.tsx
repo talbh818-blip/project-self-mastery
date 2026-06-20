@@ -2,12 +2,13 @@
 // ReminderEditorSheet — create / edit a single reminder.
 // A bottom sheet (matches the app's other sheets). Body order, top→bottom:
 //   1. enabled toggle
-//   2. time — a big time (one or more) OR a random surprise time (09:00–21:00),
-//      with the fixed/random switch inline beside the time
-//   3. which days (letters only, no presets)
-//   4. title
-//   5. message phrasings
-//   6. "אפשרויות נוספות" drawer — habit link (dropdown, "ללא" on top) +
+//   2. which days (letters only, no presets)
+//   3. notification type — fixed times vs random times
+//   4. config: how many random firings a day, OR the fixed time(s) via a
+//      custom 24h in-app picker (HH:MM, no AM/PM)
+//   5. title
+//   6. message phrasings
+//   7. "אפשרויות נוספות" drawer — habit link (dropdown, "ללא" on top) +
 //      sound + vibration + a test send
 // Persists to the `notification_reminders` table.
 // ============================================================================
@@ -64,6 +65,7 @@ function reminderToInput(r: NotificationReminder): ReminderInput {
     messages: [...r.messages],
     message_order: r.message_order,
     random_time: r.random_time,
+    random_count: r.random_count,
     vibrate: r.vibrate,
     sound: r.sound,
     timezone: r.timezone,
@@ -198,6 +200,7 @@ export function ReminderEditorSheet({
       times: times.length ? times : draft.times,
       messages: cleanMessages,
       message_order: cleanMessages.length > 1 ? draft.message_order : 'random',
+      random_count: Math.max(1, Math.min(draft.random_count || 1, 12)),
     };
     setSaving(true);
     setError(null);
@@ -261,73 +264,7 @@ export function ReminderEditorSheet({
             label="תזכורת פעילה"
           />
 
-          {/* 2 — Time: a fixed time (one or more) or a random surprise time,
-              with the fixed/random switch inline beside the time itself. */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-ink-100">שעת ההתראה</span>
-              {!draft.random_time && (
-                <button
-                  type="button"
-                  onClick={addTime}
-                  className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
-                >
-                  <Plus size={14} />
-                  הוסף שעה
-                </button>
-              )}
-            </div>
-
-            {draft.random_time ? (
-              <div className="flex items-stretch gap-2">
-                <div className="flex-1 flex items-center gap-3 rounded-2xl border border-forest-700/40 bg-forest-700/10 px-4 py-3 min-w-0">
-                  <Dices size={24} className="shrink-0 text-forest-500" />
-                  <div className="min-w-0">
-                    <div className="text-lg font-bold text-ink-100 leading-tight">
-                      שעה אקראית
-                    </div>
-                    <div className="text-[11px] text-ink-300 leading-tight mt-0.5">
-                      9:00–21:00 · מפתיע בכל יום
-                    </div>
-                  </div>
-                </div>
-                <ModeToggle
-                  random={draft.random_time}
-                  onChange={(v) => patch({ random_time: v })}
-                />
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {/* primary time + the fixed/random switch on its side */}
-                <div className="flex items-stretch gap-2">
-                  <div className="flex-1 min-w-0">
-                    <BigTime
-                      value={draft.times[0] ?? '20:00'}
-                      onChange={(v) => updateTime(0, v)}
-                    />
-                  </div>
-                  <ModeToggle
-                    random={draft.random_time}
-                    onChange={(v) => patch({ random_time: v })}
-                  />
-                </div>
-                {/* any extra times stack below, each removable */}
-                {draft.times.slice(1).map((time, i) => (
-                  <BigTime
-                    key={i + 1}
-                    value={time}
-                    onChange={(v) => updateTime(i + 1, v)}
-                    onRemove={() => removeTime(i + 1)}
-                  />
-                ))}
-                <p className="text-[11px] text-ink-500 mt-1 leading-snug">
-                  כל שעה שתוסיף = התראה נוספת באותו יום.
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* 4 — Days (letters only, no presets) */}
+          {/* 2 — Days (letters only, no presets) — first, before the time */}
           <div>
             <span className="block text-sm font-medium text-ink-100 mb-2">
               באילו ימים
@@ -353,6 +290,85 @@ export function ReminderEditorSheet({
               })}
             </div>
           </div>
+
+          {/* 3 — Notification type: fixed times vs random times */}
+          <div>
+            <label className="block text-sm font-medium text-ink-100 mb-2">
+              סוג ההתראה
+            </label>
+            <div className="flex gap-2">
+              <TypeButton
+                active={!draft.random_time}
+                onClick={() => patch({ random_time: false })}
+                icon={<Clock size={16} />}
+                label="זמנים קבועים"
+              />
+              <TypeButton
+                active={draft.random_time}
+                onClick={() => patch({ random_time: true })}
+                icon={<Dices size={16} />}
+                label="זמנים רנדומליים"
+              />
+            </div>
+          </div>
+
+          {/* 4 — Config: how many random firings a day, or the fixed time(s) */}
+          {draft.random_time ? (
+            <div>
+              <span className="block text-sm font-medium text-ink-100 mb-2">
+                כמה פעמים ביום
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => patch({ random_count: n })}
+                    aria-pressed={draft.random_count === n}
+                    className={`w-11 h-11 rounded-xl text-base font-bold border transition-colors ${
+                      draft.random_count === n
+                        ? 'bg-forest-700 border-forest-700 text-on-accent'
+                        : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-ink-500 mt-2 leading-snug">
+                הזמנים יוגרלו אקראית בין 9:00 ל-21:00 — שעות אחרות בכל יום.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-ink-100">שעת ההתראה</span>
+                <button
+                  type="button"
+                  onClick={addTime}
+                  className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
+                >
+                  <Plus size={14} />
+                  הוסף שעה
+                </button>
+              </div>
+              <div className="space-y-2">
+                {draft.times.map((time, i) => (
+                  <TimeField
+                    key={i}
+                    value={time}
+                    onChange={(v) => updateTime(i, v)}
+                    onRemove={
+                      draft.times.length > 1 ? () => removeTime(i) : undefined
+                    }
+                  />
+                ))}
+              </div>
+              <p className="text-[11px] text-ink-500 mt-2 leading-snug">
+                כל שעה שתוסיף = התראה נוספת באותו יום.
+              </p>
+            </div>
+          )}
 
           {/* 5 — Title */}
           <div>
@@ -664,46 +680,42 @@ function Toggle({
   );
 }
 
-/** Compact two-stacked switch between fixed and random time, sized to sit
- *  beside the big time on the same row. */
-function ModeToggle({
-  random,
-  onChange,
+/** Full-width segmented choice for the notification type (fixed / random). */
+function TypeButton({
+  active,
+  onClick,
+  icon,
+  label,
 }: {
-  random: boolean;
-  onChange: (v: boolean) => void;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
 }) {
-  const base =
-    'flex-1 inline-flex items-center justify-center gap-1 rounded-lg text-[11px] font-medium border transition-colors';
-  const on = 'bg-forest-700 border-forest-700 text-on-accent';
-  const off = 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100';
   return (
-    <div className="shrink-0 w-[88px] flex flex-col gap-1.5">
-      <button
-        type="button"
-        onClick={() => onChange(false)}
-        aria-pressed={!random}
-        className={`${base} ${!random ? on : off}`}
-      >
-        <Clock size={12} />
-        קבועה
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange(true)}
-        aria-pressed={random}
-        className={`${base} ${random ? on : off}`}
-      >
-        <Dices size={12} />
-        רנדומלי
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`flex-1 inline-flex items-center justify-center gap-1.5 h-11 px-2 rounded-xl text-[13px] font-medium border transition-colors ${
+        active
+          ? 'bg-forest-700 border-forest-700 text-on-accent'
+          : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
-/** A big, tappable time — the clock (a single one; the native picker indicator
- *  is hidden via .reminder-time-input) opens the OS time picker. */
-function BigTime({
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+
+/** A big 24h time (HH:MM, no AM/PM) with a custom in-app picker — tapping the
+ *  time or the clock reveals two scrollable columns styled in the app palette
+ *  (no native chooser). */
+function TimeField({
   value,
   onChange,
   onRemove,
@@ -712,50 +724,103 @@ function BigTime({
   onChange: (v: string) => void;
   onRemove?: () => void;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const openPicker = () => {
-    const el = ref.current;
-    if (!el) return;
-    // showPicker() opens the native chooser on a click; focus is the fallback.
-    const withPicker = el as HTMLInputElement & { showPicker?: () => void };
-    if (typeof withPicker.showPicker === 'function') {
-      try {
-        withPicker.showPicker();
-        return;
-      } catch {
-        /* gesture/visibility constraints — fall through to focus */
-      }
-    }
-    el.focus();
-  };
+  const [open, setOpen] = useState(false);
+  const [rawH, rawM] = (value || '20:00').split(':');
+  const hh = (rawH ?? '20').padStart(2, '0');
+  const mm = (rawM ?? '00').padStart(2, '0');
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-surface-border bg-surface-raised/40 px-4 py-2.5">
-      <button
-        type="button"
-        onClick={openPicker}
-        aria-label="שנה שעה"
-        className="shrink-0 text-forest-500 hover:text-forest-600 transition-colors"
-      >
-        <Clock size={24} />
-      </button>
-      <input
-        ref={ref}
-        type="time"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        dir="ltr"
-        className="reminder-time-input flex-1 min-w-0 bg-transparent text-ink-100 text-3xl font-bold tracking-wide outline-none"
-      />
-      {onRemove && (
+    <div className="rounded-2xl border border-surface-border bg-surface-raised/40 overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <button
           type="button"
-          onClick={onRemove}
-          aria-label="הסר שעה"
-          className="shrink-0 p-1.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="בחירת שעה"
+          className={`shrink-0 transition-colors ${
+            open ? 'text-forest-600' : 'text-forest-500 hover:text-forest-600'
+          }`}
         >
-          <Trash2 size={18} />
+          <Clock size={24} />
         </button>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          dir="ltr"
+          className="flex-1 text-left text-3xl font-bold tracking-wide text-ink-100 tabular-nums"
+        >
+          {hh}:{mm}
+        </button>
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label="הסר שעה"
+            className="shrink-0 p-1.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15"
+          >
+            <Trash2 size={18} />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="border-t border-surface-border px-3 py-3">
+          <div className="flex items-stretch justify-center gap-3" dir="ltr">
+            <ScrollCol
+              values={HOURS}
+              selected={hh}
+              onSelect={(h) => onChange(`${h}:${mm}`)}
+            />
+            <div className="flex items-center text-3xl font-bold text-ink-300">:</div>
+            <ScrollCol
+              values={MINUTES}
+              selected={mm}
+              onSelect={(m) => onChange(`${hh}:${m}`)}
+            />
+          </div>
+        </div>
       )}
+    </div>
+  );
+}
+
+/** One scrollable wheel-style column. The selected value is centered on open
+ *  and highlighted in forest green. Item height 40px, viewport 176px, so 68px
+ *  of top/bottom padding lets the first/last value reach the center. */
+function ScrollCol({
+  values,
+  selected,
+  onSelect,
+}: {
+  values: string[];
+  selected: string;
+  onSelect: (v: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const idx = values.indexOf(selected);
+    if (idx >= 0) c.scrollTop = idx * 40; // center the selected value on open
+    // run once when the picker opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="h-44 w-[64px] overflow-y-auto themed-scroll rounded-xl bg-surface-base/50 py-[68px]"
+    >
+      {values.map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onSelect(v)}
+          className={`block w-full h-10 rounded-lg text-xl font-bold tabular-nums transition-colors ${
+            v === selected
+              ? 'bg-forest-700 text-on-accent'
+              : 'text-ink-200 hover:bg-surface-raised'
+          }`}
+        >
+          {v}
+        </button>
+      ))}
     </div>
   );
 }

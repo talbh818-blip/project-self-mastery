@@ -36,9 +36,11 @@ export type NotificationReminder = {
   message_order: MessageOrder;
   /** Cursor for 'sequential' rotation (index into non-empty messages, wraps). */
   next_index: number;
-  /** Random-time mode: ignore `times`; fire once a day at a surprise minute in
-   *  the 09:00–21:00 window (deterministic per id+date — see randomTimeForDay). */
+  /** Random-time mode: ignore `times`; fire `random_count` times a day at
+   *  surprise minutes in 09:00–21:00 (deterministic — see randomTimesForDay). */
   random_time: boolean;
+  /** How many random firings per day (only when random_time). */
+  random_count: number;
   /** Buzz the device when this fires (foreground + closed-app push). */
   vibrate: boolean;
   /** Which in-app chime plays on foreground / test (key into REMINDER_SOUNDS). */
@@ -59,6 +61,7 @@ export type ReminderInput = {
   messages: string[];
   message_order: MessageOrder;
   random_time: boolean;
+  random_count: number;
   vibrate: boolean;
   sound: string;
   timezone: string;
@@ -99,6 +102,7 @@ export function newReminderInput(): ReminderInput {
     messages: [],
     message_order: 'random',
     random_time: false,
+    random_count: 1,
     vibrate: true,
     sound: 'chime',
     timezone: localTimezone(),
@@ -108,34 +112,51 @@ export function newReminderInput(): ReminderInput {
 // ---------------------------------------------------------------------------
 // Random-time reminders
 // ----------------------------------------------------------------------------
-// A random-time reminder fires once a day at a minute derived deterministically
-// from its id + the LOCAL date, inside the 09:00–21:00 window. Deterministic so
-// the foreground scheduler (delivery.ts) and the server sender (api/send-
-// reminders.ts) agree on the minute with NO stored state — and it never drifts
-// within a given day. The server keeps a byte-identical copy of this function
-// (parity, like the scoring ports).
+// A random-time reminder fires `random_count` times a day at minutes derived
+// deterministically from its id + the LOCAL date, inside the 09:00–21:00 window.
+// The day is split into `count` equal buckets and one minute is picked per
+// bucket — so the firings are distinct and spread through the day, never drift
+// within a day, and the foreground scheduler (delivery.ts) and the server sender
+// (api/send-reminders.ts) agree with NO stored state. The server keeps a
+// byte-identical copy of this function (parity, like the scoring ports).
 // ---------------------------------------------------------------------------
 
 export const RANDOM_WINDOW_START_MIN = 9 * 60; // 09:00
 export const RANDOM_WINDOW_END_MIN = 21 * 60; // 21:00
 
-/** Minute-of-day (540..1260) for a random reminder on a given local date. */
-export function randomMinuteForDay(id: string, dateStr: string): number {
-  const s = `${id}|${dateStr}`;
-  let h = 2166136261; // FNV-1a
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
+/** The `count` minute-of-day values for a random reminder on a local date. */
+export function randomMinutesForDay(
+  id: string,
+  dateStr: string,
+  count: number,
+): number[] {
   const span = RANDOM_WINDOW_END_MIN - RANDOM_WINDOW_START_MIN; // 720
-  return RANDOM_WINDOW_START_MIN + ((h >>> 0) % (span + 1));
+  const n = Math.max(1, Math.min(Math.floor(count) || 1, 12));
+  const bucket = Math.max(1, Math.floor(span / n));
+  const out: number[] = [];
+  for (let k = 0; k < n; k++) {
+    const s = `${id}|${dateStr}|${k}`;
+    let h = 2166136261; // FNV-1a
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    const minute = RANDOM_WINDOW_START_MIN + k * bucket + ((h >>> 0) % bucket);
+    out.push(Math.min(minute, RANDOM_WINDOW_END_MIN));
+  }
+  return out;
 }
 
-/** "HH:MM" a random reminder should fire at on `dateStr` (local "YYYY-MM-DD"). */
-export function randomTimeForDay(id: string, dateStr: string): string {
-  const m = randomMinuteForDay(id, dateStr);
+/** The "HH:MM" firing times for a random reminder on `dateStr`. */
+export function randomTimesForDay(
+  id: string,
+  dateStr: string,
+  count: number,
+): string[] {
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  return randomMinutesForDay(id, dateStr, count).map(
+    (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -145,7 +166,9 @@ export function randomTimeForDay(id: string, dateStr: string): string {
 /** One-line summary for a reminder row, e.g. "20:00 · 08:00 · א ב ג". */
 export function summarizeReminder(r: NotificationReminder): string {
   const times = r.random_time
-    ? 'שעה רנדומלית'
+    ? r.random_count > 1
+      ? `${r.random_count} זמנים אקראיים`
+      : 'זמן אקראי'
     : r.times.slice().sort().join(' · ') || '—';
   const days =
     r.days.length >= 7
