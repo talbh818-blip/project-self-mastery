@@ -9,7 +9,7 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ChevronRight, Plus, Smartphone } from 'lucide-react';
+import { Bell, ChevronRight, Plus } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useHabitData } from '../features/habits/useHabitData';
 import { HabitIcon } from '../features/habits/HabitIcon';
@@ -24,7 +24,6 @@ import {
   type NotificationReminder,
 } from '../features/notifications/reminders';
 import {
-  getPermission,
   notificationsSupported,
   requestPermission,
   setNotificationsFeatureEnabled,
@@ -51,7 +50,6 @@ export function NotificationsSettings() {
   // Per-USER feature flag, synced across devices (turn it on on the computer,
   // it's on on the phone too). Reactive so a flip on another device/tab shows.
   const enabled = useFeatureActive('notifications');
-  const [permission, setPermission] = useState<NotificationPermission>('default');
   const [reminders, setReminders] = useState<NotificationReminder[]>(
     cachedReminders ?? [],
   );
@@ -80,7 +78,6 @@ export function NotificationsSettings() {
   }, [reminders, loading, uid]);
 
   useEffect(() => {
-    setPermission(getPermission());
     void (async () => {
       await migrateLegacyRemindersOnce().catch(() => {});
       await load();
@@ -106,7 +103,6 @@ export function NotificationsSettings() {
     // even prompt — there's nothing to deliver here.
     if (isStandalone() && supported) {
       const p = await requestPermission();
-      setPermission(p);
       if (p === 'granted') void ensurePushSubscription();
     }
   };
@@ -161,7 +157,7 @@ export function NotificationsSettings() {
             הפעל התראות לטלפון
           </span>
           <span className="block text-[11px] text-ink-300 leading-snug mt-0.5">
-            כשכבוי — אף תזכורת לא תופיע, גם אם הוגדרה
+            ההתראות מקושרות לטלפון שאישרת בו. אפשר לנהל אותן כאן.
           </span>
         </span>
         <div
@@ -196,19 +192,6 @@ export function NotificationsSettings() {
           </button>
         </div>
       </div>
-
-      {/* The setting is on, but THIS device won't show notifications (no
-          permission / not the installed app). That's fine — only the phone
-          needs permission. Reassure calmly; never block. */}
-      {enabled && permission !== 'granted' ? (
-        <div className="mb-4 rounded-xl border border-surface-border bg-surface-raised/40 text-ink-300 text-[12px] px-3 py-2.5 leading-snug flex items-start gap-2">
-          <Smartphone size={15} className="shrink-0 mt-0.5 text-forest-500" />
-          <span>
-            ההתראות נשלחות לטלפון שאישרת בו. אפשר לנהל אותן כאן — לא צריך לאשר
-            הרשאות במכשיר הזה.
-          </span>
-        </div>
-      ) : null}
 
       {/* Add reminder — the button stands on its own (no "my reminders"
           heading) with room to breathe above and below. */}
