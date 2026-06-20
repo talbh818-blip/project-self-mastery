@@ -55,7 +55,6 @@ import {
   removePersistedByPrefix,
   writePersisted,
 } from '../../lib/persistentCache';
-import { dbgLog } from '../../lib/debug';
 
 type Loaded = {
   habits: Habit[];
@@ -96,22 +95,16 @@ const habitPersistKey = (userId: string) => `habit-data:${userId}`;
 /** Build the initial state: memory cache → device snapshot → loading. Only the
  *  last (genuine first-ever load, nothing stored) ever shows the loader. */
 function initialHabitState(userId: string | null): State {
-  if (!userId) {
-    dbgLog('Habits: no userId yet → loading');
-    return { status: 'loading', data: null, error: null };
-  }
+  if (!userId) return { status: 'loading', data: null, error: null };
   if (habitCache && habitCache.userId === userId) {
-    dbgLog('Habits: MEMORY hit → instant (no loader)');
     return { status: 'ready', data: habitCache.data, error: null };
   }
   const snapshot = readPersisted<Loaded>(habitPersistKey(userId));
   if (snapshot) {
-    dbgLog('Habits: localStorage hit → instant (no loader)');
     // Seed the memory cache so the rest of the session is instant too.
     habitCache = { userId, data: snapshot };
     return { status: 'ready', data: snapshot, error: null };
   }
-  dbgLog('Habits: MISS (no memory/localStorage) → LOADER');
   return { status: 'loading', data: null, error: null };
 }
 
@@ -216,9 +209,6 @@ export function useHabitData(userId: string | null): UseHabitData {
         // avoid serializing all logs on each tap (the outbox already covers any
         // unsynced marks across a reload).
         writePersisted(habitPersistKey(userId), loaded);
-        dbgLog(
-          `Habits: fetched from server + saved (${loaded.logs.length} logs)`,
-        );
         setState({ status: 'ready', data: loaded, error: null });
         void flushOutbox(userId);
       })

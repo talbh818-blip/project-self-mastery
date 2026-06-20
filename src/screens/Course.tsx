@@ -30,7 +30,6 @@ import {
 import { CompassLoader } from '../components/CompassLoader';
 import { useVisionLayoutPref } from '../features/vision/useVisionLayoutPref';
 import { readPersisted, writePersisted } from '../lib/persistentCache';
-import { dbgLog } from '../lib/debug';
 
 // Session cache (memory-only) for the book shelf — lets returning to the
 // Course screen paint instantly instead of flashing the loader and refetching
@@ -57,17 +56,9 @@ export function Course() {
   // Initial books: memory cache → device snapshot → none. Seeds the memory
   // cache from the snapshot so a cold load / reload paints the shelf at once.
   const [books, setBooks] = useState<CourseBookWithCount[] | null>(() => {
-    if (booksCache) {
-      dbgLog('Course: books MEMORY hit → instant');
-      return booksCache;
-    }
+    if (booksCache) return booksCache;
     const snap = readPersisted<CourseBookWithCount[]>('course-books');
-    if (snap) {
-      dbgLog('Course: books localStorage hit → instant');
-      booksCache = snap;
-    } else {
-      dbgLog('Course: books MISS → LOADER');
-    }
+    if (snap) booksCache = snap;
     return booksCache;
   });
   const [error, setError] = useState<string | null>(null);

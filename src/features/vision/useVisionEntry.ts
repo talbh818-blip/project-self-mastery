@@ -36,7 +36,6 @@ import {
   setCachedEntry,
 } from './visionCache';
 import { recordSnapshot } from './visionHistory';
-import { dbgLog } from '../../lib/debug';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
@@ -122,11 +121,7 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
   });
   const [loading, setLoading] = useState(() => {
     if (!userId) return true;
-    const miss = getCachedEntry(userId, scope, periodKey) === undefined;
-    dbgLog(
-      `Vision: ${scope} ${miss ? 'MISS → LOADER' : 'cache hit → instant'}`,
-    );
-    return miss;
+    return getCachedEntry(userId, scope, periodKey) === undefined;
   });
   const [status, setStatus] = useState<SaveStatus>('idle');
   // Bumps when EXTERNAL content replaces what's shown → forces editor re-mount.

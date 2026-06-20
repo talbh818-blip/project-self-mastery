@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
 import { ErrorBoundary } from './ErrorBoundary';
-import { DebugBadge } from './DebugBadge';
 import { ProfileProvider } from '../features/admin/ProfileContext';
 import { BlockedGate } from '../features/admin/BlockedGate';
 import { ThemeProvider } from '../hooks/useTheme';
@@ -197,7 +196,6 @@ function LayoutShell() {
         </ErrorBoundary>
       </main>
       <BottomNav />
-      <DebugBadge />
     </div>
   );
 }

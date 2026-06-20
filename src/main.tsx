@@ -2,7 +2,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
-import { dbgIncBoot, dbgLog } from './lib/debug';
 
 // When a new service worker takes control (after a deploy), reload the page
 // once so the user immediately gets the new bundle. Without this, the user
@@ -17,9 +16,6 @@ if ('serviceWorker' in navigator) {
     window.location.reload();
   });
 }
-
-dbgIncBoot();
-dbgLog('APP BOOT — full page load');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
