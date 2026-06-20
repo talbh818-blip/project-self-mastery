@@ -27,6 +27,8 @@ self.addEventListener('push', (event) => {
     renotify: Boolean(data.tag),
     data: { url: data.url || '/' },
   };
+  // Per-reminder vibration (Android). Absent → the OS default for the channel.
+  if (Array.isArray(data.vibrate)) options.vibrate = data.vibrate;
 
   event.waitUntil(self.registration.showNotification(title, options));
 });

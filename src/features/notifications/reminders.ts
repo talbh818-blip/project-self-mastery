@@ -12,6 +12,11 @@
 // subscription stay per-device (see delivery.ts / the Push step).
 // ============================================================================
 import { supabase } from '../../lib/supabase';
+import {
+  readPersisted,
+  removePersistedByPrefix,
+  writePersisted,
+} from '../../lib/persistentCache';
 
 export type MessageOrder = 'random' | 'sequential';
 
@@ -31,6 +36,10 @@ export type NotificationReminder = {
   message_order: MessageOrder;
   /** Cursor for 'sequential' rotation (index into non-empty messages, wraps). */
   next_index: number;
+  /** Buzz the device when this fires (foreground + closed-app push). */
+  vibrate: boolean;
+  /** Which in-app chime plays on foreground / test (key into REMINDER_SOUNDS). */
+  sound: string;
   timezone: string;
   sort_order: number;
   created_at: string;
@@ -46,6 +55,8 @@ export type ReminderInput = {
   times: string[];
   messages: string[];
   message_order: MessageOrder;
+  vibrate: boolean;
+  sound: string;
   timezone: string;
 };
 
@@ -83,6 +94,8 @@ export function newReminderInput(): ReminderInput {
     times: ['20:00'],
     messages: [],
     message_order: 'random',
+    vibrate: true,
+    sound: 'chime',
     timezone: localTimezone(),
   };
 }
@@ -146,17 +159,25 @@ export async function fetchReminders(): Promise<NotificationReminder[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Session cache (memory-only, keyed by user) for the reminders list — lets
-// re-opening the התראות screen paint instantly instead of flashing "טוען…".
-// Keyed by user so a different account never sees stale rows; cleared on
+// Cache (keyed by user) for the reminders list — lets re-opening the התראות
+// screen, or a cold load / reload, paint instantly instead of flashing the
+// loader. Backed by a device snapshot (localStorage) so it survives reloads;
+// keyed by user so a different account never sees stale rows; cleared on
 // sign-out (private data). The screen revalidates on every mount.
 // ---------------------------------------------------------------------------
 let remindersCache: { userId: string; list: NotificationReminder[] } | null = null;
+const remindersPersistKey = (userId: string) => `reminders:${userId}`;
 
 export function getCachedReminders(userId: string): NotificationReminder[] | null {
-  return remindersCache && remindersCache.userId === userId
-    ? remindersCache.list
-    : null;
+  if (remindersCache && remindersCache.userId === userId) {
+    return remindersCache.list;
+  }
+  const snap = readPersisted<NotificationReminder[]>(remindersPersistKey(userId));
+  if (snap) {
+    remindersCache = { userId, list: snap };
+    return snap;
+  }
+  return null;
 }
 
 export function setCachedReminders(
@@ -164,10 +185,12 @@ export function setCachedReminders(
   list: NotificationReminder[],
 ): void {
   remindersCache = { userId, list };
+  writePersisted(remindersPersistKey(userId), list);
 }
 
 export function clearRemindersCache(): void {
   remindersCache = null;
+  removePersistedByPrefix('reminders:');
 }
 
 export async function createReminder(

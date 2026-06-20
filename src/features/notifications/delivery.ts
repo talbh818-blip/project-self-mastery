@@ -23,6 +23,10 @@ import {
 } from './reminders';
 import { ensurePushSubscription, isPushActive } from './push';
 import { initFeatureFlags, setFeatureFlag } from '../settings/featureFlags';
+import { playReminderSound } from './sounds';
+
+/** Vibration pattern (ms on / off / on) used when a reminder has vibrate on. */
+const VIBRATE_PATTERN = [180, 90, 180];
 
 const FEATURE_FLAG_KEY = 'feature:notifications:enabled';
 
@@ -74,9 +78,13 @@ export async function showReminderNotification(
   title: string,
   body: string,
   tag: string,
+  feel?: { vibrate?: boolean; sound?: string },
 ): Promise<void> {
   if (getPermission() !== 'granted') return;
-  const options: NotificationOptions = {
+  // The app is open here (foreground / test), so play the chosen chime from the
+  // page — a closed-app push instead uses the OS sound (see push-sw.js).
+  if (feel?.sound) playReminderSound(feel.sound);
+  const options: NotificationOptions & { vibrate?: number[] } = {
     body,
     icon: '/logo.png?v=5',
     badge: '/logo.png?v=5',
@@ -86,6 +94,7 @@ export async function showReminderNotification(
     tag,
     data: { url: '/' },
   };
+  if (feel?.vibrate) options.vibrate = VIBRATE_PATTERN;
   try {
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.getRegistration();
@@ -166,7 +175,10 @@ export function useReminderScheduler(): void {
         fired.add(key);
 
         const { body, nextIndex } = pickReminderMessage(r);
-        void showReminderNotification(r.title || 'תזכורת', body, `reminder-${r.id}`);
+        void showReminderNotification(r.title || 'תזכורת', body, `reminder-${r.id}`, {
+          vibrate: r.vibrate,
+          sound: r.sound,
+        });
         if (nextIndex !== null) {
           r.next_index = nextIndex; // advance the local cache immediately
           void updateReminder(r.id, { next_index: nextIndex }).catch(() => {});

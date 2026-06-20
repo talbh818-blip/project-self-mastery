@@ -31,9 +31,13 @@ type Reminder = {
   messages: string[];
   message_order: 'random' | 'sequential';
   next_index: number;
+  vibrate: boolean;
   timezone: string;
   last_fired_key: string | null;
 };
+
+/** Vibration pattern (ms) — kept in sync with delivery.ts VIBRATE_PATTERN. */
+const VIBRATE_PATTERN = [180, 90, 180];
 
 type Subscription = {
   endpoint: string;
@@ -164,6 +168,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       body,
       tag: `reminder-${r.id}`,
       url: '/',
+      // Closed-app vibration — the SW applies this to the shown notification.
+      // (Custom sound isn't deliverable via push; the OS channel decides that.)
+      vibrate: r.vibrate === false ? undefined : VIBRATE_PATTERN,
     });
 
     const subs = await subsFor(r.user_id);

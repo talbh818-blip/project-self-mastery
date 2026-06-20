@@ -1,17 +1,32 @@
 // ============================================================================
 // ReminderEditorSheet — create / edit a single reminder.
-// A bottom sheet (matches the app's other sheets) for: optional habit link,
-// title, which days (+ presets), one or more times, one or more message
-// phrasings (+ random / sequential), an enabled toggle, a test send, and
-// delete. Persists to the `notification_reminders` table.
+// A bottom sheet (matches the app's other sheets). Body order, top→bottom:
+//   1. enabled toggle
+//   2. notification type — general, or a habit picked from a dropdown
+//   3. title
+//   4. which days (letters only, no presets)
+//   5. which times
+//   6. sound + vibration
+//   7. "אפשרויות נוספות" drawer — message phrasings + a test send
+// Persists to the `notification_reminders` table.
 // ============================================================================
 import { useEffect, useState } from 'react';
-import { Bell, BellRing, Plus, Trash2, X } from 'lucide-react';
+import {
+  Bell,
+  BellRing,
+  Check,
+  ChevronDown,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+  Vibrate,
+  Volume2,
+  X,
+} from 'lucide-react';
 import { HabitIcon } from '../habits/HabitIcon';
 import type { Habit } from '../habits/types';
 import {
   ALL_DAYS,
-  DAY_PRESETS,
   HEBREW_DAY_LETTERS,
   createReminder,
   deleteReminder,
@@ -25,6 +40,7 @@ import {
   requestPermission,
   showReminderNotification,
 } from './delivery';
+import { REMINDER_SOUNDS, playReminderSound } from './sounds';
 
 type Props = {
   open: boolean;
@@ -44,14 +60,10 @@ function reminderToInput(r: NotificationReminder): ReminderInput {
     times: [...r.times],
     messages: [...r.messages],
     message_order: r.message_order,
+    vibrate: r.vibrate,
+    sound: r.sound,
     timezone: r.timezone,
   };
-}
-
-function sameDays(a: number[], b: number[]): boolean {
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  return b.every((d) => set.has(d));
 }
 
 export function ReminderEditorSheet({
@@ -65,6 +77,9 @@ export function ReminderEditorSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testState, setTestState] = useState<'idle' | 'sent'>('idle');
+  // The habit dropdown ("סוג ההתראה") and the advanced drawer.
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +87,8 @@ export function ReminderEditorSheet({
     setError(null);
     setSaving(false);
     setTestState('idle');
+    setTypeMenuOpen(false);
+    setMoreOpen(false);
   }, [open, reminder?.id]);
 
   // Lock background scroll while open (matches the other sheets).
@@ -106,6 +123,12 @@ export function ReminderEditorSheet({
       title: d.title.trim() ? d.title : habit?.name ?? d.title,
     }));
     setError(null);
+    setTypeMenuOpen(false);
+  };
+
+  const pickSound = (key: string) => {
+    patch({ sound: key });
+    if (key !== 'none') playReminderSound(key); // instant preview
   };
 
   const toggleDay = (day: number) =>
@@ -142,7 +165,10 @@ export function ReminderEditorSheet({
     const body = cleanMessages.length
       ? cleanMessages[Math.floor(Math.random() * cleanMessages.length)]
       : 'כך תיראה התזכורת שלך 🌱';
-    await showReminderNotification(effectiveTitle, body, 'reminder-test');
+    await showReminderNotification(effectiveTitle, body, 'reminder-test', {
+      vibrate: draft.vibrate,
+      sound: draft.sound,
+    });
     setTestState('sent');
     window.setTimeout(() => setTestState('idle'), 2500);
   };
@@ -223,30 +249,110 @@ export function ReminderEditorSheet({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto themed-scroll px-5 py-4 space-y-5">
-          {/* Habit link */}
+          {/* 1 — Enabled (top) */}
+          <Toggle
+            on={draft.enabled}
+            onClick={() => patch({ enabled: !draft.enabled })}
+            label="תזכורת פעילה"
+          />
+
+          {/* 2 — Notification type: general, or a habit from the dropdown */}
           <div>
             <label className="block text-sm font-medium text-ink-100 mb-2">
-              קשר להרגל <span className="text-ink-500 font-normal">(לא חובה)</span>
+              סוג ההתראה
             </label>
-            <div className="flex flex-wrap gap-1.5">
-              <ChipButton active={linkedHabit === null} onClick={() => chooseHabit(null)}>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => chooseHabit(null)}
+                aria-pressed={linkedHabit === null}
+                className={`flex-1 inline-flex items-center justify-center gap-1.5 h-11 rounded-xl text-[13px] font-medium border transition-colors ${
+                  linkedHabit === null
+                    ? 'bg-forest-700 border-forest-700 text-on-accent'
+                    : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
+                }`}
+              >
                 <Bell size={15} />
-                כללי
-              </ChipButton>
-              {habits.map((h) => (
-                <ChipButton
-                  key={h.id}
-                  active={draft.habit_id === h.id}
-                  onClick={() => chooseHabit(h)}
+                רגילה
+              </button>
+
+              <div className="relative flex-1">
+                <button
+                  type="button"
+                  onClick={() => setTypeMenuOpen((o) => !o)}
+                  aria-haspopup="listbox"
+                  aria-expanded={typeMenuOpen}
+                  className={`w-full inline-flex items-center justify-between gap-1.5 h-11 px-3 rounded-xl text-[13px] font-medium border transition-colors ${
+                    linkedHabit !== null
+                      ? 'bg-forest-700 border-forest-700 text-on-accent'
+                      : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
+                  }`}
                 >
-                  <HabitIcon name={h.icon} size={15} strokeWidth={1.8} />
-                  <span className="truncate max-w-[7rem]">{h.name}</span>
-                </ChipButton>
-              ))}
+                  <span className="inline-flex items-center gap-1.5 min-w-0">
+                    {linkedHabit ? (
+                      <>
+                        <HabitIcon name={linkedHabit.icon} size={15} strokeWidth={1.8} />
+                        <span className="truncate">{linkedHabit.name}</span>
+                      </>
+                    ) : (
+                      'בחר הרגל'
+                    )}
+                  </span>
+                  <ChevronDown
+                    size={15}
+                    className={`shrink-0 transition-transform ${typeMenuOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {typeMenuOpen && (
+                  <>
+                    {/* Outside-click catcher. */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setTypeMenuOpen(false)}
+                      aria-hidden
+                    />
+                    <div
+                      role="listbox"
+                      className="absolute z-50 top-full mt-1 inset-x-0 max-h-60 overflow-y-auto themed-scroll rounded-xl bg-surface-card ring-1 ring-surface-border shadow-xl p-1"
+                    >
+                      {habits.length === 0 ? (
+                        <p className="px-3 py-3 text-[12px] text-ink-500 leading-snug text-center">
+                          אין הרגלים עדיין. אפשר להשאיר "רגילה".
+                        </p>
+                      ) : (
+                        habits.map((h) => {
+                          const active = draft.habit_id === h.id;
+                          return (
+                            <button
+                              key={h.id}
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              onClick={() => chooseHabit(h)}
+                              className={`w-full flex items-center justify-between gap-2 px-3 h-9 rounded-lg text-[13px] transition-colors ${
+                                active
+                                  ? 'text-forest-700 font-semibold bg-forest-700/10'
+                                  : 'text-ink-100 hover:bg-surface-raised'
+                              }`}
+                            >
+                              <span className="inline-flex items-center gap-2 min-w-0">
+                                <HabitIcon name={h.icon} size={16} strokeWidth={1.8} />
+                                <span className="truncate">{h.name}</span>
+                              </span>
+                              {active && <Check size={15} className="shrink-0" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Title */}
+          {/* 3 — Title */}
           <div>
             <label className="block text-sm font-medium text-ink-100 mb-2">
               כותרת ההתראה
@@ -260,27 +366,11 @@ export function ReminderEditorSheet({
             />
           </div>
 
-          {/* Days */}
+          {/* 4 — Days (letters only, no presets) */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-ink-100">באילו ימים</span>
-              <div className="flex gap-1.5">
-                {DAY_PRESETS.map((p) => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => patch({ days: [...p.days] })}
-                    className={`text-[11px] px-2 py-0.5 rounded-full transition-colors ${
-                      sameDays(draft.days, p.days)
-                        ? 'bg-forest-700/25 text-forest-700'
-                        : 'text-ink-300 hover:text-ink-100'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <span className="block text-sm font-medium text-ink-100 mb-2">
+              באילו ימים
+            </span>
             <div className="flex gap-1.5">
               {ALL_DAYS.map((day) => {
                 const active = draft.days.includes(day);
@@ -303,7 +393,7 @@ export function ReminderEditorSheet({
             </div>
           </div>
 
-          {/* Times */}
+          {/* 5 — Times */}
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-ink-100">באילו שעות</span>
@@ -347,110 +437,149 @@ export function ReminderEditorSheet({
             </div>
           </div>
 
-          {/* Messages */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-ink-100">
-                נוסחים <span className="text-ink-500 font-normal">(טקסט ההתראה)</span>
+          {/* 6 — Sound + vibration */}
+          <div className="space-y-3">
+            <Toggle
+              on={draft.vibrate}
+              onClick={() => patch({ vibrate: !draft.vibrate })}
+              label={
+                <span className="inline-flex items-center gap-2">
+                  <Vibrate size={16} className="text-forest-500" />
+                  רטט
+                </span>
+              }
+            />
+
+            <div>
+              <span className="flex items-center gap-2 text-sm font-medium text-ink-100 mb-2">
+                <Volume2 size={16} className="text-forest-500" />
+                צליל
               </span>
-              <button
-                type="button"
-                onClick={addMessage}
-                className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
-              >
-                <Plus size={14} />
-                הוסף נוסח
-              </button>
-            </div>
-            {draft.messages.length === 0 ? (
-              <button
-                type="button"
-                onClick={addMessage}
-                className="w-full rounded-xl border border-dashed border-surface-border bg-surface-raised/30 px-3 py-3 text-sm text-ink-300 hover:text-ink-100 hover:border-forest-700/40 transition-colors text-right"
-              >
-                + כתוב נוסח משלך. בלי נוסח — תוצג ברירת מחדל מעודדת.
-              </button>
-            ) : (
-              <div className="space-y-2">
-                {draft.messages.map((msg, i) => (
-                  <div
-                    key={i}
-                    className="flex items-start gap-2 rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2"
+              <div className="flex flex-wrap gap-1.5">
+                {REMINDER_SOUNDS.map((s) => (
+                  <ChipButton
+                    key={s.key}
+                    active={draft.sound === s.key}
+                    onClick={() => pickSound(s.key)}
                   >
-                    <textarea
-                      value={msg}
-                      onChange={(e) => updateMessage(i, e.target.value)}
-                      rows={2}
-                      placeholder="מה יהיה כתוב בהתראה?"
-                      className="flex-1 bg-transparent text-sm text-ink-100 placeholder:text-ink-500 outline-none resize-none leading-snug"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeMessage(i)}
-                      className="p-1.5 mt-0.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15 shrink-0"
-                      aria-label="הסר נוסח"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                    {s.label}
+                  </ChipButton>
                 ))}
               </div>
-            )}
-
-            {/* random / sequential — only meaningful with 2+ phrasings */}
-            {cleanMessages.length > 1 && (
-              <div className="mt-3">
-                <span className="block text-[12px] text-ink-300 mb-1.5">
-                  איך לבחור נוסח בכל פעם
-                </span>
-                <div className="flex gap-1.5">
-                  <OrderButton
-                    active={draft.message_order === 'random'}
-                    onClick={() => patch({ message_order: 'random' })}
-                    label="אקראי"
-                  />
-                  <OrderButton
-                    active={draft.message_order === 'sequential'}
-                    onClick={() => patch({ message_order: 'sequential' })}
-                    label="לפי הסדר"
-                  />
-                </div>
-              </div>
-            )}
+              <p className="text-[11px] text-ink-500 mt-1.5 leading-snug">
+                הצליל מתנגן כשהאפליקציה פתוחה. כשהיא סגורה — הטלפון משמיע את צליל
+                ההתראה הרגיל שלו.
+              </p>
+            </div>
           </div>
 
-          {/* Enabled */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={draft.enabled}
-            onClick={() => patch({ enabled: !draft.enabled })}
-            className="w-full flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-raised/40 px-4 py-3 text-right"
-          >
-            <span className="text-sm font-medium text-ink-100">תזכורת פעילה</span>
-            <span
-              aria-hidden
-              className={`shrink-0 w-11 h-6 rounded-full p-0.5 transition-colors ${
-                draft.enabled ? 'bg-forest-700' : 'bg-surface-border'
-              }`}
+          {/* 7 — More options (drawer): phrasings + test */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setMoreOpen((o) => !o)}
+              aria-expanded={moreOpen}
+              className="w-full flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-raised/40 px-4 py-3 text-right hover:bg-surface-raised/60 transition-colors"
             >
-              <span
-                className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                  draft.enabled ? '-translate-x-5' : 'translate-x-0'
-                }`}
+              <span className="flex items-center gap-2 text-sm font-medium text-ink-100">
+                <SlidersHorizontal size={16} className="text-forest-500" />
+                אפשרויות נוספות
+              </span>
+              <ChevronDown
+                size={18}
+                className={`shrink-0 text-ink-300 transition-transform ${moreOpen ? 'rotate-180' : ''}`}
               />
-            </span>
-          </button>
+            </button>
 
-          {/* Test */}
-          <button
-            type="button"
-            onClick={handleTest}
-            className="w-full rounded-2xl border border-surface-border bg-surface-raised/50 hover:bg-surface-border text-ink-100 text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors"
-          >
-            <BellRing size={16} />
-            {testState === 'sent' ? 'נשלחה התראת בדיקה ✓' : 'שלח התראת בדיקה'}
-          </button>
+            <div className={`assist-reveal ${moreOpen ? 'assist-reveal--open' : ''}`}>
+              <div className="assist-reveal__inner">
+                <div className="space-y-5 pt-4">
+                  {/* Messages */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-ink-100">
+                        נוסחים{' '}
+                        <span className="text-ink-500 font-normal">(טקסט ההתראה)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={addMessage}
+                        className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
+                      >
+                        <Plus size={14} />
+                        הוסף נוסח
+                      </button>
+                    </div>
+                    {draft.messages.length === 0 ? (
+                      <button
+                        type="button"
+                        onClick={addMessage}
+                        className="w-full rounded-xl border border-dashed border-surface-border bg-surface-raised/30 px-3 py-3 text-sm text-ink-300 hover:text-ink-100 hover:border-forest-700/40 transition-colors text-right"
+                      >
+                        + כתוב נוסח משלך. בלי נוסח — תוצג ברירת מחדל מעודדת.
+                      </button>
+                    ) : (
+                      <div className="space-y-2">
+                        {draft.messages.map((msg, i) => (
+                          <div
+                            key={i}
+                            className="flex items-start gap-2 rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2"
+                          >
+                            <textarea
+                              value={msg}
+                              onChange={(e) => updateMessage(i, e.target.value)}
+                              rows={2}
+                              placeholder="מה יהיה כתוב בהתראה?"
+                              className="flex-1 bg-transparent text-sm text-ink-100 placeholder:text-ink-500 outline-none resize-none leading-snug"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeMessage(i)}
+                              className="p-1.5 mt-0.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15 shrink-0"
+                              aria-label="הסר נוסח"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* random / sequential — only meaningful with 2+ phrasings */}
+                    {cleanMessages.length > 1 && (
+                      <div className="mt-3">
+                        <span className="block text-[12px] text-ink-300 mb-1.5">
+                          איך לבחור נוסח בכל פעם
+                        </span>
+                        <div className="flex gap-1.5">
+                          <OrderButton
+                            active={draft.message_order === 'random'}
+                            onClick={() => patch({ message_order: 'random' })}
+                            label="אקראי"
+                          />
+                          <OrderButton
+                            active={draft.message_order === 'sequential'}
+                            onClick={() => patch({ message_order: 'sequential' })}
+                            label="לפי הסדר"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Test */}
+                  <button
+                    type="button"
+                    onClick={handleTest}
+                    className="w-full rounded-2xl border border-surface-border bg-surface-raised/50 hover:bg-surface-border text-ink-100 text-sm font-medium py-2.5 flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <BellRing size={16} />
+                    {testState === 'sent' ? 'נשלחה התראת בדיקה ✓' : 'שלח התראת בדיקה'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {error && (
             <p className="text-[13px] text-red-400 leading-snug">{error}</p>
@@ -480,6 +609,41 @@ export function ReminderEditorSheet({
         </div>
       </div>
     </div>
+  );
+}
+
+/** A labelled on/off switch row (used for "פעיל" and "רטט"). */
+function Toggle({
+  on,
+  onClick,
+  label,
+}: {
+  on: boolean;
+  onClick: () => void;
+  label: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onClick}
+      className="w-full flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-raised/40 px-4 py-3 text-right"
+    >
+      <span className="text-sm font-medium text-ink-100">{label}</span>
+      <span
+        aria-hidden
+        className={`shrink-0 w-11 h-6 rounded-full p-0.5 transition-colors ${
+          on ? 'bg-forest-700' : 'bg-surface-border'
+        }`}
+      >
+        <span
+          className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
+            on ? '-translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </span>
+    </button>
   );
 }
 
