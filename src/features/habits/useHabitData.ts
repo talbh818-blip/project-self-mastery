@@ -50,6 +50,12 @@ import {
   type UpdateHabitInput,
 } from './mutations';
 import { applyOutbox, clearCell, enqueueLog, flushOutbox } from './outbox';
+import {
+  readPersisted,
+  removePersistedByPrefix,
+  writePersisted,
+} from '../../lib/persistentCache';
+import { dbgLog } from '../../lib/debug';
 
 type Loaded = {
   habits: Habit[];
@@ -61,6 +67,60 @@ type State =
   | { status: 'loading'; data: null; error: null }
   | { status: 'ready'; data: Loaded; error: null }
   | { status: 'error'; data: null; error: string };
+
+// ---------------------------------------------------------------------------
+// Session cache (memory-only, keyed by user) — lets navigating BACK to the
+// Habits screen paint instantly from the last-loaded data instead of flashing
+// the loader and refetching from scratch. We still revalidate in the
+// background (stale-while-revalidate), so the data stays fresh; the loader
+// only ever shows on the genuine first load of a session (when there's nothing
+// to show yet).
+//
+// Two layers: (1) an in-memory cache makes navigation within a session instant;
+// (2) a localStorage snapshot makes even a COLD load / page reload paint the
+// last-known data at once (then revalidate silently), instead of flashing the
+// loader. The snapshot is per-device and always corrected by the background
+// revalidation, and the Habits screen re-renders fully from state — so a stale
+// paint can never get "stuck" (the bug that kept vision content memory-only).
+// Same localStorage pattern the app already uses for vision drafts.
+// ---------------------------------------------------------------------------
+let habitCache: { userId: string; data: Loaded } | null = null;
+let habitCacheFetchedAt = 0;
+// On a remount within this window we trust the cache and DON'T hit the server
+// again — avoids re-querying on rapid tab switching. After it elapses, the
+// next remount revalidates silently in the background.
+const HABIT_REVALIDATE_AFTER_MS = 30_000;
+
+const habitPersistKey = (userId: string) => `habit-data:${userId}`;
+
+/** Build the initial state: memory cache → device snapshot → loading. Only the
+ *  last (genuine first-ever load, nothing stored) ever shows the loader. */
+function initialHabitState(userId: string | null): State {
+  if (!userId) {
+    dbgLog('Habits: no userId yet → loading');
+    return { status: 'loading', data: null, error: null };
+  }
+  if (habitCache && habitCache.userId === userId) {
+    dbgLog('Habits: MEMORY hit → instant (no loader)');
+    return { status: 'ready', data: habitCache.data, error: null };
+  }
+  const snapshot = readPersisted<Loaded>(habitPersistKey(userId));
+  if (snapshot) {
+    dbgLog('Habits: localStorage hit → instant (no loader)');
+    // Seed the memory cache so the rest of the session is instant too.
+    habitCache = { userId, data: snapshot };
+    return { status: 'ready', data: snapshot, error: null };
+  }
+  dbgLog('Habits: MISS (no memory/localStorage) → LOADER');
+  return { status: 'loading', data: null, error: null };
+}
+
+/** Drop the cached habit data (call on sign-out so the next user starts clean). */
+export function clearHabitCache() {
+  habitCache = null;
+  habitCacheFetchedAt = 0;
+  removePersistedByPrefix('habit-data:');
+}
 
 export type UseHabitData = {
   status: 'loading' | 'ready' | 'error';
@@ -105,28 +165,71 @@ export type UseHabitData = {
 };
 
 export function useHabitData(userId: string | null): UseHabitData {
-  const [state, setState] = useState<State>({
-    status: 'loading',
-    data: null,
-    error: null,
-  });
+  const [state, setState] = useState<State>(() => initialHabitState(userId));
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    setState({ status: 'loading', data: null, error: null });
+
+    let cached =
+      habitCache && habitCache.userId === userId ? habitCache : null;
+    // Cover the case where userId only became available after first render
+    // (the lazy initializer ran with userId=null): hydrate from the device
+    // snapshot now so we still skip the loader.
+    if (!cached) {
+      const snapshot = readPersisted<Loaded>(habitPersistKey(userId));
+      if (snapshot) {
+        habitCache = { userId, data: snapshot };
+        cached = habitCache;
+      }
+    }
+
+    if (cached) {
+      // Paint cached data immediately — no loader, no "reload from scratch".
+      setState({ status: 'ready', data: cached.data, error: null });
+      // Still fresh and not an explicit reload? Trust the cache, skip the
+      // network round-trip entirely.
+      if (
+        reloadKey === 0 &&
+        Date.now() - habitCacheFetchedAt < HABIT_REVALIDATE_AFTER_MS
+      ) {
+        return;
+      }
+      // else: fall through and revalidate silently in the background.
+    } else {
+      // Nothing to show yet — this is the only path that shows the loader.
+      setState({ status: 'loading', data: null, error: null });
+    }
+
     fetchAllUserData(userId)
       .then((data) => {
         if (cancelled) return;
         // Overlay any un-synced offline marks so they survive the reload,
         // then try to push them now that we (presumably) have the network.
         const logs = applyOutbox(userId, data.logs);
-        setState({ status: 'ready', data: { ...data, logs }, error: null });
+        const loaded = { ...data, logs };
+        habitCache = { userId, data: loaded };
+        habitCacheFetchedAt = Date.now();
+        // Persist the fresh snapshot so the NEXT cold load / reload paints it
+        // instantly. Only on a real fetch — not on every optimistic mark — to
+        // avoid serializing all logs on each tap (the outbox already covers any
+        // unsynced marks across a reload).
+        writePersisted(habitPersistKey(userId), loaded);
+        dbgLog(
+          `Habits: fetched from server + saved (${loaded.logs.length} logs)`,
+        );
+        setState({ status: 'ready', data: loaded, error: null });
         void flushOutbox(userId);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
+        // A failed SILENT revalidation must not blow away a working view —
+        // keep showing the cached data we already painted.
+        if (cached) {
+          console.error('[useHabitData] revalidate failed (keeping cache):', e);
+          return;
+        }
         console.error('[useHabitData] fetchAllUserData error:', e);
         let msg = 'שגיאה בטעינה';
         if (e instanceof Error) msg = e.message;
@@ -139,6 +242,16 @@ export function useHabitData(userId: string | null): UseHabitData {
       cancelled = true;
     };
   }, [userId, reloadKey]);
+
+  // Mirror the latest ready data into the session cache so a remount paints it
+  // instantly — INCLUDING any optimistic mark/edit the user just made. We keep
+  // the server-fetch timestamp untouched here so local edits don't reset the
+  // freshness window (only a real fetch above bumps habitCacheFetchedAt).
+  useEffect(() => {
+    if (state.status === 'ready' && userId) {
+      habitCache = { userId, data: state.data };
+    }
+  }, [state, userId]);
 
   // Today is recomputed once per hook instance — fine for a session.
   const today = useMemo(() => new Date(), []);

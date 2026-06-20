@@ -36,6 +36,7 @@ import {
   setCachedEntry,
 } from './visionCache';
 import { recordSnapshot } from './visionHistory';
+import { dbgLog } from '../../lib/debug';
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
@@ -110,8 +111,23 @@ export function useVisionEntry(scope: VisionScope, periodKey: string) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
 
-  const [entry, setEntry] = useState<VisionEntry | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed from the session cache so re-opening a period paints instantly with no
+  // loader (matches every other screen). `getCachedEntry` returns `undefined`
+  // only when we've never fetched this period this session — the lone case that
+  // still warrants the loader.
+  const [entry, setEntry] = useState<VisionEntry | null>(() => {
+    if (!userId) return null;
+    const cached = getCachedEntry(userId, scope, periodKey);
+    return cached === undefined ? null : cached;
+  });
+  const [loading, setLoading] = useState(() => {
+    if (!userId) return true;
+    const miss = getCachedEntry(userId, scope, periodKey) === undefined;
+    dbgLog(
+      `Vision: ${scope} ${miss ? 'MISS → LOADER' : 'cache hit → instant'}`,
+    );
+    return miss;
+  });
   const [status, setStatus] = useState<SaveStatus>('idle');
   // Bumps when EXTERNAL content replaces what's shown → forces editor re-mount.
   const [contentVersion, setContentVersion] = useState(0);

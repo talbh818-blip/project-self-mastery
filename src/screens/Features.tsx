@@ -11,6 +11,7 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, Rows3 } from 'lucide-react';
+import { Emoji } from '../components/Emoji';
 import { useFeatureActive } from '../features/settings/featureFlags';
 import { FeatureIntroSheet } from '../features/settings/FeatureIntroSheet';
 import { setJournalingEnabled } from '../features/vision/journalingFeature';
@@ -139,13 +140,15 @@ const JOURNALING_NEW_UNTIL = '2026-07-19';
 // Per-feature "extruded block" accents: a top-face gradient (light → mid) plus
 // a darker `edge` colour rendered as a solid offset bottom shadow, so each tile
 // reads as a chunky 3D block. Each feature gets its own hue — a varied set.
-type BlockAccent = { from: string; to: string; edge: string };
+// `badge` is the feature's representative icon colour — used to tint the "חדש"
+// pill so it matches the icon (sky → תכלת, red → אדום, etc.).
+type BlockAccent = { from: string; to: string; edge: string; badge: string };
 const BLOCK: Record<'sky' | 'green' | 'red' | 'blue' | 'purple', BlockAccent> = {
-  sky: { from: '#62c8f0', to: '#2f9fd4', edge: '#1f7aac' },
-  green: { from: '#5fc487', to: '#46955f', edge: '#2f6e48' },
-  red: { from: '#ff8c7e', to: '#e85f5f', edge: '#b23b3b' },
-  blue: { from: '#5aa6f0', to: '#3f7fe0', edge: '#2a5aa8' },
-  purple: { from: '#9b86f2', to: '#6f54d4', edge: '#4e379e' },
+  sky: { from: '#62c8f0', to: '#2f9fd4', edge: '#1f7aac', badge: '#62c8f0' },
+  green: { from: '#5fc487', to: '#46955f', edge: '#2f6e48', badge: '#5fc487' },
+  red: { from: '#ff8c7e', to: '#e85f5f', edge: '#b23b3b', badge: '#e85f5f' },
+  blue: { from: '#5aa6f0', to: '#3f7fe0', edge: '#2a5aa8', badge: '#5aa6f0' },
+  purple: { from: '#9b86f2', to: '#6f54d4', edge: '#4e379e', badge: '#9b86f2' },
 };
 
 const COMING_SOON: Array<{
@@ -258,7 +261,9 @@ function FeatureCard({
     >
       {/* "חדש" sits in the top corner (like "בקרוב"); the active state sits
           next to the title. */}
-      {isNew && <NewBadge className="absolute top-3 left-3 z-10" />}
+      {isNew && (
+        <NewBadge color={accent.badge} className="absolute top-3 left-3 z-10" />
+      )}
 
       <FeatureLogo glyph={glyph} accent={accent} />
       <div className="mt-auto">
@@ -345,7 +350,7 @@ function FeatureRow({
             {title}
           </span>
           <ActiveBadge enabled={enabled} />
-          {isNew && <NewBadge />}
+          {isNew && <NewBadge color={accent.badge} />}
         </div>
         <p className="text-[12px] text-ink-300 mt-1 leading-snug">
           {description}
@@ -440,14 +445,16 @@ function FeatureLogo({ glyph, accent }: { glyph: ReactNode; accent: BlockAccent 
   );
 }
 
-function NewBadge({ className = '' }: { className?: string }) {
-  // Thin "outline pill" in a distinct accent (violet) so "חדש" reads as new
-  // without competing with the green "פעיל" status next to the title.
+function NewBadge({ color, className = '' }: { color: string; className?: string }) {
+  // Thin "outline pill" tinted to the feature's own icon colour, so "חדש" reads
+  // as new without competing with the green "פעיל" status next to the title.
   return (
     <span
-      className={`inline-flex shrink-0 items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border border-violet-400/60 text-violet-300 light:border-violet-500/60 light:text-violet-700 ${className}`}
+      className={`inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${className}`}
+      style={{ borderColor: color, color }}
     >
       חדש
+      <Emoji emoji="🎉" size={11} ariaLabel="" />
     </span>
   );
 }

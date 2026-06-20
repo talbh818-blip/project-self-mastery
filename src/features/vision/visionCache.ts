@@ -85,3 +85,36 @@ export function prefetchEntry(
     /* prefetch failures are silent; the real load surfaces errors */
   });
 }
+
+// ============================================================================
+// Row-meta cache (the year/month MAP) — for each period key: does it have
+// written content, and which icon was chosen. Keyed by userId:periodKey.
+// ----------------------------------------------------------------------------
+// Switching views (שנתי ↔ חודשי), stepping years/months, or returning to the
+// Vision screen all recompute the set of visible keys. Without this cache the
+// map refetched its dots/icons every time and flashed the loader over the whole
+// grid. With it, the map paints instantly from the last-known marks and only
+// shows the loader on a genuine cold start. Memory-only, same rationale as the
+// entry cache above.
+// ============================================================================
+export type VisionRowMeta = { hasContent: boolean; icon: string | null };
+
+const metaMem = new Map<string, VisionRowMeta>();
+const metaKey = (u: string, p: string) => `${u}::${p}`;
+
+/** Read cached map-meta for a period key. `undefined` = not checked this session. */
+export function getCachedRowMeta(
+  userId: string,
+  periodKey: string,
+): VisionRowMeta | undefined {
+  return metaMem.get(metaKey(userId, periodKey));
+}
+
+/** Write through after a successful map fetch (or a known-empty key). */
+export function setCachedRowMeta(
+  userId: string,
+  periodKey: string,
+  meta: VisionRowMeta,
+): void {
+  metaMem.set(metaKey(userId, periodKey), meta);
+}

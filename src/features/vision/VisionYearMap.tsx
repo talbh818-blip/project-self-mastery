@@ -23,6 +23,7 @@ import { ChevronRight, ChevronLeft } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
 import { HabitIcon } from '../habits/HabitIcon';
 import { fetchVisionRowMeta } from './queries';
+import { getCachedRowMeta, setCachedRowMeta } from './visionCache';
 import { isVisionContentEmpty } from './content';
 import {
   getPeriodKey,
@@ -157,20 +158,59 @@ export function VisionYearMap({
   // period key → has written content, and period key → chosen icon.
   const [contentKeys, setContentKeys] = useState<Set<string>>(new Set());
   const [iconByKey, setIconByKey] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(true);
+  // Start WITHOUT the spinner if we already have cached meta for any visible
+  // key (a remount / view switch) — the effect below seeds the marks and
+  // revalidates silently. Only a true cold start begins in `loading`.
+  const [loading, setLoading] = useState(() => {
+    if (!userId) return true;
+    return !allKeys.some((k) => getCachedRowMeta(userId, k) !== undefined);
+  });
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    setLoading(true);
+
+    // Seed the marks instantly from the session cache so switching views or
+    // stepping years paints the dots/icons without a flash.
+    const seededContent = new Set<string>();
+    const seededIcons = new Map<string, string>();
+    let cachedCount = 0;
+    for (const k of allKeys) {
+      const m = getCachedRowMeta(userId, k);
+      if (m === undefined) continue;
+      cachedCount++;
+      if (m.hasContent) seededContent.add(k);
+      if (m.icon) seededIcons.set(k, m.icon);
+    }
+    setContentKeys(seededContent);
+    setIconByKey(seededIcons);
+    // The full-grid spinner only shows on a true cold start (nothing cached for
+    // any visible key). Otherwise we render the grid right away and let the
+    // background fetch fill in / refresh the marks.
+    setLoading(cachedCount === 0);
+
     fetchVisionRowMeta(userId, allKeys)
       .then((rows) => {
         if (cancelled) return;
         const nextContent = new Set<string>();
         const nextIcons = new Map<string, string>();
+        const present = new Set<string>();
         for (const r of rows) {
-          if (!isVisionContentEmpty(r.content)) nextContent.add(r.period_key);
+          present.add(r.period_key);
+          const hasContent = !isVisionContentEmpty(r.content);
+          if (hasContent) nextContent.add(r.period_key);
           if (r.icon) nextIcons.set(r.period_key, r.icon);
+          setCachedRowMeta(userId, r.period_key, {
+            hasContent,
+            icon: r.icon ?? null,
+          });
+        }
+        // Keys we asked about but got no row for are confirmed empty — cache
+        // that too, so a later revisit knows they were already checked.
+        for (const k of allKeys) {
+          if (!present.has(k)) {
+            setCachedRowMeta(userId, k, { hasContent: false, icon: null });
+          }
         }
         setContentKeys(nextContent);
         setIconByKey(nextIcons);

@@ -29,6 +29,21 @@ import {
 } from '../features/course/queries';
 import { CompassLoader } from '../components/CompassLoader';
 import { useVisionLayoutPref } from '../features/vision/useVisionLayoutPref';
+import { readPersisted, writePersisted } from '../lib/persistentCache';
+import { dbgLog } from '../lib/debug';
+
+// Session cache (memory-only) for the book shelf — lets returning to the
+// Course screen paint instantly instead of flashing the loader and refetching
+// the whole shelf. We still revalidate in the background so newly-published
+// books appear; the loader only shows on the genuine first load (nothing
+// cached yet). Mirrors the pattern in useCatalog / visionCache.
+let booksCache: CourseBookWithCount[] | null = null;
+
+// Same idea for each book's videos, keyed by book id. Re-entering Course (or
+// switching back to a book) paints its videos instantly instead of flashing
+// the small loader and refetching. Course content is public, so no per-user
+// keying / sign-out clearing is needed.
+const videosCache = new Map<string, CourseVideo[]>();
 
 export function Course() {
   // Course follows the global desktop/mobile toggle (the bottom-nav switch,
@@ -39,22 +54,45 @@ export function Course() {
   const { mode } = useVisionLayoutPref();
   const desktop = mode === 'desktop';
 
-  const [books, setBooks] = useState<CourseBookWithCount[] | null>(null);
+  // Initial books: memory cache → device snapshot → none. Seeds the memory
+  // cache from the snapshot so a cold load / reload paints the shelf at once.
+  const [books, setBooks] = useState<CourseBookWithCount[] | null>(() => {
+    if (booksCache) {
+      dbgLog('Course: books MEMORY hit → instant');
+      return booksCache;
+    }
+    const snap = readPersisted<CourseBookWithCount[]>('course-books');
+    if (snap) {
+      dbgLog('Course: books localStorage hit → instant');
+      booksCache = snap;
+    } else {
+      dbgLog('Course: books MISS → LOADER');
+    }
+    return booksCache;
+  });
   const [error, setError] = useState<string | null>(null);
-  const [activeBookId, setActiveBookId] = useState<string | null>(null);
+  const [activeBookId, setActiveBookId] = useState<string | null>(() =>
+    booksCache && booksCache.length > 0 ? booksCache[0].id : null,
+  );
 
-  // Load the catalog once on mount. Auto-select the first book so the screen
-  // never shows an "empty" state next to the carousel/grid.
+  // Load the catalog on mount — instantly from cache when we have it (no
+  // loader), then revalidate silently. Auto-select the first book so the
+  // screen never shows an "empty" state next to the carousel/grid; preserve
+  // any selection the user already made across a background refresh.
   useEffect(() => {
     let cancelled = false;
     fetchBooks()
       .then((rows) => {
         if (cancelled) return;
+        booksCache = rows;
+        writePersisted('course-books', rows);
         setBooks(rows);
-        if (rows.length > 0) setActiveBookId(rows[0].id);
+        setActiveBookId((cur) => cur ?? (rows.length > 0 ? rows[0].id : null));
       })
       .catch((e) => {
         if (cancelled) return;
+        // Keep showing cached books if a silent revalidation fails.
+        if (booksCache) return;
         const msg = e instanceof Error ? e.message : 'שגיאה בטעינה';
         setError(msg);
       });
@@ -364,20 +402,35 @@ function BookSection({
   book: CourseBookWithCount;
   desktop?: boolean;
 }) {
-  const [videos, setVideos] = useState<CourseVideo[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Seed from memory cache → device snapshot so re-entering a book (or a cold
+  // load / reload) paints its videos instantly; we still revalidate silently.
+  const [videos, setVideos] = useState<CourseVideo[] | null>(() => {
+    const mem = videosCache.get(book.id);
+    if (mem) return mem;
+    const snap = readPersisted<CourseVideo[]>(`course-videos:${book.id}`);
+    if (snap) videosCache.set(book.id, snap);
+    return snap ?? null;
+  });
+  const [loading, setLoading] = useState(() => !videosCache.has(book.id));
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    const hasCache = videosCache.has(book.id);
+    // Only show the loader on a true cold load; otherwise refresh silently.
+    if (!hasCache) setLoading(true);
     setLoadError(null);
     fetchVideos(book.id)
       .then((rows) => {
-        if (!cancelled) setVideos(rows);
+        if (cancelled) return;
+        videosCache.set(book.id, rows);
+        writePersisted(`course-videos:${book.id}`, rows);
+        setVideos(rows);
       })
       .catch((e) => {
         if (cancelled) return;
+        // Keep showing cached videos if a silent revalidation fails.
+        if (hasCache) return;
         const msg = e instanceof Error ? e.message : 'שגיאה בטעינה';
         setLoadError(msg);
       })
