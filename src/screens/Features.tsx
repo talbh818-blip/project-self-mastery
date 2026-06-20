@@ -11,7 +11,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, Rows3 } from 'lucide-react';
-import { Emoji } from '../components/Emoji';
 import { useFeatureActive } from '../features/settings/featureFlags';
 import { FeatureIntroSheet } from '../features/settings/FeatureIntroSheet';
 import { setJournalingEnabled } from '../features/vision/journalingFeature';
@@ -257,8 +256,9 @@ function FeatureCard({
           : 'border-surface-border hover:border-forest-700/50'
       }`}
     >
-      {/* Active indicator (not a control — the toggle lives inside the feature). */}
-      <ActiveBadge enabled={enabled} className="absolute top-3 left-3" />
+      {/* "חדש" sits in the top corner (like "בקרוב"); the active state sits
+          next to the title. */}
+      {isNew && <NewBadge className="absolute top-3 left-3 z-10" />}
 
       <FeatureLogo glyph={glyph} accent={accent} />
       <div className="mt-auto">
@@ -266,7 +266,7 @@ function FeatureCard({
           <span className="text-[15px] font-semibold text-ink-100 leading-tight">
             {title}
           </span>
-          {isNew && <NewBadge />}
+          <ActiveBadge enabled={enabled} />
         </div>
         <p className="text-[11px] text-ink-300 mt-1 leading-snug">
           {description}
@@ -344,13 +344,13 @@ function FeatureRow({
           <span className="text-[15px] font-semibold text-ink-100 leading-tight">
             {title}
           </span>
+          <ActiveBadge enabled={enabled} />
           {isNew && <NewBadge />}
         </div>
         <p className="text-[12px] text-ink-300 mt-1 leading-snug">
           {description}
         </p>
       </div>
-      <ActiveBadge enabled={enabled} />
     </button>
   );
 }
@@ -441,14 +441,13 @@ function FeatureLogo({ glyph, accent }: { glyph: ReactNode; accent: BlockAccent 
 }
 
 function NewBadge({ className = '' }: { className?: string }) {
-  // Dark-green pill so the cream "חדש" reads clearly (the old forest-700 was
-  // too light for the cream text), plus a celebratory emoji.
+  // Thin "outline pill" in a distinct accent (violet) so "חדש" reads as new
+  // without competing with the green "פעיל" status next to the title.
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-forest-900 text-cream-50 ${className}`}
+      className={`inline-flex shrink-0 items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border border-violet-400/60 text-violet-300 light:border-violet-500/60 light:text-violet-700 ${className}`}
     >
       חדש
-      <Emoji emoji="🎉" size={11} ariaLabel="" />
     </span>
   );
 }
