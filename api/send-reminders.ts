@@ -31,6 +31,7 @@ type Reminder = {
   messages: string[];
   message_order: 'random' | 'sequential';
   next_index: number;
+  random_time: boolean;
   vibrate: boolean;
   timezone: string;
   last_fired_key: string | null;
@@ -38,6 +39,24 @@ type Reminder = {
 
 /** Vibration pattern (ms) — kept in sync with delivery.ts VIBRATE_PATTERN. */
 const VIBRATE_PATTERN = [180, 90, 180];
+
+// Random-time firing minute — a BYTE-IDENTICAL port of reminders.ts
+// randomTimeForDay (keep the two in sync). Deterministic per id+local-date so
+// the client and server agree without stored state.
+const RANDOM_WINDOW_START_MIN = 9 * 60; // 09:00
+const RANDOM_WINDOW_END_MIN = 21 * 60; // 21:00
+function randomTimeForDay(id: string, dateStr: string): string {
+  const s = `${id}|${dateStr}`;
+  let h = 2166136261; // FNV-1a
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const span = RANDOM_WINDOW_END_MIN - RANDOM_WINDOW_START_MIN; // 720
+  const m = RANDOM_WINDOW_START_MIN + ((h >>> 0) % (span + 1));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+}
 
 type Subscription = {
   endpoint: string;
@@ -154,7 +173,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     for (const c of candidates) {
       const lp = localParts(r.timezone, c);
       if (!Array.isArray(r.days) || !r.days.includes(lp.day)) continue;
-      if (!Array.isArray(r.times) || !r.times.includes(lp.time)) continue;
+      const matches = r.random_time
+        ? randomTimeForDay(r.id, lp.date) === lp.time
+        : Array.isArray(r.times) && r.times.includes(lp.time);
+      if (!matches) continue;
       fireKey = `${lp.date} ${lp.time}`;
       break;
     }

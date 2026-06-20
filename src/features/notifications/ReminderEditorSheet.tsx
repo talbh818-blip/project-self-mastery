@@ -2,20 +2,23 @@
 // ReminderEditorSheet — create / edit a single reminder.
 // A bottom sheet (matches the app's other sheets). Body order, top→bottom:
 //   1. enabled toggle
-//   2. notification type — general, or a habit picked from a dropdown
-//   3. title
-//   4. which days (letters only, no presets)
-//   5. which times
-//   6. sound + vibration
-//   7. "אפשרויות נוספות" drawer — message phrasings + a test send
+//   2. time — a big time (one or more) OR a random surprise time (09:00–21:00),
+//      with the fixed/random switch inline beside the time
+//   3. which days (letters only, no presets)
+//   4. title
+//   5. message phrasings
+//   6. "אפשרויות נוספות" drawer — habit link (dropdown, "ללא" on top) +
+//      sound + vibration + a test send
 // Persists to the `notification_reminders` table.
 // ============================================================================
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Bell,
   BellRing,
   Check,
   ChevronDown,
+  Clock,
+  Dices,
   Plus,
   SlidersHorizontal,
   Trash2,
@@ -60,6 +63,7 @@ function reminderToInput(r: NotificationReminder): ReminderInput {
     times: [...r.times],
     messages: [...r.messages],
     message_order: r.message_order,
+    random_time: r.random_time,
     vibrate: r.vibrate,
     sound: r.sound,
     timezone: r.timezone,
@@ -77,8 +81,8 @@ export function ReminderEditorSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testState, setTestState] = useState<'idle' | 'sent'>('idle');
-  // The habit dropdown ("סוג ההתראה") and the advanced drawer.
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  // The habit-link dropdown (inside "אפשרויות נוספות") and the advanced drawer.
+  const [habitMenuOpen, setHabitMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
 
   useEffect(() => {
@@ -87,7 +91,7 @@ export function ReminderEditorSheet({
     setError(null);
     setSaving(false);
     setTestState('idle');
-    setTypeMenuOpen(false);
+    setHabitMenuOpen(false);
     setMoreOpen(false);
   }, [open, reminder?.id]);
 
@@ -123,7 +127,7 @@ export function ReminderEditorSheet({
       title: d.title.trim() ? d.title : habit?.name ?? d.title,
     }));
     setError(null);
-    setTypeMenuOpen(false);
+    setHabitMenuOpen(false);
   };
 
   const pickSound = (key: string) => {
@@ -182,7 +186,8 @@ export function ReminderEditorSheet({
     const times = Array.from(
       new Set(draft.times.filter((t) => /^\d{2}:\d{2}$/.test(t))),
     ).sort();
-    if (times.length === 0) {
+    // Random-time reminders don't need a chosen time; fixed ones need ≥1.
+    if (!draft.random_time && times.length === 0) {
       setError('בחר לפחות שעה אחת.');
       return;
     }
@@ -190,7 +195,7 @@ export function ReminderEditorSheet({
       ...draft,
       title: effectiveTitle,
       days,
-      times,
+      times: times.length ? times : draft.times,
       messages: cleanMessages,
       message_order: cleanMessages.length > 1 ? draft.message_order : 'random',
     };
@@ -256,114 +261,70 @@ export function ReminderEditorSheet({
             label="תזכורת פעילה"
           />
 
-          {/* 2 — Notification type: general, or a habit from the dropdown */}
+          {/* 2 — Time: a fixed time (one or more) or a random surprise time,
+              with the fixed/random switch inline beside the time itself. */}
           <div>
-            <label className="block text-sm font-medium text-ink-100 mb-2">
-              סוג ההתראה
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => chooseHabit(null)}
-                aria-pressed={linkedHabit === null}
-                className={`flex-1 inline-flex items-center justify-center gap-1.5 h-11 rounded-xl text-[13px] font-medium border transition-colors ${
-                  linkedHabit === null
-                    ? 'bg-forest-700 border-forest-700 text-on-accent'
-                    : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
-                }`}
-              >
-                <Bell size={15} />
-                רגילה
-              </button>
-
-              <div className="relative flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-ink-100">שעת ההתראה</span>
+              {!draft.random_time && (
                 <button
                   type="button"
-                  onClick={() => setTypeMenuOpen((o) => !o)}
-                  aria-haspopup="listbox"
-                  aria-expanded={typeMenuOpen}
-                  className={`w-full inline-flex items-center justify-between gap-1.5 h-11 px-3 rounded-xl text-[13px] font-medium border transition-colors ${
-                    linkedHabit !== null
-                      ? 'bg-forest-700 border-forest-700 text-on-accent'
-                      : 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100'
-                  }`}
+                  onClick={addTime}
+                  className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
                 >
-                  <span className="inline-flex items-center gap-1.5 min-w-0">
-                    {linkedHabit ? (
-                      <>
-                        <HabitIcon name={linkedHabit.icon} size={15} strokeWidth={1.8} />
-                        <span className="truncate">{linkedHabit.name}</span>
-                      </>
-                    ) : (
-                      'בחר הרגל'
-                    )}
-                  </span>
-                  <ChevronDown
-                    size={15}
-                    className={`shrink-0 transition-transform ${typeMenuOpen ? 'rotate-180' : ''}`}
-                  />
+                  <Plus size={14} />
+                  הוסף שעה
                 </button>
-
-                {typeMenuOpen && (
-                  <>
-                    {/* Outside-click catcher. */}
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setTypeMenuOpen(false)}
-                      aria-hidden
-                    />
-                    <div
-                      role="listbox"
-                      className="absolute z-50 top-full mt-1 inset-x-0 max-h-60 overflow-y-auto themed-scroll rounded-xl bg-surface-card ring-1 ring-surface-border shadow-xl p-1"
-                    >
-                      {habits.length === 0 ? (
-                        <p className="px-3 py-3 text-[12px] text-ink-500 leading-snug text-center">
-                          אין הרגלים עדיין. אפשר להשאיר "רגילה".
-                        </p>
-                      ) : (
-                        habits.map((h) => {
-                          const active = draft.habit_id === h.id;
-                          return (
-                            <button
-                              key={h.id}
-                              type="button"
-                              role="option"
-                              aria-selected={active}
-                              onClick={() => chooseHabit(h)}
-                              className={`w-full flex items-center justify-between gap-2 px-3 h-9 rounded-lg text-[13px] transition-colors ${
-                                active
-                                  ? 'text-forest-700 font-semibold bg-forest-700/10'
-                                  : 'text-ink-100 hover:bg-surface-raised'
-                              }`}
-                            >
-                              <span className="inline-flex items-center gap-2 min-w-0">
-                                <HabitIcon name={h.icon} size={16} strokeWidth={1.8} />
-                                <span className="truncate">{h.name}</span>
-                              </span>
-                              {active && <Check size={15} className="shrink-0" />}
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
             </div>
-          </div>
 
-          {/* 3 — Title */}
-          <div>
-            <label className="block text-sm font-medium text-ink-100 mb-2">
-              כותרת ההתראה
-            </label>
-            <input
-              type="text"
-              value={draft.title}
-              onChange={(e) => patch({ title: e.target.value })}
-              placeholder={linkedHabit?.name || 'כותרת שתופיע בהתראה'}
-              className="w-full rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2.5 text-sm text-ink-100 placeholder:text-ink-500 outline-none focus:border-forest-700/50"
-            />
+            {draft.random_time ? (
+              <div className="flex items-stretch gap-2">
+                <div className="flex-1 flex items-center gap-3 rounded-2xl border border-forest-700/40 bg-forest-700/10 px-4 py-3 min-w-0">
+                  <Dices size={24} className="shrink-0 text-forest-500" />
+                  <div className="min-w-0">
+                    <div className="text-lg font-bold text-ink-100 leading-tight">
+                      שעה אקראית
+                    </div>
+                    <div className="text-[11px] text-ink-300 leading-tight mt-0.5">
+                      9:00–21:00 · מפתיע בכל יום
+                    </div>
+                  </div>
+                </div>
+                <ModeToggle
+                  random={draft.random_time}
+                  onChange={(v) => patch({ random_time: v })}
+                />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {/* primary time + the fixed/random switch on its side */}
+                <div className="flex items-stretch gap-2">
+                  <div className="flex-1 min-w-0">
+                    <BigTime
+                      value={draft.times[0] ?? '20:00'}
+                      onChange={(v) => updateTime(0, v)}
+                    />
+                  </div>
+                  <ModeToggle
+                    random={draft.random_time}
+                    onChange={(v) => patch({ random_time: v })}
+                  />
+                </div>
+                {/* any extra times stack below, each removable */}
+                {draft.times.slice(1).map((time, i) => (
+                  <BigTime
+                    key={i + 1}
+                    value={time}
+                    onChange={(v) => updateTime(i + 1, v)}
+                    onRemove={() => removeTime(i + 1)}
+                  />
+                ))}
+                <p className="text-[11px] text-ink-500 mt-1 leading-snug">
+                  כל שעה שתוסיף = התראה נוספת באותו יום.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* 4 — Days (letters only, no presets) */}
@@ -393,87 +354,94 @@ export function ReminderEditorSheet({
             </div>
           </div>
 
-          {/* 5 — Times */}
+          {/* 5 — Title */}
+          <div>
+            <label className="block text-sm font-medium text-ink-100 mb-2">
+              כותרת ההתראה
+            </label>
+            <input
+              type="text"
+              value={draft.title}
+              onChange={(e) => patch({ title: e.target.value })}
+              placeholder={linkedHabit?.name || 'כותרת שתופיע בהתראה'}
+              className="w-full rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2.5 text-sm text-ink-100 placeholder:text-ink-500 outline-none focus:border-forest-700/50"
+            />
+          </div>
+
+          {/* 6 — Phrasings (text of the notification) */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-ink-100">באילו שעות</span>
+              <span className="text-sm font-medium text-ink-100">
+                נוסחים{' '}
+                <span className="text-ink-500 font-normal">(טקסט ההתראה)</span>
+              </span>
               <button
                 type="button"
-                onClick={addTime}
+                onClick={addMessage}
                 className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
               >
                 <Plus size={14} />
-                הוסף שעה
+                הוסף נוסח
               </button>
             </div>
-            <p className="text-[11px] text-ink-500 mb-2 leading-snug">
-              כל שעה שתוסיף = התראה נוספת באותו יום.
-            </p>
-            <div className="space-y-2">
-              {draft.times.map((time, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2"
-                >
-                  <input
-                    type="time"
-                    value={time}
-                    onChange={(e) => updateTime(i, e.target.value)}
-                    dir="ltr"
-                    className="flex-1 bg-transparent text-ink-100 text-base font-medium outline-none"
-                  />
-                  {draft.times.length > 1 && (
+            {draft.messages.length === 0 ? (
+              <button
+                type="button"
+                onClick={addMessage}
+                className="w-full rounded-xl border border-dashed border-surface-border bg-surface-raised/30 px-3 py-3 text-sm text-ink-300 hover:text-ink-100 hover:border-forest-700/40 transition-colors text-right"
+              >
+                + כתוב נוסח משלך. בלי נוסח — תוצג ברירת מחדל מעודדת.
+              </button>
+            ) : (
+              <div className="space-y-2">
+                {draft.messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2"
+                  >
+                    <textarea
+                      value={msg}
+                      onChange={(e) => updateMessage(i, e.target.value)}
+                      rows={2}
+                      placeholder="מה יהיה כתוב בהתראה?"
+                      className="flex-1 bg-transparent text-sm text-ink-100 placeholder:text-ink-500 outline-none resize-none leading-snug"
+                    />
                     <button
                       type="button"
-                      onClick={() => removeTime(i)}
-                      className="p-1.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15"
-                      aria-label="הסר שעה"
+                      onClick={() => removeMessage(i)}
+                      className="p-1.5 mt-0.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15 shrink-0"
+                      aria-label="הסר נוסח"
                     >
                       <Trash2 size={16} />
                     </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 6 — Sound + vibration */}
-          <div className="space-y-3">
-            <Toggle
-              on={draft.vibrate}
-              onClick={() => patch({ vibrate: !draft.vibrate })}
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <Vibrate size={16} className="text-forest-500" />
-                  רטט
-                </span>
-              }
-            />
-
-            <div>
-              <span className="flex items-center gap-2 text-sm font-medium text-ink-100 mb-2">
-                <Volume2 size={16} className="text-forest-500" />
-                צליל
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {REMINDER_SOUNDS.map((s) => (
-                  <ChipButton
-                    key={s.key}
-                    active={draft.sound === s.key}
-                    onClick={() => pickSound(s.key)}
-                  >
-                    {s.label}
-                  </ChipButton>
+                  </div>
                 ))}
               </div>
-              <p className="text-[11px] text-ink-500 mt-1.5 leading-snug">
-                הצליל מתנגן כשהאפליקציה פתוחה. כשהיא סגורה — הטלפון משמיע את צליל
-                ההתראה הרגיל שלו.
-              </p>
-            </div>
+            )}
+
+            {/* random / sequential — only meaningful with 2+ phrasings */}
+            {cleanMessages.length > 1 && (
+              <div className="mt-3">
+                <span className="block text-[12px] text-ink-300 mb-1.5">
+                  איך לבחור נוסח בכל פעם
+                </span>
+                <div className="flex gap-1.5">
+                  <OrderButton
+                    active={draft.message_order === 'random'}
+                    onClick={() => patch({ message_order: 'random' })}
+                    label="אקראי"
+                  />
+                  <OrderButton
+                    active={draft.message_order === 'sequential'}
+                    onClick={() => patch({ message_order: 'sequential' })}
+                    label="לפי הסדר"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 7 — More options (drawer): phrasings + test */}
+          {/* 7 — More options (drawer): habit link + sound + vibration + test */}
           <div>
             <button
               type="button"
@@ -493,78 +461,127 @@ export function ReminderEditorSheet({
 
             <div className={`assist-reveal ${moreOpen ? 'assist-reveal--open' : ''}`}>
               <div className="assist-reveal__inner">
-                <div className="space-y-5 pt-4">
-                  {/* Messages */}
+                <div className="space-y-4 pt-4">
+                  {/* Habit link — a dropdown with "ללא" (general) at the top. */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-ink-100">
-                        נוסחים{' '}
-                        <span className="text-ink-500 font-normal">(טקסט ההתראה)</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={addMessage}
-                        className="inline-flex items-center gap-1 text-[12px] text-forest-700 hover:text-forest-600"
-                      >
-                        <Plus size={14} />
-                        הוסף נוסח
-                      </button>
-                    </div>
-                    {draft.messages.length === 0 ? (
-                      <button
-                        type="button"
-                        onClick={addMessage}
-                        className="w-full rounded-xl border border-dashed border-surface-border bg-surface-raised/30 px-3 py-3 text-sm text-ink-300 hover:text-ink-100 hover:border-forest-700/40 transition-colors text-right"
-                      >
-                        + כתוב נוסח משלך. בלי נוסח — תוצג ברירת מחדל מעודדת.
-                      </button>
-                    ) : (
-                      <div className="space-y-2">
-                        {draft.messages.map((msg, i) => (
-                          <div
-                            key={i}
-                            className="flex items-start gap-2 rounded-xl border border-surface-border bg-surface-raised/40 px-3 py-2"
-                          >
-                            <textarea
-                              value={msg}
-                              onChange={(e) => updateMessage(i, e.target.value)}
-                              rows={2}
-                              placeholder="מה יהיה כתוב בהתראה?"
-                              className="flex-1 bg-transparent text-sm text-ink-100 placeholder:text-ink-500 outline-none resize-none leading-snug"
+                    <span className="block text-sm font-medium text-ink-100 mb-2">
+                      קשר להרגל
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setHabitMenuOpen((o) => !o)}
+                      aria-haspopup="listbox"
+                      aria-expanded={habitMenuOpen}
+                      className="w-full flex items-center justify-between gap-2 h-11 px-3 rounded-xl text-[13px] font-medium border border-surface-border bg-surface-raised/40 text-ink-100"
+                    >
+                      <span className="flex-1 min-w-0 inline-flex items-center gap-2">
+                        {linkedHabit ? (
+                          <>
+                            <HabitIcon
+                              name={linkedHabit.icon}
+                              size={16}
+                              strokeWidth={1.8}
+                              className="shrink-0"
                             />
-                            <button
-                              type="button"
-                              onClick={() => removeMessage(i)}
-                              className="p-1.5 mt-0.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15 shrink-0"
-                              aria-label="הסר נוסח"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                            <span className="truncate">{linkedHabit.name}</span>
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center gap-2 text-ink-300">
+                            <Bell size={15} className="shrink-0" />
+                            ללא (התראה כללית)
+                          </span>
+                        )}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={`shrink-0 text-ink-300 transition-transform ${habitMenuOpen ? 'rotate-180' : ''}`}
+                      />
+                    </button>
 
-                    {/* random / sequential — only meaningful with 2+ phrasings */}
-                    {cleanMessages.length > 1 && (
-                      <div className="mt-3">
-                        <span className="block text-[12px] text-ink-300 mb-1.5">
-                          איך לבחור נוסח בכל פעם
-                        </span>
-                        <div className="flex gap-1.5">
-                          <OrderButton
-                            active={draft.message_order === 'random'}
-                            onClick={() => patch({ message_order: 'random' })}
-                            label="אקראי"
-                          />
-                          <OrderButton
-                            active={draft.message_order === 'sequential'}
-                            onClick={() => patch({ message_order: 'sequential' })}
-                            label="לפי הסדר"
-                          />
-                        </div>
+                    {/* In-flow list (not absolute) so a long list never overruns
+                        the sheet — it just scrolls inside its own box. */}
+                    {habitMenuOpen && (
+                      <div
+                        role="listbox"
+                        className="mt-1.5 max-h-52 overflow-y-auto themed-scroll rounded-xl border border-surface-border bg-surface-raised/30 p-1"
+                      >
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={linkedHabit === null}
+                          onClick={() => chooseHabit(null)}
+                          className={`w-full flex items-center justify-between gap-2 px-3 h-9 rounded-lg text-[13px] transition-colors ${
+                            linkedHabit === null
+                              ? 'text-forest-700 font-semibold bg-forest-700/10'
+                              : 'text-ink-100 hover:bg-surface-raised'
+                          }`}
+                        >
+                          <span className="inline-flex items-center gap-2">
+                            <Bell size={15} />
+                            ללא (התראה כללית)
+                          </span>
+                          {linkedHabit === null && <Check size={15} className="shrink-0" />}
+                        </button>
+                        {habits.map((h) => {
+                          const active = draft.habit_id === h.id;
+                          return (
+                            <button
+                              key={h.id}
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              onClick={() => chooseHabit(h)}
+                              className={`w-full flex items-center justify-between gap-2 px-3 h-9 rounded-lg text-[13px] transition-colors ${
+                                active
+                                  ? 'text-forest-700 font-semibold bg-forest-700/10'
+                                  : 'text-ink-100 hover:bg-surface-raised'
+                              }`}
+                            >
+                              <span className="inline-flex items-center gap-2 min-w-0">
+                                <HabitIcon name={h.icon} size={16} strokeWidth={1.8} />
+                                <span className="truncate">{h.name}</span>
+                              </span>
+                              {active && <Check size={15} className="shrink-0" />}
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
+                  </div>
+
+                  {/* Vibration */}
+                  <Toggle
+                    on={draft.vibrate}
+                    onClick={() => patch({ vibrate: !draft.vibrate })}
+                    label={
+                      <span className="inline-flex items-center gap-2">
+                        <Vibrate size={16} className="text-forest-500" />
+                        רטט
+                      </span>
+                    }
+                  />
+
+                  {/* Sound */}
+                  <div>
+                    <span className="flex items-center gap-2 text-sm font-medium text-ink-100 mb-2">
+                      <Volume2 size={16} className="text-forest-500" />
+                      צליל
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {REMINDER_SOUNDS.map((s) => (
+                        <ChipButton
+                          key={s.key}
+                          active={draft.sound === s.key}
+                          onClick={() => pickSound(s.key)}
+                        >
+                          {s.label}
+                        </ChipButton>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-ink-500 mt-1.5 leading-snug">
+                      הצליל מתנגן כשהאפליקציה פתוחה. כשהיא סגורה — הטלפון משמיע את
+                      צליל ההתראה הרגיל שלו.
+                    </p>
                   </div>
 
                   {/* Test */}
@@ -644,6 +661,102 @@ function Toggle({
         />
       </span>
     </button>
+  );
+}
+
+/** Compact two-stacked switch between fixed and random time, sized to sit
+ *  beside the big time on the same row. */
+function ModeToggle({
+  random,
+  onChange,
+}: {
+  random: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const base =
+    'flex-1 inline-flex items-center justify-center gap-1 rounded-lg text-[11px] font-medium border transition-colors';
+  const on = 'bg-forest-700 border-forest-700 text-on-accent';
+  const off = 'bg-surface-raised/60 border-surface-border text-ink-300 hover:text-ink-100';
+  return (
+    <div className="shrink-0 w-[88px] flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        aria-pressed={!random}
+        className={`${base} ${!random ? on : off}`}
+      >
+        <Clock size={12} />
+        קבועה
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        aria-pressed={random}
+        className={`${base} ${random ? on : off}`}
+      >
+        <Dices size={12} />
+        רנדומלי
+      </button>
+    </div>
+  );
+}
+
+/** A big, tappable time — the clock (a single one; the native picker indicator
+ *  is hidden via .reminder-time-input) opens the OS time picker. */
+function BigTime({
+  value,
+  onChange,
+  onRemove,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onRemove?: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const openPicker = () => {
+    const el = ref.current;
+    if (!el) return;
+    // showPicker() opens the native chooser on a click; focus is the fallback.
+    const withPicker = el as HTMLInputElement & { showPicker?: () => void };
+    if (typeof withPicker.showPicker === 'function') {
+      try {
+        withPicker.showPicker();
+        return;
+      } catch {
+        /* gesture/visibility constraints — fall through to focus */
+      }
+    }
+    el.focus();
+  };
+  return (
+    <div className="flex items-center gap-2 rounded-2xl border border-surface-border bg-surface-raised/40 px-4 py-2.5">
+      <button
+        type="button"
+        onClick={openPicker}
+        aria-label="שנה שעה"
+        className="shrink-0 text-forest-500 hover:text-forest-600 transition-colors"
+      >
+        <Clock size={24} />
+      </button>
+      <input
+        ref={ref}
+        type="time"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        dir="ltr"
+        className="reminder-time-input flex-1 min-w-0 bg-transparent text-ink-100 text-3xl font-bold tracking-wide outline-none"
+      />
+      {onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="הסר שעה"
+          className="shrink-0 p-1.5 rounded-lg text-ink-300 hover:text-red-400 hover:bg-red-500/15"
+        >
+          <Trash2 size={18} />
+        </button>
+      )}
+    </div>
   );
 }
 
