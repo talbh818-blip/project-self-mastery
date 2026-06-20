@@ -9,7 +9,7 @@
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ChevronRight, Plus } from 'lucide-react';
+import { Bell, ChevronRight, Plus, Smartphone } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useHabitData } from '../features/habits/useHabitData';
 import { HabitIcon } from '../features/habits/HabitIcon';
@@ -25,15 +25,16 @@ import {
 } from '../features/notifications/reminders';
 import {
   getPermission,
-  isNotificationsFeatureEnabled,
   notificationsSupported,
   requestPermission,
   setNotificationsFeatureEnabled,
 } from '../features/notifications/delivery';
 import {
   ensurePushSubscription,
+  isStandalone,
   removePushSubscription,
 } from '../features/notifications/push';
+import { useFeatureActive } from '../features/settings/featureFlags';
 
 export function NotificationsSettings() {
   const navigate = useNavigate();
@@ -47,7 +48,9 @@ export function NotificationsSettings() {
   // reminders instantly (no "טוען…" flash); we still revalidate on mount.
   const cachedReminders = uid ? getCachedReminders(uid) : null;
 
-  const [enabled, setEnabled] = useState(isNotificationsFeatureEnabled);
+  // Per-USER feature flag, synced across devices (turn it on on the computer,
+  // it's on on the phone too). Reactive so a flip on another device/tab shows.
+  const enabled = useFeatureActive('notifications');
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [reminders, setReminders] = useState<NotificationReminder[]>(
     cachedReminders ?? [],
@@ -87,25 +90,25 @@ export function NotificationsSettings() {
 
   const toggleFeature = async (next: boolean) => {
     if (!next) {
-      // Turning off — flip immediately and drop this device's push subscription.
-      setEnabled(false);
+      // Turn the feature OFF for the user (synced to every device) and drop
+      // this device's push subscription.
       setNotificationsFeatureEnabled(false);
       void removePushSubscription();
       return;
     }
-    // Turning ON requires the OS permission. Ask for it now; if the user
-    // doesn't grant it the switch stays OFF — there's nothing to deliver to.
-    const p = supported ? await requestPermission() : 'denied';
-    setPermission(p);
-    if (p !== 'granted') {
-      setEnabled(false);
-      setNotificationsFeatureEnabled(false);
-      return;
-    }
-    setEnabled(true);
+    // Turn the feature ON for the user — synced to every device. This does NOT
+    // require THIS device's permission: only the device that actually shows the
+    // notifications (the installed phone app) needs it. Managing it here, on the
+    // computer, is enough — the phone is what delivers.
     setNotificationsFeatureEnabled(true);
-    // Register this device for closed-app push now that permission is granted.
-    void ensurePushSubscription();
+    // Best-effort: if THIS device is the installed app, set it up to receive too
+    // (ask permission + subscribe). On a plain browser tab / computer we don't
+    // even prompt — there's nothing to deliver here.
+    if (isStandalone() && supported) {
+      const p = await requestPermission();
+      setPermission(p);
+      if (p === 'granted') void ensurePushSubscription();
+    }
   };
 
   const toggleReminderEnabled = async (r: NotificationReminder) => {
@@ -193,18 +196,16 @@ export function NotificationsSettings() {
         </div>
       </div>
 
-      {/* Only surface a blocker when the device itself can't deliver. When all
-          is well there's no status text — the toggle handles the permission
-          request, and won't turn on unless it's granted. */}
-      {!supported ? (
-        <div className="mb-4 rounded-xl border border-yellow-800/50 bg-yellow-950/20 text-yellow-300/90 light:border-yellow-600/50 light:bg-yellow-400/15 light:text-yellow-800 text-[13px] px-3 py-2.5 leading-snug">
-          הדפדפן הזה לא תומך בהתראות. נסה דרך Chrome / Safari או התקן את
-          האפליקציה למסך הבית.
-        </div>
-      ) : permission === 'denied' ? (
-        <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 light:border-red-500/40 light:bg-red-400/10 light:text-red-700 text-[13px] px-3 py-2.5 leading-snug">
-          ההתראות חסומות בטלפון. כדי להפעיל — אפשר התראות לאתר זה בהגדרות
-          הדפדפן/הטלפון.
+      {/* The setting is on, but THIS device won't show notifications (no
+          permission / not the installed app). That's fine — only the phone
+          needs permission. Reassure calmly; never block. */}
+      {enabled && permission !== 'granted' ? (
+        <div className="mb-4 rounded-xl border border-surface-border bg-surface-raised/40 text-ink-300 text-[12px] px-3 py-2.5 leading-snug flex items-start gap-2">
+          <Smartphone size={15} className="shrink-0 mt-0.5 text-forest-500" />
+          <span>
+            ההתראות נשלחות לטלפון שאישרת בו. אפשר לנהל אותן כאן — לא צריך לאשר
+            הרשאות במכשיר הזה.
+          </span>
         </div>
       ) : null}
 
