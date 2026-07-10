@@ -32,10 +32,11 @@
 //
 // RANGE TOGGLE — a two-line label to the LEFT of the rings ("השבוע" / "הזה",
 // etc.) flips the rings between the OPEN-PERIOD metric above and a TRAILING
-// window ending today ("7 / 30 / 365 ימים אחרונים"). In the trailing mode the
-// same done/expected math runs over [today-(N-1) … today] anchored to today (not
-// the open period), so it reads "how am I doing lately?". Whatever the user
-// picks becomes the persistent default (see useRangeMode).
+// window of N days ("7 / 30 / 365 ימים אחרונים"). The trailing window is
+// anchored to the LAST ELAPSED DAY OF THE OPEN PERIOD — today for the current
+// period, the period's end when browsing a PAST one — so each week / month /
+// year reads its OWN window and never the current one repeated on every period.
+// Whatever the user picks becomes the persistent default (see useRangeMode).
 //
 // The per-day verdict is the ENGINE's `effectiveByDate` ('V' only counts a
 // genuinely-complete day — a quantitative partial logged as 'V' does not), so
@@ -281,16 +282,23 @@ export function VisionHabitsStrip({
     let winEnd: Date;
 
     if (rangeMode === 'rolling') {
-      // Trailing window ending today — "last N days" (N = 7 / 30 / 365).
-      // Anchored to today regardless of which period is open: that's exactly
-      // what the "X ימים אחרונים" label promises.
-      const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const start = new Date(t0);
-      start.setDate(t0.getDate() - (ROLLING_DAYS[scope] - 1));
+      // Trailing window of N days (7 / 30 / 365), anchored to the LAST ELAPSED
+      // DAY OF THE OPEN PERIOD — NOT always today. So browsing a PAST month /
+      // year shows THAT period's trailing window, instead of the current one
+      // repeated on every period (the bug where June, May and July all read the
+      // same). For the current period the anchor IS today, so it's unchanged.
+      const anchorEnd = periodEnd < today ? periodEnd : today;
+      const a0 = new Date(
+        anchorEnd.getFullYear(),
+        anchorEnd.getMonth(),
+        anchorEnd.getDate(),
+      );
+      const start = new Date(a0);
+      start.setDate(a0.getDate() - (ROLLING_DAYS[scope] - 1));
       selStart = start;
-      selEnd = today;
+      selEnd = a0;
       winStart = start;
-      winEnd = today;
+      winEnd = a0;
     } else {
       // "This week / month / year." Last ELAPSED day of the period (future
       // days haven't happened). Weekly = "this week so far" → elapsed only.
