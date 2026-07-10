@@ -165,9 +165,10 @@ function rangeLsKey(userId: string | null, scope: VisionScope) {
   return `${RANGE_MODE_LS}${userId ?? '_'}:${scope}`;
 }
 
-// 'daily' entries exist only to satisfy the Record<VisionScope, …> type — the
-// habit-success strip is never rendered for daily journaling entries (a day is
-// "separate from the vision"; see VisionEditor / VisionEditorDesktop).
+// 'daily' journaling entries DO show the strip — one ring per habit, filled by
+// that single day's status (done = full, not done = 0% empty ring). A single day
+// has no meaningful "trailing window", so the daily strip is locked to period
+// mode and hides the range toggle (see rangeMode + the toggle guard below).
 const ROLLING_DAYS: Record<VisionScope, number> = {
   weekly: 7,
   monthly: 30,
@@ -259,6 +260,9 @@ export function VisionHabitsStrip({
   const data = useHabitData(userId);
   const { status, stats, slotsForRange } = data;
   const { mode, toggle } = useRangeMode(userId, scope);
+  // A single day has no meaningful "last N days" window — the daily strip always
+  // measures THAT day (period mode); its range toggle is hidden below.
+  const rangeMode: RangeMode = scope === 'daily' ? 'period' : mode;
 
   const today = useMemo(() => new Date(), []);
 
@@ -276,7 +280,7 @@ export function VisionHabitsStrip({
     let winStart: Date;
     let winEnd: Date;
 
-    if (mode === 'rolling') {
+    if (rangeMode === 'rolling') {
       // Trailing window ending today — "last N days" (N = 7 / 30 / 365).
       // Anchored to today regardless of which period is open: that's exactly
       // what the "X ימים אחרונים" label promises.
@@ -318,12 +322,13 @@ export function VisionHabitsStrip({
     out.sort((a, b) => (a.habit.sort_order ?? 0) - (b.habit.sort_order ?? 0));
     return out;
     // slotsForRange + stats are memoized in useHabitData; today is stable.
-  }, [status, stats, slotsForRange, scope, periodKey, today, mode]);
+  }, [status, stats, slotsForRange, scope, periodKey, today, rangeMode]);
 
   if (items.length === 0) return null;
 
   const inline = variant === 'inline';
-  const label = mode === 'rolling' ? ROLLING_LABEL[scope] : PERIOD_LABEL[scope];
+  const showToggle = scope !== 'daily';
+  const label = rangeMode === 'rolling' ? ROLLING_LABEL[scope] : PERIOD_LABEL[scope];
 
   // 'bottom' sits below the writing (mobile) with its own top divider + spacing
   // and centred 46px rings. 'inline' is the desktop header cluster — label +
@@ -366,6 +371,7 @@ export function VisionHabitsStrip({
             Both states are stacked in ONE grid cell so the button is always as
             wide as the WIDER of the two — the rings never shift when the text
             swaps; only the active state is shown. */}
+        {showToggle && (
         <button
           type="button"
           onClick={toggle}
@@ -391,6 +397,7 @@ export function VisionHabitsStrip({
             );
           })}
         </button>
+        )}
       </div>
     </div>
   );
