@@ -1844,6 +1844,13 @@ function DataView({
       if (dateStr < rangeStartStr || dateStr > todayStr) continue;
       dailyDelta.set(dateStr, (dailyDelta.get(dateStr) ?? 0) + earned);
     }
+    // V2 period-close settlements (penalties + streak bonuses) attributed to
+    // their exact lock day. Without this the chart never shows the drops
+    // from missed periods — the total wouldn't converge to the true score.
+    for (const [dateStr, delta] of combined.v2SettlementsByDate) {
+      if (dateStr < rangeStartStr || dateStr > todayStr) continue;
+      dailyDelta.set(dateStr, (dailyDelta.get(dateStr) ?? 0) + delta);
+    }
   }
 
   // Cumulative score series for the line chart — one point per day in range.

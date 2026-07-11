@@ -417,6 +417,11 @@ export type HabitScoreV2 = {
   penalties: number; // ≥ 0, subtracted
   bonuses: number;   // ≥ 0, added
   total: number;     // earned − penalties + bonuses
+  /** Per-date settlement deltas (penalties negative, bonuses positive).
+   *  Penalties land on period_end + LOCK_AFTER_DAYS (the lock day).
+   *  Bonuses land on month_end + LOCK_AFTER_DAYS. Fed into the trend chart
+   *  so drops actually show up on the day they happened. */
+  settlementsByDate: Map<string, number>;
 };
 
 export function scoreHabitV2(params: {
@@ -458,7 +463,14 @@ export function scoreHabitV2(params: {
   }
 
   // ---- penalties: settle every locked period -------------------------------
+  // We ALSO record each per-period penalty on its exact lock day so the
+  // trend chart can plot drops at the moment they were applied.
   let penalties = 0;
+  const settlementsByDate = new Map<string, number>();
+  const addSettlement = (dateStr: string, delta: number) => {
+    if (delta === 0) return;
+    settlementsByDate.set(dateStr, (settlementsByDate.get(dateStr) ?? 0) + delta);
+  };
   for (const p of periodsByKey.values()) {
     if (!periodLocked(p, today)) continue;
     const quota = effectiveQuota(habit, p, allAssignments);
@@ -468,7 +480,10 @@ export function scoreHabitV2(params: {
     const weights = slotWeights(quota);
     let missedWeight = 0;
     for (let i = filled; i < quota; i++) missedWeight += weights[i];
-    penalties += MISS_PENALTY * value * missedWeight;
+    const penalty = MISS_PENALTY * value * missedWeight;
+    penalties += penalty;
+    // Penalty is applied on the exact lock day.
+    addSettlement(addDaysStr(p.end, LOCK_AFTER_DAYS), -penalty);
   }
 
   // ---- streak bonuses — by habit frequency ----------------------------------
@@ -522,15 +537,22 @@ export function scoreHabitV2(params: {
         if (run > maxRun) maxRun = run;
         prev = d;
       }
-      if (maxRun >= 7) bonuses += slice * BONUS_RUN_7;
-      if (maxRun >= 14) bonuses += slice * BONUS_RUN_14;
+      let monthBonus = 0;
+      if (maxRun >= 7) monthBonus += slice * BONUS_RUN_7;
+      if (maxRun >= 14) monthBonus += slice * BONUS_RUN_14;
       // Full-month bonus: every active day of the month completed, and the
       // month is fully behind us (its last day has locked).
-      const monthOver =
-        daysBetweenStr(monthEndOf(`${monthKey}-01`), todayStr) >= LOCK_AFTER_DAYS;
+      const monthEnd = monthEndOf(`${monthKey}-01`);
+      const monthOver = daysBetweenStr(monthEnd, todayStr) >= LOCK_AFTER_DAYS;
       const coversWholeMonth = days.length > 0 && allDone && monthOver;
       if (coversWholeMonth && maxRun >= days.length) {
-        bonuses += slice * BONUS_FULL_MONTH;
+        monthBonus += slice * BONUS_FULL_MONTH;
+      }
+      bonuses += monthBonus;
+      // Only surface the bonus once the month has actually locked so the
+      // chart never advertises an unearned bonus.
+      if (monthBonus > 0 && monthOver) {
+        addSettlement(addDaysStr(monthEnd, LOCK_AFTER_DAYS), monthBonus);
       }
     }
   } else if (habit.frequency_period === 'weekly') {
@@ -559,7 +581,14 @@ export function scoreHabitV2(params: {
       }
       // The whole 10% reserve in one bonus — a perfect month of a weekly
       // habit still lands on exactly its full slice.
-      if (allMet) bonuses += slice / 9;
+      if (allMet) {
+        const wkBonus = slice / 9;
+        bonuses += wkBonus;
+        addSettlement(
+          addDaysStr(monthEndOf(`${monthKey}-01`), LOCK_AFTER_DAYS),
+          wkBonus,
+        );
+      }
     }
   }
   // monthly — no bonus by design.
@@ -570,6 +599,7 @@ export function scoreHabitV2(params: {
     penalties,
     bonuses,
     total: earned - penalties + bonuses,
+    settlementsByDate,
   };
 }
 
@@ -640,9 +670,12 @@ export type CombinedStats = {
   /** per-habit combined points for the habit cards. */
   pointsByHabit: Map<string, number>;
   /** date → Σ earned_points snapshots of rows on that date (v2 era only).
-   *  Feeds the dashboard trend graph; penalties/bonuses are settled per
-   *  period, not per day, so they're intentionally not in this map. */
+   *  Feeds the dashboard trend graph. */
   v2EarnedByDate: Map<string, number>;
+  /** date → Σ settlement deltas from all habits on that date. Negative on
+   *  penalty lock days, positive on bonus lock days. Merged with
+   *  v2EarnedByDate at chart time so drops actually show up. */
+  v2SettlementsByDate: Map<string, number>;
 };
 
 export function computeCombinedStats(params: {
@@ -668,6 +701,16 @@ export function computeCombinedStats(params: {
       );
     }
   }
+  // Roll settlement rows (from every habit) into one map keyed by lock date.
+  const v2SettlementsByDate = new Map<string, number>();
+  for (const h of v2.byHabit.values()) {
+    for (const [date, delta] of h.settlementsByDate) {
+      v2SettlementsByDate.set(
+        date,
+        (v2SettlementsByDate.get(date) ?? 0) + delta,
+      );
+    }
+  }
   return {
     totalScore: v1.totalScore + v2.totalV2,
     v1Total: v1.totalScore,
@@ -675,6 +718,7 @@ export function computeCombinedStats(params: {
     v1,
     pointsByHabit,
     v2EarnedByDate,
+    v2SettlementsByDate,
   };
 }
 
