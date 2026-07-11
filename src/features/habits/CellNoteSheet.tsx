@@ -63,11 +63,13 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
 
   const hasText = text.trim().length > 0;
 
-  // Three shades of the habit's own colour + grey.
+  // Three shades of the habit's own colour + grey. NONE equals habit.color
+  // itself — that's the cell's DEFAULT tint, so offering it as a choice is
+  // pointless (it wouldn't visibly change anything).
   const swatches = [
-    shadeHex(habit.color, -0.3),
-    habit.color,
-    shadeHex(habit.color, 0.32),
+    shadeHex(habit.color, -0.35),
+    shadeHex(habit.color, 0.28),
+    shadeHex(habit.color, 0.55),
     GREY,
   ];
 
