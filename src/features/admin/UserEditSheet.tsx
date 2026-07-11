@@ -25,6 +25,15 @@ import { uploadAvatarForUser, type ProfileAdminPatch } from './queries';
 type Props = {
   open: boolean;
   profile: Profile | null;
+  /**
+   * The user's log-based score (V*5 - X*3 across all their habit_logs),
+   * excluding score_adjustment. Passed in from the admin screen where it's
+   * already fetched as part of the activity rollup. Used so the "ניקוד"
+   * input can display the CURRENT total (log_score + adjustment) — the
+   * number the admin actually sees on the card — while still saving to
+   * score_adjustment behind the scenes.
+   */
+  logScore: number;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (patch: ProfileAdminPatch) => Promise<void>;
@@ -38,14 +47,20 @@ type FormState = {
   phone: string;
   gender: Gender | null;
   trees_planted: string;
-  score_adjustment: string;
+  /**
+   * Displayed as the CURRENT TOTAL score (log_score + score_adjustment).
+   * On save we compute the delta relative to logScore and write that to
+   * profiles.score_adjustment — the admin never has to reason about the
+   * adjustment being a delta rather than the number itself.
+   */
+  score_total: string;
   blocked: boolean;
   // null = no change; '' = explicit clear (set avatar_url to null);
   // string = new uploaded URL.
   avatar_url_change: string | null;
 };
 
-function profileToForm(p: Profile): FormState {
+function profileToForm(p: Profile, logScore: number): FormState {
   return {
     display_name: p.display_name ?? '',
     email: p.email ?? '',
@@ -54,7 +69,7 @@ function profileToForm(p: Profile): FormState {
     phone: p.phone ?? '',
     gender: p.gender,
     trees_planted: String(p.trees_planted),
-    score_adjustment: String(p.score_adjustment),
+    score_total: String(logScore + p.score_adjustment),
     blocked: p.blocked,
     avatar_url_change: null,
   };
@@ -63,13 +78,14 @@ function profileToForm(p: Profile): FormState {
 export function UserEditSheet({
   open,
   profile,
+  logScore,
   submitting,
   onClose,
   onSubmit,
 }: Props) {
   const { user: adminUser } = useAuth();
   const [form, setForm] = useState<FormState | null>(
-    profile ? profileToForm(profile) : null,
+    profile ? profileToForm(profile, logScore) : null,
   );
   const [error, setError] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -78,7 +94,7 @@ export function UserEditSheet({
   // Re-seed the form every time we open with a new profile.
   useEffect(() => {
     if (!open) return;
-    setForm(profile ? profileToForm(profile) : null);
+    setForm(profile ? profileToForm(profile, logScore) : null);
     setError(null);
     setUploadingAvatar(false);
     const prev = document.body.style.overflow;
@@ -86,15 +102,15 @@ export function UserEditSheet({
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [open, profile]);
+  }, [open, profile, logScore]);
 
   if (!open || !form || !profile) return null;
 
   const trees = Number(form.trees_planted);
   const treesOk = Number.isFinite(trees) && Number.isInteger(trees) && trees >= 0;
-  const adj = Number(form.score_adjustment);
-  const adjOk = Number.isFinite(adj) && Number.isInteger(adj);
-  const canSubmit = treesOk && adjOk && !submitting && !uploadingAvatar;
+  const totalScore = Number(form.score_total);
+  const scoreOk = Number.isFinite(totalScore) && Number.isInteger(totalScore);
+  const canSubmit = treesOk && scoreOk && !submitting && !uploadingAvatar;
 
   // What the avatar circle currently shows: the new uploaded URL (if any),
   // or the explicit clear (no image), or the saved profile avatar.
@@ -149,7 +165,15 @@ export function UserEditSheet({
       patch.phone = normalize(form.phone);
     if (form.gender !== profile.gender) patch.gender = form.gender;
     if (trees !== profile.trees_planted) patch.trees_planted = trees;
-    if (adj !== profile.score_adjustment) patch.score_adjustment = adj;
+    // Admin edited a TOTAL score in the UI. Translate back to an adjustment
+    // delta: whatever offset from log_score makes the total land on the
+    // typed value. If log_score changes later (user marks more Vs) the
+    // adjustment stays put, so the total drifts naturally with activity —
+    // which is the whole point of an adjustment rather than a snapshot.
+    const nextAdjustment = totalScore - logScore;
+    if (nextAdjustment !== profile.score_adjustment) {
+      patch.score_adjustment = nextAdjustment;
+    }
     if (form.blocked !== profile.blocked) patch.blocked = form.blocked;
     // avatar_url_change:
     //   null  → no change
@@ -366,18 +390,18 @@ export function UserEditSheet({
               label={
                 <span className="inline-flex items-center gap-1">
                   <Emoji emoji="⭐" size={14} ariaLabel="" />
-                  התאמת ניקוד
+                  ניקוד
                 </span>
               }
             >
               <input
                 type="number"
                 step={1}
-                value={form.score_adjustment}
+                value={form.score_total}
                 onChange={(e) =>
-                  setForm({ ...form, score_adjustment: e.target.value })
+                  setForm({ ...form, score_total: e.target.value })
                 }
-                className={`${inputClass} ${adjOk ? '' : 'border-red-500/60'}`}
+                className={`${inputClass} ${scoreOk ? '' : 'border-red-500/60'}`}
               />
             </Field>
           </div>

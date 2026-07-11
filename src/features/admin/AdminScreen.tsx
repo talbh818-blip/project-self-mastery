@@ -37,6 +37,14 @@ export function AdminScreen() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
 
+  // Log-score of the row being edited — the sheet displays log_score +
+  // score_adjustment as the total in the "ניקוד" field so the admin sees
+  // the actual number from the card, and translates back to an adjustment
+  // delta on save.
+  const editingLogScore = editing
+    ? rows?.find((r) => r.profile.id === editing.id)?.activity?.log_score ?? 0
+    : 0;
+
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -186,6 +194,7 @@ export function AdminScreen() {
       <UserEditSheet
         open={editing !== null}
         profile={editing}
+        logScore={editingLogScore}
         submitting={busy}
         onClose={() => setEditing(null)}
         onSubmit={handleSaveEdit}
