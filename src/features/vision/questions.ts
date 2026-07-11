@@ -87,14 +87,18 @@ const FALLBACKS: Record<VisionScope, VisionQuestion[]> = {
 };
 
 // ─── Live catalog ────────────────────────────────────────────────────────────
-// Two layers, merged at pick time:
+// FULL-CONTROL model: every user owns their questions.
 //   • adminCatalog — the shared defaults from `vision_questions` (admin-
 //     managed). Starts as the fallback; a scope whose fetch comes back empty
-//     keeps its fallback — an admin emptying a scope by mistake shouldn't
-//     kill guided writing.
+//     keeps its fallback. These are the SEED for a user's personal list and
+//     the pool for a user who hasn't personalized yet.
 //   • userCatalog — the signed-in user's own questions from
-//     `vision_user_questions`, plus the profile flag `vision_questions_own_only`
-//     that hides the defaults when the user has questions of their own.
+//     `vision_user_questions`. Once the user is `seeded` (their list was
+//     copied from the defaults), this IS their list — the picker draws from
+//     it alone, so editing the shared defaults no longer touches them.
+//   • seeded — profiles.vision_questions_seeded; false for users who never
+//     opened the settings sheet (they still get guided writing from the
+//     defaults, legacy-style: their own additions + the defaults).
 // The pick functions stay synchronous (they run inside click handlers /
 // Tiptap commands), so the editor kicks off the load on mount and by
 // tap-time the catalog is fresh.
@@ -105,7 +109,7 @@ let userCatalog: Record<VisionScope, VisionQuestion[]> = {
   weekly: [],
   daily: [],
 };
-let ownOnly = false;
+let seeded = false;
 let loadPromise: Promise<void> | null = null;
 
 function emptyByScope(): Record<VisionScope, VisionQuestion[]> {
@@ -133,9 +137,9 @@ export function ensureQuestionsLoaded(): Promise<void> {
           .order('created_at', { ascending: true }),
         supabase
           .from('profiles')
-          .select('vision_questions_own_only')
+          .select('vision_questions_seeded')
           // The nil uuid keeps the filter valid when somehow signed out —
-          // matches nothing, maybeSingle() returns null, pref stays false.
+          // matches nothing, maybeSingle() returns null, flag stays false.
           .eq('id', user?.id ?? '00000000-0000-0000-0000-000000000000')
           .maybeSingle(),
       ]);
@@ -163,7 +167,7 @@ export function ensureQuestionsLoaded(): Promise<void> {
       }
       userCatalog = own;
 
-      ownOnly = prefRes.data?.vision_questions_own_only === true;
+      seeded = prefRes.data?.vision_questions_seeded === true;
     })().catch((e) => {
       // Keep whatever we have; allow a later call to retry.
       console.error('[vision] failed to load question catalog', e);
@@ -179,26 +183,78 @@ export function invalidateQuestionCache(): void {
   void ensureQuestionsLoaded();
 }
 
-/** The admin defaults for a scope (without the user's own questions). */
+/** The admin defaults for a scope — the seed / legacy pool. */
 export function defaultQuestionsForScope(scope: VisionScope): VisionQuestion[] {
   return adminCatalog[scope];
 }
 
-/** Current value of the "only my questions" preference (as last loaded). */
-export function ownOnlyPref(): boolean {
-  return ownOnly;
+/** Whether the signed-in user's personal list has been seeded (as last loaded). */
+export function isSeeded(): boolean {
+  return seeded;
 }
 
 /**
- * The pool the picker draws from: the user's own questions, plus the admin
- * defaults — unless the user opted to use only their own AND actually has
- * questions in this scope (an empty scope falls back to the defaults so
- * guided writing never dead-ends).
+ * The pool the picker draws from.
+ *   • Seeded user → their own list alone (full control). An empty scope falls
+ *     back to the built-in defaults so guided writing never dead-ends.
+ *   • Not-yet-seeded user → their own additions + the admin defaults (legacy).
  */
 export function questionsForScope(scope: VisionScope): VisionQuestion[] {
   const own = userCatalog[scope];
-  if (ownOnly && own.length > 0) return own;
+  if (seeded) return own.length > 0 ? own : FALLBACKS[scope];
   return [...own, ...adminCatalog[scope]];
+}
+
+/**
+ * One-shot: copy the current defaults into the user's personal list (all
+ * scopes) and flip profiles.vision_questions_seeded, so from now on the user
+ * fully owns their questions. Safe to call repeatedly — a no-op once seeded.
+ * Called when the user first opens the "השאלות שלי" sheet.
+ */
+export async function seedDefaultQuestionsIfNeeded(): Promise<void> {
+  await ensureQuestionsLoaded();
+  if (seeded) return;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('לא מחובר');
+
+  // Build the seed rows from the current defaults, preserving order per scope.
+  // Any questions the user already added stay in place — the defaults are
+  // appended after them (a higher sort_order block).
+  const scopes: VisionScope[] = ['yearly', 'monthly', 'weekly', 'daily'];
+  const rows: {
+    user_id: string;
+    scope: VisionScope;
+    text: string;
+    sort_order: number;
+  }[] = [];
+  for (const scope of scopes) {
+    const existing = userCatalog[scope].length;
+    defaultQuestionsForScope(scope).forEach((q, i) => {
+      rows.push({
+        user_id: user.id,
+        scope,
+        text: q.text,
+        sort_order: (existing + i + 1) * 10,
+      });
+    });
+  }
+
+  if (rows.length > 0) {
+    const { error } = await supabase.from('vision_user_questions').insert(rows);
+    if (error) throw error;
+  }
+
+  const { error: prefErr } = await supabase
+    .from('profiles')
+    .update({ vision_questions_seeded: true })
+    .eq('id', user.id);
+  if (prefErr) throw prefErr;
+
+  seeded = true;
+  invalidateQuestionCache();
 }
 
 /**
@@ -328,18 +384,4 @@ export async function deleteMyVisionQuestion(id: string): Promise<void> {
     .eq('id', id);
   if (error) throw error;
   invalidateQuestionCache();
-}
-
-/** Persist the "only my questions" preference (optimistic on the module). */
-export async function setOwnOnlyPref(value: boolean): Promise<void> {
-  ownOnly = value;
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('לא מחובר');
-  const { error } = await supabase
-    .from('profiles')
-    .update({ vision_questions_own_only: value })
-    .eq('id', user.id);
-  if (error) throw error;
 }

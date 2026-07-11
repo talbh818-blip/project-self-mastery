@@ -1,16 +1,17 @@
 // ============================================================================
 // VisionQuestionSettingsSheet — the user's own guided-writing questions.
 // ----------------------------------------------------------------------------
-// Opened from the gear next to the "+ כתיבה מודרכת" button. Per scope
-// (שנתי / חודשי / שבועי) the user can:
-//   • add / edit / delete their own questions (vision_user_questions, RLS
-//     owner-only — personal content, nobody else reads it);
-//   • flip "רק השאלות שלי" — hide the admin defaults wherever they have at
-//     least one question of their own (profiles.vision_questions_own_only).
-// The defaults are listed read-only below for reference.
+// Opened from the gear next to the "+ כתיבה מודרכת" button. FULL-CONTROL model:
+// per scope (שנתי / חודשי / שבועי, plus יומי when the Journaling feature is on)
+// the user has ONE editable list — add / edit / delete freely
+// (vision_user_questions, RLS owner-only — personal content, nobody else reads
+// it). On first open the list is SEEDED from the shared defaults
+// (seedDefaultQuestionsIfNeeded), so the user starts with the built-in
+// questions and owns them from there. There's no "only my questions" toggle and
+// no read-only defaults block — the list simply IS the user's list.
 //
-// Every mutation invalidates the in-memory catalog (questions.ts), so the
-// very next "+ כתיבה מודרכת" tap draws from the updated pool.
+// Every mutation invalidates the in-memory catalog (questions.ts), so the very
+// next "+ כתיבה מודרכת" tap draws from the updated pool.
 // ============================================================================
 import { useCallback, useEffect, useState } from 'react';
 import { X, Plus, Pencil, Trash2, Check } from 'lucide-react';
@@ -19,13 +20,11 @@ import {
   createMyVisionQuestion,
   updateMyVisionQuestion,
   deleteMyVisionQuestion,
-  defaultQuestionsForScope,
-  ownOnlyPref,
-  setOwnOnlyPref,
-  ensureQuestionsLoaded,
+  seedDefaultQuestionsIfNeeded,
   type VisionQuestionRow,
 } from './questions';
 import type { VisionScope } from './period';
+import { useJournalingEnabled } from './journalingFeature';
 import { CompassLoader } from '../../components/CompassLoader';
 
 const SCOPE_LABELS: Record<VisionScope, string> = {
@@ -35,7 +34,7 @@ const SCOPE_LABELS: Record<VisionScope, string> = {
   daily: 'יומי',
 };
 
-const SCOPES: VisionScope[] = ['yearly', 'monthly', 'weekly'];
+const BASE_SCOPES: VisionScope[] = ['yearly', 'monthly', 'weekly'];
 
 type Props = {
   open: boolean;
@@ -49,11 +48,18 @@ export function VisionQuestionSettingsSheet({
   initialScope,
   onClose,
 }: Props) {
+  const journalingOn = useJournalingEnabled();
+  // The daily tab shows when the Journaling feature is on (matches the Vision
+  // view switcher). If the editor opened the sheet on 'daily', include it too.
+  const scopes: VisionScope[] =
+    journalingOn || initialScope === 'daily'
+      ? [...BASE_SCOPES, 'daily']
+      : BASE_SCOPES;
+
   const [scope, setScope] = useState<VisionScope>(initialScope);
   const [rows, setRows] = useState<VisionQuestionRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [onlyOwn, setOnlyOwn] = useState(ownOnlyPref());
 
   const [draft, setDraft] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -61,10 +67,10 @@ export function VisionQuestionSettingsSheet({
 
   const load = useCallback(async () => {
     setError(null);
+    setRows(null);
     try {
-      // ensure first so defaultQuestionsForScope / ownOnlyPref are fresh.
-      await ensureQuestionsLoaded();
-      setOnlyOwn(ownOnlyPref());
+      // Seed the personal list from the defaults on first open, then read it.
+      await seedDefaultQuestionsIfNeeded();
       setRows(await fetchMyVisionQuestions());
     } catch (e) {
       setError(describeError(e, 'שגיאה בטעינה'));
@@ -83,7 +89,6 @@ export function VisionQuestionSettingsSheet({
   if (!open) return null;
 
   const scoped = (rows ?? []).filter((r) => r.scope === scope);
-  const defaults = defaultQuestionsForScope(scope);
 
   const handleAdd = async () => {
     const text = draft.trim();
@@ -129,17 +134,6 @@ export function VisionQuestionSettingsSheet({
     }
   };
 
-  const handleToggleOnlyOwn = async () => {
-    const next = !onlyOwn;
-    setOnlyOwn(next); // optimistic
-    try {
-      await setOwnOnlyPref(next);
-    } catch (e) {
-      setOnlyOwn(!next);
-      setError(describeError(e, 'שגיאה בשמירת ההעדפה'));
-    }
-  };
-
   return (
     <div
       className="fixed inset-0 z-30 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-3 animate-modal-fade-in"
@@ -170,196 +164,149 @@ export function VisionQuestionSettingsSheet({
           <span className="w-9 h-9" />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-3">
-          {/* Scope chips */}
-          <div className="flex gap-1.5 mb-3">
-            {SCOPES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => {
-                  setScope(s);
-                  setEditingId(null);
-                }}
-                className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-                  scope === s
-                    ? 'bg-forest-700 text-on-accent border-forest-700'
-                    : 'bg-surface-card text-ink-300 border-surface-border hover:text-ink-100'
-                }`}
-              >
-                {SCOPE_LABELS[s]}
-              </button>
-            ))}
-          </div>
-
-          {error && (
-            <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
-              {error}
+        {/* Scroll container is dir="ltr" so the (forest-green) scrollbar parks
+            on the RIGHT in RTL; the inner content flips back to dir="rtl". */}
+        <div
+          dir="ltr"
+          className="flex-1 overflow-y-auto vision-feed-scroll px-4 py-3"
+        >
+          <div dir="rtl">
+            {/* Scope chips */}
+            <div className="flex gap-1.5 mb-3">
+              {scopes.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => {
+                    setScope(s);
+                    setEditingId(null);
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                    scope === s
+                      ? 'bg-forest-700 text-on-accent border-forest-700'
+                      : 'bg-surface-card text-ink-300 border-surface-border hover:text-ink-100'
+                  }`}
+                >
+                  {SCOPE_LABELS[s]}
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* "Only my questions" toggle */}
-          <button
-            type="button"
-            onClick={() => void handleToggleOnlyOwn()}
-            role="switch"
-            aria-checked={onlyOwn}
-            className="w-full mb-3 flex items-center justify-between gap-3 rounded-2xl border border-surface-border bg-surface-raised/50 px-3 py-2.5 text-right"
-          >
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-ink-100">
-                רק השאלות שלי
-              </span>
-              <span className="block text-[11px] text-ink-300 leading-snug mt-0.5">
-                הסתר את שאלות ברירת המחדל בכל סוג חזון שיש בו שאלות משלך
-              </span>
-            </span>
-            <span
-              aria-hidden
-              className={`shrink-0 w-10 h-6 rounded-full p-0.5 transition-colors ${
-                onlyOwn ? 'bg-forest-700' : 'bg-surface-border'
-              }`}
-            >
-              <span
-                className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                  onlyOwn ? '-translate-x-4' : 'translate-x-0'
-                }`}
+            {error && (
+              <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
+                {error}
+              </div>
+            )}
+
+            {/* Composer */}
+            <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={2}
+                dir="rtl"
+                placeholder={`שאלה משלך לחזון ה${SCOPE_LABELS[scope]}…`}
+                className="w-full resize-none rounded-xl bg-surface-raised border border-surface-border px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-forest-600"
               />
-            </span>
-          </button>
-
-          {/* Composer */}
-          <div className="mb-3 rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5">
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={2}
-              dir="rtl"
-              placeholder={`שאלה משלך לחזון ה${SCOPE_LABELS[scope]}…`}
-              className="w-full resize-none rounded-xl bg-surface-raised border border-surface-border px-3 py-2 text-sm text-ink-100 placeholder:text-ink-500 focus:outline-none focus:border-forest-600"
-            />
-            <div className="mt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => void handleAdd()}
-                disabled={busy || draft.trim().length === 0}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-forest-700 hover:bg-forest-800 text-on-accent disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Plus size={16} />
-                הוסף שאלה
-              </button>
-            </div>
-          </div>
-
-          {rows === null && !error && (
-            <div className="py-6">
-              <CompassLoader size="md" />
-            </div>
-          )}
-
-          {/* The user's own questions */}
-          {rows !== null && scoped.length === 0 && (
-            <div className="mb-3 rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-6 text-center text-ink-300 text-[13px]">
-              עוד אין לך שאלות משלך לחזון ה{SCOPE_LABELS[scope]}.
-            </div>
-          )}
-          {scoped.length > 0 && (
-            <ul className="space-y-2 mb-3">
-              {scoped.map((r) => (
-                <li
-                  key={r.id}
-                  className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5"
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => void handleAdd()}
+                  disabled={busy || draft.trim().length === 0}
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg bg-forest-700 hover:bg-forest-800 text-on-accent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingId === r.id ? (
-                    <>
-                      <textarea
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        rows={2}
-                        dir="rtl"
-                        autoFocus
-                        className="w-full resize-none rounded-xl bg-surface-raised border border-surface-border px-3 py-2 text-sm text-ink-100 focus:outline-none focus:border-forest-600"
-                      />
-                      <div className="mt-2 flex gap-2 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => void handleSaveEdit()}
-                          disabled={busy || editText.trim().length === 0}
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-forest-500/60 text-forest-700 hover:bg-forest-500/10 disabled:opacity-50"
-                        >
-                          <Check size={14} />
-                          שמור
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingId(null)}
-                          disabled={busy}
-                          className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-surface-border text-ink-100 hover:bg-surface-raised disabled:opacity-50"
-                        >
-                          <X size={14} />
-                          בטל
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-start gap-2">
-                      <p className="flex-1 min-w-0 text-sm text-ink-100 leading-relaxed">
-                        {r.text}
-                      </p>
-                      <div className="flex gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingId(r.id);
-                            setEditText(r.text);
-                          }}
-                          disabled={busy}
-                          aria-label="ערוך"
-                          title="ערוך"
-                          className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-ink-300 hover:text-ink-100 hover:bg-surface-raised disabled:opacity-50"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDelete(r)}
-                          disabled={busy}
-                          aria-label="מחק"
-                          title="מחק"
-                          className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-red-400/80 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Defaults — read-only reference (dimmed when hidden by the toggle) */}
-          <div className="mt-1">
-            <div className="text-[11px] font-semibold text-ink-300 mb-1.5">
-              שאלות ברירת המחדל
-              {onlyOwn && scoped.length > 0 && (
-                <span className="font-normal"> · מוסתרות כרגע בסוג הזה</span>
-              )}
+                  <Plus size={16} />
+                  הוסף שאלה
+                </button>
+              </div>
             </div>
-            <ul
-              className={`space-y-1 ${
-                onlyOwn && scoped.length > 0 ? 'opacity-40' : ''
-              }`}
-            >
-              {defaults.map((q) => (
-                <li
-                  key={q.id}
-                  className="text-[13px] text-ink-300 leading-relaxed px-3 py-1.5 rounded-xl bg-surface-raised/40"
-                >
-                  {q.text}
-                </li>
-              ))}
-            </ul>
+
+            {rows === null && !error && (
+              <div className="py-6">
+                <CompassLoader size="md" />
+              </div>
+            )}
+
+            {/* The user's own questions (seeded from the defaults on first open) */}
+            {rows !== null && scoped.length === 0 && (
+              <div className="mb-1 rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-6 text-center text-ink-300 text-[13px]">
+                אין שאלות לחזון ה{SCOPE_LABELS[scope]}. הוסף שאלה משלך למעלה.
+              </div>
+            )}
+            {scoped.length > 0 && (
+              <ul className="space-y-2 mb-1">
+                {scoped.map((r) => (
+                  <li
+                    key={r.id}
+                    className="rounded-2xl border border-surface-border bg-surface-card px-3 py-2.5"
+                  >
+                    {editingId === r.id ? (
+                      <>
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          rows={2}
+                          dir="rtl"
+                          autoFocus
+                          className="w-full resize-none rounded-xl bg-surface-raised border border-surface-border px-3 py-2 text-sm text-ink-100 focus:outline-none focus:border-forest-600"
+                        />
+                        <div className="mt-2 flex gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => void handleSaveEdit()}
+                            disabled={busy || editText.trim().length === 0}
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-forest-500/60 text-forest-700 hover:bg-forest-500/10 disabled:opacity-50"
+                          >
+                            <Check size={14} />
+                            שמור
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(null)}
+                            disabled={busy}
+                            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border border-surface-border text-ink-100 hover:bg-surface-raised disabled:opacity-50"
+                          >
+                            <X size={14} />
+                            בטל
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-start gap-2">
+                        <p className="flex-1 min-w-0 text-sm text-ink-100 leading-relaxed">
+                          {r.text}
+                        </p>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(r.id);
+                              setEditText(r.text);
+                            }}
+                            disabled={busy}
+                            aria-label="ערוך"
+                            title="ערוך"
+                            className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-ink-300 hover:text-ink-100 hover:bg-surface-raised disabled:opacity-50"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDelete(r)}
+                            disabled={busy}
+                            aria-label="מחק"
+                            title="מחק"
+                            className="w-7 h-7 inline-flex items-center justify-center rounded-lg text-red-400/80 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
