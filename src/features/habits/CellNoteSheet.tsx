@@ -2,28 +2,36 @@
 // CellNoteSheet — the compact popup opened by LONG-PRESSING a habit day-cell.
 // ----------------------------------------------------------------------------
 // Lets the user attach extra documentation to that single (habit, date):
-//   • a SYMBOL — an emoji typed on the keyboard OR a quick-pick from the set,
-//   • a COLOR — a tint override for the cell,
+//   • a SYMBOL — one of a few quick emojis,
+//   • a COLOR — three shades of the habit's OWN colour, plus grey,
 //   • free TEXT — when present the cell shows a small white dot (like vision).
-// Engineered to stay SMALL: everything on a few tight rows, no wasted height.
+// Centred on the page and engineered to stay SMALL: symbols + colours share a
+// single row.
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { HabitIcon, isLucideIconName } from './HabitIcon';
-import { HABIT_COLORS, type Habit, type HabitCellNote } from './types';
+import { HabitIcon } from './HabitIcon';
+import type { Habit, HabitCellNote } from './types';
 import type { CellNoteInput } from './cellNotes';
 
-// Documentation-oriented quick picks (emojis render via <HabitIcon/>).
-const QUICK_SYMBOLS: readonly string[] = [
-  '✅', '⭐', '🔥', '💪', '🏃', '😊', '😌', '😴', '🤒', '💊',
-  '❤️', '💧', '🥗', '📝', '🎯', '📈', '⚠️', '❌',
-];
+// The only quick-pick symbols (emojis render via <HabitIcon/>).
+const QUICK_SYMBOLS: readonly string[] = ['✅', '⭐', '🔥'];
 
-// A compact colour set (subset of the habit palette) + a "none" choice.
-const SWATCHES: readonly string[] = [
-  '#F76C6C', '#F2994A', '#F2C94C', '#4ED371', '#27AE92',
-  '#22BCDB', '#2D8FDE', '#6962F2', '#A175F2', '#EB80B5', '#8E9296',
-].filter((hex) => HABIT_COLORS.some((c) => c.hex === hex));
+const GREY = '#8E9296';
+
+/** Shift a hex colour toward white (t > 0) or black (t < 0). */
+function shadeHex(hex: string, t: number): string {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  const to = t > 0 ? 255 : 0;
+  const amt = Math.min(1, Math.abs(t));
+  const ch = (i: number) => {
+    const c = parseInt(h.slice(i, i + 2), 16);
+    const m = Math.round(c + (to - c) * amt);
+    return m.toString(16).padStart(2, '0');
+  };
+  return `#${ch(0)}${ch(2)}${ch(4)}`;
+}
 
 function formatDate(dateStr: string): string {
   const [, m, d] = dateStr.split('-').map(Number);
@@ -54,9 +62,14 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
   }, []);
 
   const hasText = text.trim().length > 0;
-  // The emoji field mirrors `symbol` only when it's an emoji (not a picked
-  // Lucide icon) — so typing swaps the icon out for an emoji cleanly.
-  const emojiValue = symbol && !isLucideIconName(symbol) ? symbol : '';
+
+  // Three shades of the habit's own colour + grey.
+  const swatches = [
+    shadeHex(habit.color, -0.3),
+    habit.color,
+    shadeHex(habit.color, 0.32),
+    GREY,
+  ];
 
   const commit = async (input: CellNoteInput) => {
     setBusy(true);
@@ -75,12 +88,12 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
       onClick={() => armed && onClose()}
       dir="rtl"
     >
       <div
-        className="w-full max-w-sm bg-surface-card rounded-t-2xl p-4 space-y-3 shadow-2xl"
+        className="w-full max-w-sm bg-surface-card rounded-2xl p-4 space-y-3 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — live preview of the cell + habit name/date + close. */}
@@ -112,56 +125,43 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
           </button>
         </div>
 
-        {/* Symbol — keyboard emoji + quick picks. */}
-        <div className="flex items-center gap-2">
-          <input
-            value={emojiValue}
-            onChange={(e) => setSymbol(e.target.value.trim() || null)}
-            inputMode="text"
-            maxLength={8}
-            placeholder="😀"
-            aria-label="אימוג'י מהמקלדת"
-            className="shrink-0 w-11 h-9 text-center text-lg rounded-lg bg-surface-raised ring-1 ring-surface-border focus:ring-forest-600 outline-none"
-          />
-          <div className="flex-1 min-w-0 overflow-x-auto vision-habits-scroll">
-            <div className="flex items-center gap-1.5 min-w-max">
-              {QUICK_SYMBOLS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setSymbol((cur) => (cur === s ? null : s))}
-                  className={`shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg transition-all ${
-                    symbol === s
-                      ? 'bg-forest-700/25 ring-1 ring-forest-700'
-                      : 'bg-surface-raised hover:ring-1 hover:ring-ink-300'
-                  }`}
-                >
-                  <HabitIcon name={s} size={18} />
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Symbols + colours — one compact row. */}
+        <div className="flex items-center gap-2 overflow-x-auto vision-habits-scroll">
+          {QUICK_SYMBOLS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSymbol((cur) => (cur === s ? null : s))}
+              className={`shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg transition-all ${
+                symbol === s
+                  ? 'bg-forest-700/25 ring-1 ring-forest-700'
+                  : 'bg-surface-raised hover:ring-1 hover:ring-ink-300'
+              }`}
+            >
+              <HabitIcon name={s} size={18} />
+            </button>
+          ))}
 
-        {/* Colour — swatches + "none". */}
-        <div className="flex items-center gap-1.5 overflow-x-auto vision-habits-scroll">
+          <div className="w-px h-6 bg-surface-border shrink-0 mx-0.5" />
+
+          {/* Clear colour. */}
           <button
             type="button"
             onClick={() => setColor(null)}
             aria-label="ללא צבע"
-            className={`shrink-0 w-6 h-6 rounded-full border border-surface-border text-[10px] text-ink-300 inline-flex items-center justify-center ${
+            className={`shrink-0 w-7 h-7 rounded-full border border-surface-border text-ink-300 inline-flex items-center justify-center ${
               color === null ? 'ring-2 ring-ink-100' : ''
             }`}
           >
             <X size={12} />
           </button>
-          {SWATCHES.map((hex) => (
+          {swatches.map((hex) => (
             <button
               key={hex}
               type="button"
               onClick={() => setColor(hex)}
               aria-label={`צבע ${hex}`}
-              className={`shrink-0 w-6 h-6 rounded-full transition-transform ${
+              className={`shrink-0 w-7 h-7 rounded-full transition-transform ${
                 color === hex ? 'ring-2 ring-ink-100 scale-110' : ''
               }`}
               style={{ backgroundColor: hex }}
