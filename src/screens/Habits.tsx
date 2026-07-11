@@ -47,6 +47,7 @@ import {
 import {
   SLOT_INDEXES,
   type Habit,
+  type HabitCellNote,
   type LogStatus,
   type SlotIndex,
   type SlotView,
@@ -56,6 +57,9 @@ import { HabitDescription } from '../features/habits/HabitDescription';
 import { HabitPickerSheet } from '../features/habits/HabitPickerSheet';
 import { HabitDetailSheet } from '../features/habits/HabitDetailSheet';
 import { ArchiveSheet } from '../features/habits/ArchiveSheet';
+import { CellNoteSheet } from '../features/habits/CellNoteSheet';
+import { useCellNotes } from '../features/habits/useCellNotes';
+import type { CellNoteInput } from '../features/habits/cellNotes';
 import {
   displayPoints,
   isDateLockedV2,
@@ -123,6 +127,10 @@ export function Habits() {
   // — UI updates immediately and persists in the background. No refetching.
   const data = useHabitData(user?.id ?? null);
 
+  // Per-cell notes (long-press a day cell). Isolated from useHabitData so a
+  // failure here can never break the grid — see useCellNotes / cellNotes.ts.
+  const cellNotes = useCellNotes(user?.id ?? null);
+
   // Derive slots for the visible week and for today (used by + button +
   // monthly heatmap which always shows the user's CURRENT habits).
   const weekSlots = useMemo(
@@ -140,6 +148,8 @@ export function Habits() {
   const [detailHabit, setDetailHabit] = useState<Habit | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  // The cell whose note popup is open (long-press target), or null.
+  const [noteTarget, setNoteTarget] = useState<{ habit: Habit; date: string } | null>(null);
 
   const handleCellClick = async (
     habit: Habit,
@@ -391,6 +401,8 @@ export function Habits() {
           onReorder={data.reorderHabits}
           onOpenArchive={() => setArchiveOpen(true)}
           onArchiveHabit={data.archiveHabit}
+          getNote={cellNotes.getNote}
+          onLongPressCell={(habit, date) => setNoteTarget({ habit, date })}
         />
       )}
       {data.status === 'ready' && viewMode === 'data' && (
@@ -485,6 +497,19 @@ export function Habits() {
           await data.deleteHabitPermanently(id);
         }}
       />
+
+      {/* Per-cell note popup (long-press a day cell). */}
+      {noteTarget && (
+        <CellNoteSheet
+          habit={noteTarget.habit}
+          date={noteTarget.date}
+          note={cellNotes.getNote(noteTarget.habit.id, noteTarget.date)}
+          onClose={() => setNoteTarget(null)}
+          onSave={(input: CellNoteInput) =>
+            cellNotes.saveNote(noteTarget.habit.id, noteTarget.date, input)
+          }
+        />
+      )}
     </section>
   );
 }
@@ -568,6 +593,8 @@ function HabitsList({
   onReorder,
   onOpenArchive,
   onArchiveHabit,
+  getNote,
+  onLongPressCell,
 }: {
   slots: SlotView[];
   days: Date[];
@@ -585,6 +612,9 @@ function HabitsList({
   onReorder: (orderedHabitIds: string[]) => Promise<void>;
   onOpenArchive: () => void;
   onArchiveHabit: (habitId: string) => Promise<void>;
+  /** Per-cell note lookup + long-press handler (opens the note popup). */
+  getNote: (habitId: string, date: string) => HabitCellNote | undefined;
+  onLongPressCell: (habit: Habit, date: string) => void;
 }) {
   const effectiveFor = (habitId: string, dateStr: string): LogStatus | undefined => {
     const r = stats?.byHabit.get(habitId);
@@ -648,6 +678,8 @@ function HabitsList({
             totalPoints={displayPoints(pointsByHabit?.get(slot.habit!.id) ?? 0)}
             onShowDetail={() => onShowDetail(slot.habit!)}
             onMarkCell={onMarkCell}
+            getNote={getNote}
+            onLongPressCell={onLongPressCell}
             dragHandleRef={dragHandleRef}
             dragListeners={dragListeners}
           />
@@ -893,6 +925,8 @@ function HabitRow({
   totalPoints,
   onShowDetail,
   onMarkCell,
+  getNote,
+  onLongPressCell,
   dragHandleRef,
   dragListeners,
 }: {
@@ -909,6 +943,8 @@ function HabitRow({
     currentMark: LogStatus | undefined,
     currentAmount: number | null | undefined,
   ) => void;
+  getNote: (habitId: string, date: string) => HabitCellNote | undefined;
+  onLongPressCell: (habit: Habit, date: string) => void;
   dragHandleRef?: DragHandleRef;
   dragListeners?: DragHandleListeners;
 }) {
@@ -1072,7 +1108,9 @@ function HabitRow({
                   isToday={isToday}
                   disabled={future}
                   streakDepth={streakDepth}
+                  note={getNote(habit.id, dateStr)}
                   onClick={() => onMarkCell(habit, dateStr, mark, amount)}
+                  onLongPress={() => onLongPressCell(habit, dateStr)}
                 />
               );
             });
@@ -1220,7 +1258,9 @@ function DayCell({
   isToday,
   disabled,
   streakDepth,
+  note,
   onClick,
+  onLongPress,
 }: {
   habit: Habit;
   mark: LogStatus | undefined;
@@ -1238,9 +1278,51 @@ function DayCell({
    *   0 = not in a missed streak
    *  1+ = Nth consecutive blank day → progressively redder background */
   streakDepth: number;
+  /** The user's per-cell note (long-press), or undefined. */
+  note?: HabitCellNote;
   onClick: () => void;
+  /** Long-press (500ms) opens the note popup. */
+  onLongPress?: () => void;
 }) {
   const isQuant = habit.is_quantitative;
+
+  // Long-press detection (pointer-based). A short tap marks the cell; holding
+  // ~500ms without moving opens the note popup and SUPPRESSES the tap-mark. A
+  // move > ~10px cancels it, so page scrolling still works.
+  const lpTimer = useRef<number | null>(null);
+  const lpFired = useRef(false);
+  const lpStart = useRef<{ x: number; y: number } | null>(null);
+  const clearLp = () => {
+    if (lpTimer.current !== null) {
+      clearTimeout(lpTimer.current);
+      lpTimer.current = null;
+    }
+  };
+  useEffect(() => () => clearLp(), []);
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (disabled || !onLongPress) return;
+    lpFired.current = false;
+    lpStart.current = { x: e.clientX, y: e.clientY };
+    clearLp();
+    lpTimer.current = window.setTimeout(() => {
+      lpFired.current = true;
+      onLongPress();
+    }, 500);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = lpStart.current;
+    if (!s) return;
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (dx * dx + dy * dy > 100) clearLp(); // moved > ~10px → cancel
+  };
+  const handleClick = () => {
+    if (lpFired.current) {
+      lpFired.current = false;
+      return; // the long-press already handled this interaction
+    }
+    onClick();
+  };
 
   // Days before the habit's start_date: render as a regular muted blank
   // tile (same tint as a fresh post-start day), but with NO red streak
@@ -1353,18 +1435,35 @@ function DayCell({
     }
   }
 
+  // Per-cell note overlays: a note colour overrides the tint, a note symbol
+  // replaces the cell's default content, and free text shows a white dot in
+  // the corner (mirrors the vision "written" marker).
+  if (note?.color) style = { ...style, backgroundColor: note.color };
+  if (note?.symbol) {
+    content = <HabitIcon name={note.symbol} size={16} className="text-cream-50" />;
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={handleClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={clearLp}
+      onPointerLeave={clearLp}
+      onPointerCancel={clearLp}
+      onContextMenu={(e) => e.preventDefault()}
       disabled={disabled}
-      className={`w-full aspect-square rounded-md flex items-center justify-center transition-colors ${
+      className={`relative w-full aspect-square rounded-md flex items-center justify-center transition-colors select-none ${
         disabled ? 'opacity-50 cursor-default' : 'hover:brightness-110'
       }`}
       style={style}
       aria-label="סמן יום"
     >
       {content}
+      {note?.text && (
+        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-white pointer-events-none" />
+      )}
     </button>
   );
 }

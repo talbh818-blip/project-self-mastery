@@ -105,6 +105,18 @@ export type HabitLog = {
   earned_points: number | null;
 };
 
+// A per-cell note (long-press a day cell). Personal extra documentation on one
+// (habit, date). Stored in its OWN table, never touches habit_logs / scoring.
+export type HabitCellNote = {
+  habit_id: string;
+  date: string; // YYYY-MM-DD
+  text: string | null;
+  /** emoji char OR Lucide icon name (rendered by <HabitIcon/>); null = none. */
+  symbol: string | null;
+  /** hex tint override for the cell; null = keep the status colour. */
+  color: string | null;
+};
+
 // What renders inside a single slot column for a given week.
 export type SlotView = {
   slot_index: SlotIndex;
