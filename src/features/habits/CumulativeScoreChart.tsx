@@ -89,18 +89,19 @@ export function CumulativeScoreChart({
   const last = displayed[displayed.length - 1].value;
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
-      <div className="flex items-baseline justify-between mb-2">
-        <h3 className="text-[11px] uppercase tracking-wider text-ink-100">
+      {/* Header row: title on the visual right (RTL: first child), the mode
+          toggle in the middle, and the running total on the visual left.
+          Compact icon-only toggle so the row still fits on the narrowest
+          phones. Full labels are attached as tooltips. */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <h3 className="text-[11px] uppercase tracking-wider text-ink-100 shrink-0">
           נקודות מצטברות
         </h3>
-        <div className="text-sm font-bold text-ink-100 tabular-nums">
+        <ModeToggle mode={mode} onChange={setMode} />
+        <div className="text-sm font-bold text-ink-100 tabular-nums shrink-0">
           {last > 0 ? `+${last}` : last}
         </div>
       </div>
-
-      {/* Mode toggle: עליות בלבד ↔ הכל. Small segmented pill so it never
-          crowds the range selector the parent may also render below. */}
-      <ModeToggle mode={mode} onChange={setMode} />
 
       {headerExtra && <div className="mt-2">{headerExtra}</div>}
 
@@ -129,9 +130,9 @@ export function CumulativeScoreChart({
   );
 }
 
-// Two-option segmented control shared by both callers. Icon-forward so the
-// pill stays narrow even on the smallest phones; the text underneath makes
-// the semantics explicit without a tooltip.
+// Icon-only two-option segmented control that fits inside the chart's
+// header row. Full labels stay as tooltips (title) and screen-reader
+// text so the meaning is still discoverable.
 function ModeToggle({
   mode,
   onChange,
@@ -143,7 +144,7 @@ function ModeToggle({
     <div
       role="radiogroup"
       aria-label="מצב תצוגת גרף"
-      className="inline-flex bg-surface-raised rounded-lg p-0.5 gap-0.5 w-full"
+      className="inline-flex bg-surface-raised rounded-lg p-0.5 gap-0.5 shrink-0"
     >
       <ModeBtn
         active={mode === 'positive'}
@@ -178,14 +179,15 @@ function ModeBtn({
       role="radio"
       aria-checked={active}
       onClick={onClick}
-      className={`flex-1 py-1 rounded-md text-[11px] transition-colors inline-flex items-center justify-center gap-1 ${
+      title={label}
+      aria-label={label}
+      className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
         active
           ? 'bg-forest-700/20 text-forest-700 ring-1 ring-forest-700/45'
           : 'text-ink-300 hover:text-ink-100'
       }`}
     >
       {icon}
-      {label}
     </button>
   );
 }
