@@ -86,13 +86,14 @@ export function CumulativeScoreChart({
       .join(' ') +
     ` L ${padX + (displayed.length - 1) * xStep} ${H - padY} Z`;
 
-  const last = displayed[displayed.length - 1].value;
+  // V2 earnings and settlements arrive as fractional values (e.g. 1857.42),
+  // so round the displayed total to a plain integer — mirroring how every
+  // score elsewhere in the app is shown.
+  const last = Math.round(displayed[displayed.length - 1].value);
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
       {/* Header row: title on the visual right (RTL: first child), the mode
-          toggle in the middle, and the running total on the visual left.
-          Compact icon-only toggle so the row still fits on the narrowest
-          phones. Full labels are attached as tooltips. */}
+          toggle in the middle, and the running total on the visual left. */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <h3 className="text-[11px] uppercase tracking-wider text-ink-100 shrink-0">
           נקודות מצטברות
@@ -130,9 +131,10 @@ export function CumulativeScoreChart({
   );
 }
 
-// Icon-only two-option segmented control that fits inside the chart's
-// header row. Full labels stay as tooltips (title) and screen-reader
-// text so the meaning is still discoverable.
+// Two-option segmented control inside the chart's header row. Each button
+// shows a small icon + short Hebrew label so meaning reads at a glance
+// without hovering. Text is intentionally small (10.5px) so the row keeps
+// fitting between title and total on the narrowest phones.
 function ModeToggle({
   mode,
   onChange,
@@ -149,13 +151,13 @@ function ModeToggle({
       <ModeBtn
         active={mode === 'positive'}
         onClick={() => onChange('positive')}
-        icon={<TrendingUp size={12} strokeWidth={2.2} />}
+        icon={<TrendingUp size={11} strokeWidth={2.2} />}
         label="עליות בלבד"
       />
       <ModeBtn
         active={mode === 'all'}
         onClick={() => onChange('all')}
-        icon={<Activity size={12} strokeWidth={2.2} />}
+        icon={<Activity size={11} strokeWidth={2.2} />}
         label="כולל ירידות"
       />
     </div>
@@ -181,13 +183,14 @@ function ModeBtn({
       onClick={onClick}
       title={label}
       aria-label={label}
-      className={`w-6 h-6 rounded-md flex items-center justify-center transition-colors ${
+      className={`h-6 px-2 rounded-md inline-flex items-center gap-1 text-[10.5px] transition-colors ${
         active
           ? 'bg-forest-700/20 text-forest-700 ring-1 ring-forest-700/45'
           : 'text-ink-300 hover:text-ink-100'
       }`}
     >
       {icon}
+      <span>{label}</span>
     </button>
   );
 }
