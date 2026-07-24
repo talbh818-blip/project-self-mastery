@@ -110,10 +110,12 @@ export function CumulativeScoreChart({
       .join(' ') +
     ` L ${padX + (displayed.length - 1) * xStep} ${H - padY} Z`;
 
-  // V2 earnings and settlements arrive as fractional values (e.g. 1857.42),
-  // so round the displayed total to a plain integer — mirroring how every
-  // score elsewhere in the app is shown.
-  const last = Math.round(displayed[displayed.length - 1].value);
+  // Header total is a fact about the user's score TODAY, not about the
+  // rendering mode — so it stays pinned to the true cumulative value even
+  // when the line is drawn in "עליות בלבד" mode (where the raw series
+  // skips drops and would otherwise inflate above the real score).
+  // Always derive from the raw "all" series, then apply the same offset.
+  const last = Math.round(points[points.length - 1].value + baseOffset);
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
       {/* Header row: title on the visual right (RTL: first child), the mode
