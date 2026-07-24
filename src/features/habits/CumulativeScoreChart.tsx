@@ -48,24 +48,48 @@ function toPositiveOnly(points: PointSeries): PointSeries {
 export function CumulativeScoreChart({
   points,
   headerExtra,
+  baseOffset = 0,
 }: {
   points: PointSeries;
   headerExtra?: ReactNode;
+  /**
+   * Constant to add to every point's y-value before rendering. Used to
+   * fold profiles.score_adjustment into the trend so the chart's last
+   * number matches the score number shown everywhere else in the app.
+   * Defaults to 0 — callers that don't have an adjustment can ignore it.
+   */
+  baseOffset?: number;
 }) {
   const [mode, setMode] = useState<Mode>('all');
 
   // Derive the visible series — the "positive" variant is cheap to recompute
   // whenever `points` changes so we don't need to lift it to the caller.
+  // baseOffset shifts every point uniformly; the line shape stays intact.
   const positiveSeries = useMemo(
     () => (points.length > 0 ? toPositiveOnly(points) : []),
     [points],
   );
-  const displayed = mode === 'positive' ? positiveSeries : points;
+  const rawDisplayed = mode === 'positive' ? positiveSeries : points;
+  const displayed = useMemo(
+    () =>
+      baseOffset === 0
+        ? rawDisplayed
+        : rawDisplayed.map((p) => ({ date: p.date, value: p.value + baseOffset })),
+    [rawDisplayed, baseOffset],
+  );
 
   if (displayed.length === 0) return null;
 
-  const min = Math.min(0, ...displayed.map((p) => p.value));
-  const max = Math.max(0, ...displayed.map((p) => p.value));
+  // Y-axis auto-zoom. Fitting the raw data range (instead of clamping min to
+  // 0) is what makes small drops actually visible — otherwise a −20 dip
+  // against a +2900 total collapses into a sub-pixel wiggle. We keep 0 in
+  // the range only when the series legitimately crosses zero (goes negative
+  // or starts there), so the line's polarity still reads at a glance.
+  const values = displayed.map((p) => p.value);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values);
+  const min = rawMin < 0 ? Math.min(0, rawMin) : rawMin;
+  const max = rawMax > 0 ? Math.max(0, rawMax) : rawMax;
   const W = 320;
   const H = 80;
   const padX = 4;

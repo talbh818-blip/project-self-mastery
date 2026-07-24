@@ -1947,8 +1947,13 @@ function DataView({
         />
       </div>
 
-      {/* Cumulative score over the range */}
-      <CumulativeScoreChart points={cumulativePoints} />
+      {/* Cumulative score over the range. baseOffset folds in the admin
+          score_adjustment so the chart's total matches the number the
+          tree card / everywhere else in the UI shows. */}
+      <CumulativeScoreChart
+        points={cumulativePoints}
+        baseOffset={profile?.score_adjustment ?? 0}
+      />
 
       {/* Day-of-week pattern */}
       <WeekdayBars counts={weekdayVCount} />

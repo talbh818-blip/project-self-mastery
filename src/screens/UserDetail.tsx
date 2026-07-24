@@ -155,8 +155,14 @@ export function UserDetail() {
               </div>
             </div>
 
-            {/* Cumulative points trend — same chart as the owner's Habits view */}
-            <CumulativePointsCard daily={data.daily_points ?? []} />
+            {/* Cumulative points trend — same chart as the owner's Habits view.
+                Passing the RPC's `score` lets the card offset every plotted
+                value so the chart's ending total lands exactly on it — the
+                daily_points series alone doesn't include score_adjustment. */}
+            <CumulativePointsCard
+              daily={data.daily_points ?? []}
+              currentScore={data.score}
+            />
 
             <div className="bg-surface-card rounded-2xl p-5 space-y-3">
               <h2 className="text-sm font-semibold text-ink-100">עקביות (חצי שנה אחרונה)</h2>
@@ -204,10 +210,16 @@ const POINTS_RANGE_LABEL: Record<PointsRange, string> = {
   '365d': 'השנה',
 };
 
-function CumulativePointsCard({ daily }: { daily: DailyPoints[] }) {
+function CumulativePointsCard({
+  daily,
+  currentScore,
+}: {
+  daily: DailyPoints[];
+  currentScore: number;
+}) {
   const [range, setRange] = useState<PointsRange>('30d');
 
-  const points = useMemo(() => {
+  const { points, baseOffset } = useMemo(() => {
     const days = POINTS_RANGE_DAYS[range];
     const byDate = new Map(daily.map((d) => [d.date, d.points]));
     const start = new Date();
@@ -215,14 +227,21 @@ function CumulativePointsCard({ daily }: { daily: DailyPoints[] }) {
     start.setDate(start.getDate() - days + 1);
     const series: { date: Date; value: number }[] = [];
     let running = 0;
+    let rangeSum = 0;
     for (let i = 0; i < days; i++) {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
-      running += byDate.get(toDateStr(d)) ?? 0;
+      const delta = byDate.get(toDateStr(d)) ?? 0;
+      running += delta;
+      rangeSum += delta;
       series.push({ date: d, value: running });
     }
-    return series;
-  }, [daily, range]);
+    // Offset chosen so `series[last].value + baseOffset === currentScore`.
+    // That folds in score_adjustment (which lives in `score` but not in
+    // daily_points) and any drift from history that spills before the range,
+    // so the chart's end always matches the number in the user's stats card.
+    return { points: series, baseOffset: currentScore - rangeSum };
+  }, [daily, range, currentScore]);
 
   const toggle = (
     <div
@@ -252,7 +271,13 @@ function CumulativePointsCard({ daily }: { daily: DailyPoints[] }) {
     </div>
   );
 
-  return <CumulativeScoreChart points={points} headerExtra={toggle} />;
+  return (
+    <CumulativeScoreChart
+      points={points}
+      headerExtra={toggle}
+      baseOffset={baseOffset}
+    />
+  );
 }
 
 // Date → "YYYY-MM-DD" in local time (matches the RPC's per-day keys).
