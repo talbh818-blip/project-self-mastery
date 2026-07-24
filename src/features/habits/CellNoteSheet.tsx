@@ -2,17 +2,23 @@
 // CellNoteSheet — the compact popup opened by LONG-PRESSING a habit day-cell.
 // ----------------------------------------------------------------------------
 // Lets the user attach extra documentation to that single (habit, date):
-//   • a SYMBOL — one of a few quick emojis,
+//   • a SYMBOL — a quick emoji OR a white PATTERN (stripes / dots / …),
 //   • a COLOR — three shades of the habit's OWN colour, plus grey,
 //   • free TEXT — when present the cell shows a small white dot (like vision).
-// Centred on the page and engineered to stay SMALL: symbols + colours share a
-// single row.
+// Centred on the page and engineered to stay SMALL: one row of patterns, one
+// row of emojis + colours.
 // ============================================================================
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { HabitIcon } from './HabitIcon';
 import type { Habit, HabitCellNote } from './types';
 import type { CellNoteInput } from './cellNotes';
+import {
+  PATTERN_NAMES,
+  patternNameOf,
+  patternStyle,
+  patternSymbol,
+} from './cellPatterns';
 
 // The only quick-pick symbols (emojis render via <HabitIcon/>).
 const QUICK_SYMBOLS: readonly string[] = ['✅', '⭐', '🔥'];
@@ -62,6 +68,7 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
   }, []);
 
   const hasText = text.trim().length > 0;
+  const patName = patternNameOf(symbol);
 
   // Three shades of the habit's own colour + grey. NONE equals habit.color
   // itself — that's the cell's DEFAULT tint, so offering it as a choice is
@@ -101,10 +108,12 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
         {/* Header — live preview of the cell + habit name/date + close. */}
         <div className="flex items-center gap-2.5">
           <div
-            className="relative w-9 h-9 rounded-md flex items-center justify-center shrink-0"
+            className="relative w-9 h-9 rounded-md flex items-center justify-center shrink-0 overflow-hidden"
             style={{ backgroundColor: color ?? habit.color }}
           >
-            {symbol ? (
+            {patName ? (
+              <span className="absolute inset-0" style={patternStyle(patName)} />
+            ) : symbol ? (
               <HabitIcon name={symbol} size={20} className="text-cream-50" />
             ) : null}
             {hasText && (
@@ -127,20 +136,42 @@ export function CellNoteSheet({ habit, date, note, onClose, onSave }: Props) {
           </button>
         </div>
 
-        {/* Symbols + colours — one compact row. */}
+        {/* Patterns — white textures previewed on the habit colour. */}
+        <div className="flex items-center gap-1.5 overflow-x-auto vision-habits-scroll">
+          {PATTERN_NAMES.map((name) => {
+            const sym = patternSymbol(name);
+            const on = symbol === sym;
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => setSymbol((cur) => (cur === sym ? null : sym))}
+                aria-label={`תבנית ${name}`}
+                className={`relative shrink-0 w-7 h-7 rounded-lg overflow-hidden transition-all ${
+                  on ? 'ring-2 ring-ink-100' : 'hover:ring-1 hover:ring-ink-300'
+                }`}
+                style={{ backgroundColor: habit.color }}
+              >
+                <span className="absolute inset-0" style={patternStyle(name)} />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Emojis + colours — one compact row. */}
         <div className="flex items-center gap-2 overflow-x-auto vision-habits-scroll">
           {QUICK_SYMBOLS.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setSymbol((cur) => (cur === s ? null : s))}
-              className={`shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg transition-all ${
+              className={`shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-lg transition-all ${
                 symbol === s
                   ? 'bg-forest-700/25 ring-1 ring-forest-700'
                   : 'bg-surface-raised hover:ring-1 hover:ring-ink-300'
               }`}
             >
-              <HabitIcon name={s} size={18} />
+              <HabitIcon name={s} size={17} />
             </button>
           ))}
 

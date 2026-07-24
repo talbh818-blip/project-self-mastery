@@ -60,6 +60,7 @@ import { ArchiveSheet } from '../features/habits/ArchiveSheet';
 import { CellNoteSheet } from '../features/habits/CellNoteSheet';
 import { useCellNotes } from '../features/habits/useCellNotes';
 import type { CellNoteInput } from '../features/habits/cellNotes';
+import { patternNameOf, patternStyle } from '../features/habits/cellPatterns';
 import {
   displayPoints,
   isDateLockedV2,
@@ -1439,7 +1440,12 @@ function DayCell({
   // replaces the cell's default content, and free text shows a white dot in
   // the corner (mirrors the vision "written" marker).
   if (note?.color) style = { ...style, backgroundColor: note.color };
-  if (note?.symbol) {
+  // A note symbol is EITHER a white pattern ("pat:…") drawn as an overlay, or
+  // an emoji/icon shown centred.
+  const patName = patternNameOf(note?.symbol);
+  if (patName) {
+    content = null; // the pattern fills the cell
+  } else if (note?.symbol) {
     content = <HabitIcon name={note.symbol} size={16} className="text-cream-50" />;
   }
 
@@ -1454,13 +1460,19 @@ function DayCell({
       onPointerCancel={clearLp}
       onContextMenu={(e) => e.preventDefault()}
       disabled={disabled}
-      className={`relative w-full aspect-square rounded-md flex items-center justify-center transition-colors select-none ${
+      className={`relative w-full aspect-square rounded-md flex items-center justify-center transition-colors select-none overflow-hidden ${
         disabled ? 'opacity-50 cursor-default' : 'hover:brightness-110'
       }`}
       style={style}
       aria-label="סמן יום"
     >
       {content}
+      {patName && (
+        <span
+          className="absolute inset-0 pointer-events-none"
+          style={patternStyle(patName)}
+        />
+      )}
       {note?.text && (
         <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-white pointer-events-none" />
       )}
