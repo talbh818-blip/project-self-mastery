@@ -1878,6 +1878,15 @@ function DataView({
     return { date: d, value: runningTotal };
   });
 
+  // Offset shifting every plotted value so the chart's last number lands
+  // exactly on the true score shown in the tree card. This absorbs every
+  // source of drift automatically — score_adjustment, pre-range V1
+  // history, points from archived habits that dropped out of activeStats
+  // — instead of trying to enumerate them one at a time.
+  const trueTotal =
+    (combined?.totalScore ?? 0) + (profile?.score_adjustment ?? 0);
+  const chartBaseOffset = trueTotal - runningTotal;
+
   // Perfect days — every active habit got a V (only counted if user has >0).
   let perfectDays = 0;
   if (habits.length > 0) {
@@ -1947,12 +1956,13 @@ function DataView({
         />
       </div>
 
-      {/* Cumulative score over the range. baseOffset folds in the admin
-          score_adjustment so the chart's total matches the number the
-          tree card / everywhere else in the UI shows. */}
+      {/* Cumulative score over the range. baseOffset reconciles whatever
+          drift exists between the sum-of-daily-deltas and the true score
+          (score_adjustment, pre-range history, archived-habit points),
+          so the chart's ending number matches the tree card exactly. */}
       <CumulativeScoreChart
         points={cumulativePoints}
-        baseOffset={profile?.score_adjustment ?? 0}
+        baseOffset={chartBaseOffset}
       />
 
       {/* Day-of-week pattern */}
