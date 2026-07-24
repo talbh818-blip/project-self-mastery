@@ -1979,6 +1979,11 @@ function DataView({
               key={habit.id}
               habit={habit}
               stats={stats?.byHabit.get(habit.id) ?? null}
+              // The card's "נק'" line reads from the combined V1+V2 map
+              // (same source the chart total uses) so per-habit numbers
+              // roll up cleanly to the cumulative-points total, instead of
+              // showing V1-only points that no longer match reality.
+              totalPoints={combined?.pointsByHabit.get(habit.id) ?? 0}
               vCountInRange={vCountInRangeByHabit.get(habit.id) ?? 0}
               startDate={startDateByHabit.get(habit.id) ?? null}
               today={today}
@@ -2060,6 +2065,7 @@ function WeekdayBars({ counts }: { counts: number[] }) {
 function HabitDataCard({
   habit,
   stats,
+  totalPoints,
   vCountInRange,
   startDate,
   today,
@@ -2068,6 +2074,13 @@ function HabitDataCard({
 }: {
   habit: Habit;
   stats: HabitScoreResult | null;
+  /**
+   * Combined V1 + V2 total for this habit, sourced from
+   * combined.pointsByHabit so the "נק'" line matches the cumulative-points
+   * chart total. Passed in explicitly so the card doesn't have to know
+   * which scoring engine is in play.
+   */
+  totalPoints: number;
   vCountInRange: number;
   startDate: string | null;
   today: Date;
@@ -2088,7 +2101,8 @@ function HabitDataCard({
   const successRate = effectiveDays > 0
     ? Math.round((vCountInRange / effectiveDays) * 100)
     : 0;
-  const totalPoints = stats?.totalPoints ?? 0;
+  // Round for display: V2 earnings + settlements carry decimals.
+  const displayTotalPoints = Math.round(totalPoints);
 
   // Ultra-compact frequency badge ("2/שבוע"), shown only when it differs from
   // the default once-per-day. Sits inline on the habit-name row.
@@ -2135,14 +2149,14 @@ function HabitDataCard({
       <div className="flex items-center gap-1.5 text-[10px] leading-none">
         <span
           className={`font-medium tabular-nums ${
-            totalPoints > 0
+            displayTotalPoints > 0
               ? 'text-forest-500'
-              : totalPoints < 0
+              : displayTotalPoints < 0
               ? 'text-red-400'
               : 'text-ink-300'
           }`}
         >
-          {totalPoints > 0 ? `+${totalPoints}` : totalPoints} נק׳
+          {displayTotalPoints > 0 ? `+${displayTotalPoints}` : displayTotalPoints} נק׳
         </span>
         {startDate && (
           <>
