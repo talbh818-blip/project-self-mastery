@@ -1968,7 +1968,13 @@ function DataView({
       {/* Day-of-week pattern */}
       <WeekdayBars counts={weekdayVCount} />
 
-      {/* Per-habit grid — 3 columns, each card with key habit metrics */}
+      {/* Per-habit grid — 3 columns, each card with key habit metrics.
+          A small reconciliation line under the grid closes any gap between
+          Σ(visible habit cards) and the chart total. The gap comes from
+          two sources that don't map to a habit card: score_adjustment
+          (admin bump / penalty) and points from habits the user later
+          archived / removed from a slot. We show one combined delta so the
+          arithmetic reads clean without the user having to know why. */}
       <div>
         <h3 className="text-[11px] uppercase tracking-wider text-ink-100 mb-2 px-1">
           לפי הרגל
@@ -1979,10 +1985,6 @@ function DataView({
               key={habit.id}
               habit={habit}
               stats={stats?.byHabit.get(habit.id) ?? null}
-              // The card's "נק'" line reads from the combined V1+V2 map
-              // (same source the chart total uses) so per-habit numbers
-              // roll up cleanly to the cumulative-points total, instead of
-              // showing V1-only points that no longer match reality.
               totalPoints={combined?.pointsByHabit.get(habit.id) ?? 0}
               vCountInRange={vCountInRangeByHabit.get(habit.id) ?? 0}
               startDate={startDateByHabit.get(habit.id) ?? null}
@@ -1992,6 +1994,31 @@ function DataView({
             />
           ))}
         </div>
+        {(() => {
+          const habitCardsSum = orderedHabits.reduce(
+            (s, h) => s + Math.round(combined?.pointsByHabit.get(h.id) ?? 0),
+            0,
+          );
+          const chartTotal = Math.round(trueTotal);
+          const gap = chartTotal - habitCardsSum;
+          if (gap === 0) return null;
+          const sign = gap > 0 ? '+' : '';
+          return (
+            <p className="mt-2 text-[10px] text-ink-300 text-center leading-snug">
+              + התאמת אדמין / הרגלים ישנים:{' '}
+              <span
+                className={`tabular-nums font-medium ${
+                  gap > 0 ? 'text-forest-500' : 'text-red-400'
+                }`}
+              >
+                {sign}
+                {gap}
+              </span>{' '}
+              נק׳ = <span className="text-ink-100 tabular-nums">{chartTotal}</span>{' '}
+              (הניקוד הכולל בגרף)
+            </p>
+          );
+        })()}
       </div>
 
       {/* Yearly heatmap — last 365 days regardless of selected range */}
