@@ -629,6 +629,45 @@ function cellToPlacement(grid: number, i: number, j: number): TreePlacement {
 }
 
 /**
+ * Resolve EVERY planted tree to a DISTINCT cell for a given grid.
+ *
+ * Each tree keeps its stored placement as its preferred cell, but if two trees
+ * resolve to the same spot — which happens after drag/swap rearrangements,
+ * dragging the growing tree before planting, or historical grid-tier crossings
+ * — the later one is bumped to the first free cell in default order. The
+ * `reserved` cell (the currently-growing centre tree) is treated as occupied so
+ * a planted tree can never hide behind the centre sprout.
+ *
+ * This is what keeps `trees_planted` and the number of *visible* trees in sync:
+ * without it, colliding placements stack on top of each other and the plot
+ * looks like it's missing trees. Deterministic — same inputs, same output — so
+ * trees don't jump around between renders.
+ */
+function resolvePlacementsForGrid(
+  grid: number,
+  treesPlanted: number,
+  placements: TreePlacement[],
+  reserved?: [number, number] | null,
+): [number, number][] {
+  const key = (i: number, j: number) => `${i},${j}`;
+  const occupied = new Set<string>();
+  if (reserved) occupied.add(key(reserved[0], reserved[1]));
+  const order = cellsForGrid(grid);
+  const out: [number, number][] = [];
+  for (let k = 0; k < treesPlanted; k++) {
+    let [i, j] = placementToCell(grid, k, placements);
+    if (occupied.has(key(i, j))) {
+      // Preferred cell is taken — fall back to the first free cell.
+      const free = order.find((c) => !occupied.has(key(c[0], c[1])));
+      if (free) [i, j] = [free[0], free[1]];
+    }
+    occupied.add(key(i, j));
+    out.push([i, j]);
+  }
+  return out;
+}
+
+/**
  * Find the (i, j) cell whose centre is closest to the given container-%
  * point. Brute-force over all cells — fast enough for grids up to 9×9.
  */
@@ -744,14 +783,17 @@ function IsometricField({
   const effectivePlacements = optimistic ?? placements;
 
   // Resolve each planted tree to its concrete cell. We freeze a snapshot
-  // at render time so the drag-overlay calculations stay consistent.
-  const resolvedCells = useMemo(() => {
-    const out: [number, number][] = [];
-    for (let k = 0; k < treesPlanted; k++) {
-      out.push(placementToCell(grid, k, effectivePlacements));
-    }
-    return out;
-  }, [treesPlanted, effectivePlacements, grid]);
+  // at render time so the drag-overlay calculations stay consistent. The
+  // resolver de-collides overlapping placements (and keeps the growing tree's
+  // cell clear) so every planted tree gets a distinct, visible spot.
+  const growingKey = `${growingCell[0]},${growingCell[1]}`;
+  const resolvedCells = useMemo(
+    () =>
+      resolvePlacementsForGrid(grid, treesPlanted, effectivePlacements, growingCell),
+    // growingCell is a fresh array each render — key by its contents instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [treesPlanted, effectivePlacements, grid, growingKey],
+  );
 
   // ── Drag interaction (ref-based, direct-DOM positioning) ─────────────────
   //
@@ -1481,28 +1523,43 @@ function TreeFieldModal({
       );
     } else {
       const targetCount = treesPlanted + 1;
-      // Compute the new tree's default placement in the grid the user will
-      // see AFTER the increment (in case crossing a tier expands the grid).
+      // Compute the new tree's placement in the grid the user will see AFTER
+      // the increment (in case crossing a tier expands the grid).
       const nextGrid = gridSizeFor(targetCount);
-      const defaults = cellsForGrid(nextGrid);
-      // Pad existing placements with their resolved cells in the new grid so
-      // a tier-expansion crossing stays visually consistent. Then append the
-      // new tree's default cell.
-      const padded: TreePlacement[] = [];
-      for (let k = 0; k < treesPlanted; k++) {
-        const [i, j] = placementToCell(nextGrid, k, treePlacements);
-        padded.push(cellToPlacement(nextGrid, i, j));
-      }
-      // Plant the new tree where the user has been growing it. If they never
-      // dragged the growing tree off-centre, fall back to the next default
-      // cell — the centre is reserved for the *next* seed, never a planted
-      // tree.
+      const center = gridCenter(nextGrid);
+      const cellKey = (i: number, j: number) => `${i},${j}`;
+      // Resolve existing trees to DISTINCT cells first (this also heals any
+      // historical overlaps), reserving the centre for the next seed.
+      const existing = resolvePlacementsForGrid(
+        nextGrid,
+        treesPlanted,
+        treePlacements,
+        [center, center],
+      );
+      const occupied = new Set(existing.map(([i, j]) => cellKey(i, j)));
+      occupied.add(cellKey(center, center)); // centre stays reserved
+      // Plant the new tree where the user has been growing it, but only if that
+      // cell is actually free; otherwise take the first free cell. This
+      // guarantees the new tree never lands on top of an existing one — the
+      // bug where planting appeared to leave the tree count unchanged.
       const off = growingPlacement;
-      const [ni, nj] =
+      const preferred: [number, number] | null =
         off && (off.di !== 0 || off.dj !== 0)
-          ? [gridCenter(nextGrid) + off.di, gridCenter(nextGrid) + off.dj]
-          : defaults[treesPlanted] ?? [gridCenter(nextGrid), gridCenter(nextGrid)];
-      padded.push(cellToPlacement(nextGrid, ni, nj));
+          ? [center + off.di, center + off.dj]
+          : null;
+      let target: [number, number];
+      if (preferred && !occupied.has(cellKey(preferred[0], preferred[1]))) {
+        target = preferred;
+      } else {
+        const free = cellsForGrid(nextGrid).find(
+          (c) => !occupied.has(cellKey(c[0], c[1])),
+        );
+        target = free ?? [center, center];
+      }
+      const padded: TreePlacement[] = [
+        ...existing.map(([i, j]) => cellToPlacement(nextGrid, i, j)),
+        cellToPlacement(nextGrid, target[0], target[1]),
+      ];
 
       // V2 economy: record the planting in the ledger with the price paid
       // (this month's ladder position). The bank math subtracts ledger
