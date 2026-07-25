@@ -11,6 +11,7 @@ import {
   MessageSquare,
   PlayCircle,
   HelpCircle,
+  GripVertical,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -28,6 +29,7 @@ import { FeedbackAdminPanel } from './FeedbackAdminPanel';
 import { VisionQuestionsAdminPanel } from './VisionQuestionsAdminPanel';
 import { UserEditSheet } from './UserEditSheet';
 import { useOpenTickets } from './OpenTicketsContext';
+import { useVisionLayoutPref } from '../vision/useVisionLayoutPref';
 
 type Row = {
   profile: Profile;
@@ -45,6 +47,11 @@ export function AdminScreen() {
   // Open feedback/support ticket count — drives the red badge on the "פידבק"
   // sidebar item so the owner sees waiting messages without leaving the tab.
   const { openTickets } = useOpenTickets();
+  // Same desktop/mobile toggle Vision + Course use (bottom-nav "מחשב / נייד").
+  // Desktop → wide two-column dashboard; mobile → a phone-width column with a
+  // slim icon rail, so the owner can preview both widths on one screen.
+  const { mode } = useVisionLayoutPref();
+  const desktop = mode === 'desktop';
 
   // Log-score of the row being edited — the sheet displays log_score +
   // score_adjustment as the total in the "ניקוד" field so the admin sees
@@ -130,9 +137,20 @@ export function AdminScreen() {
     <section className="text-ink-100">
       {/* Two-column dashboard: a right-hand sidebar (RTL → first child renders
           rightmost) carries the brand + section nav; content sits to its left.
-          On phones the sidebar collapses to a slim icon rail. */}
-      <div className="mx-auto flex w-full max-w-5xl gap-4 sm:gap-6">
-        <AdminSidebar tab={tab} onSelect={setTab} openTickets={openTickets} />
+          Desktop mode gets the wide max-w-5xl shell; mobile mode narrows the
+          whole thing to phone width (max-w-md, like the "משתמש" screen) and the
+          sidebar becomes a slim icon rail. */}
+      <div
+        className={`mx-auto flex w-full ${
+          desktop ? 'max-w-5xl gap-6' : 'max-w-md gap-3'
+        }`}
+      >
+        <AdminSidebar
+          desktop={desktop}
+          tab={tab}
+          onSelect={setTab}
+          openTickets={openTickets}
+        />
 
         <div className="min-w-0 flex-1">
           {tab === 'course' && <CourseAdminPanel />}
@@ -205,7 +223,9 @@ export function AdminScreen() {
   );
 }
 
-// The four admin sections, in sidebar order (top → bottom).
+// The four admin sections, in their DEFAULT sidebar order (top → bottom).
+// The actual on-screen order is user-arrangeable via drag-and-drop (desktop)
+// and persisted per-device in localStorage under LS_NAV_ORDER.
 const SIDE_ITEMS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
   { id: 'users', label: 'משתמשים', icon: Users },
   { id: 'feedback', label: 'פידבק', icon: MessageSquare },
@@ -213,33 +233,98 @@ const SIDE_ITEMS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
   { id: 'questions', label: 'שאלות', icon: HelpCircle },
 ];
 
+const LS_NAV_ORDER = 'admin-nav-order';
+
+// Resolve the saved order into a valid, complete list: keep saved ids that are
+// still known (in saved order), then append any known ids the save is missing.
+// This survives adding/removing a section without wiping the user's choice.
+function loadNavOrder(): AdminTab[] {
+  const known = SIDE_ITEMS.map((i) => i.id);
+  try {
+    const raw = localStorage.getItem(LS_NAV_ORDER);
+    const arr = raw ? (JSON.parse(raw) as unknown) : null;
+    if (Array.isArray(arr)) {
+      const saved = arr.filter((id): id is AdminTab => known.includes(id as AdminTab));
+      const missing = known.filter((id) => !saved.includes(id));
+      return [...saved, ...missing];
+    }
+  } catch {
+    // corrupt/blocked storage — fall through to the default order.
+  }
+  return known;
+}
+
 function AdminSidebar({
+  desktop,
   tab,
   onSelect,
   openTickets,
 }: {
+  desktop: boolean;
   tab: AdminTab;
   onSelect: (t: AdminTab) => void;
   openTickets: number;
 }) {
+  // User-arranged order of the nav items (drag-and-drop), persisted per-device.
+  const [order, setOrder] = useState<AdminTab[]>(loadNavOrder);
+  const [dragId, setDragId] = useState<AdminTab | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_NAV_ORDER, JSON.stringify(order));
+    } catch {
+      // storage blocked — the order just won't persist across reloads.
+    }
+  }, [order]);
+
+  // While dragging, live-reorder so the list settles as the pointer passes over
+  // each item. Move the dragged id to sit where the hovered item currently is.
+  const onDragOver = (e: React.DragEvent, overId: AdminTab) => {
+    e.preventDefault(); // mark this element as a valid drop target
+    if (dragId === null || dragId === overId) return;
+    setOrder((prev) => {
+      const from = prev.indexOf(dragId);
+      const to = prev.indexOf(overId);
+      if (from < 0 || to < 0) return prev;
+      const next = [...prev];
+      next.splice(from, 1);
+      next.splice(to, 0, dragId);
+      return next;
+    });
+  };
+
   return (
-    <aside className="w-14 shrink-0 sm:w-56">
+    <aside className={`shrink-0 ${desktop ? 'w-56' : 'w-12'}`}>
       {/* Sticky so the nav stays reachable while a long user list scrolls. */}
-      <div className="sticky top-4 rounded-2xl border border-surface-border bg-surface-card p-2 sm:p-3">
-        {/* Brand — logo only on the phone rail, logo + name on wider screens. */}
-        <div className="flex items-center justify-center gap-2 px-1 py-2 sm:justify-start sm:px-2">
+      <div
+        className={`sticky top-4 rounded-2xl border border-surface-border bg-surface-card ${
+          desktop ? 'p-3' : 'p-1.5'
+        }`}
+      >
+        {/* Brand — logo + name on desktop, logo only on the mobile rail. */}
+        <div
+          className={`flex items-center gap-2 py-2 ${
+            desktop ? 'px-2' : 'justify-center px-0'
+          }`}
+        >
           <img src="/logo.png?v=5" alt="" className="h-8 w-8 shrink-0" />
-          <span className="hidden text-sm font-semibold leading-tight tracking-tight text-ink-100 sm:block">
-            פרויקט מחויבות לעצמי
-          </span>
+          {desktop && (
+            <span className="text-sm font-semibold leading-tight tracking-tight text-ink-100">
+              פרויקט מחויבות לעצמי
+            </span>
+          )}
         </div>
 
         <div className="my-2 border-t border-surface-border" />
 
         <nav className="flex flex-col gap-1">
-          {SIDE_ITEMS.map(({ id, label, icon: Icon }) => {
+          {order.map((id) => {
+            const item = SIDE_ITEMS.find((i) => i.id === id);
+            if (!item) return null;
+            const { label, icon: Icon } = item;
             const active = tab === id;
             const badge = id === 'feedback' ? openTickets : 0;
+            const dragging = dragId === id;
             return (
               <button
                 key={id}
@@ -247,7 +332,26 @@ function AdminSidebar({
                 onClick={() => onSelect(id)}
                 title={label}
                 aria-current={active ? 'page' : undefined}
-                className={`relative flex items-center justify-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium transition-colors sm:justify-start sm:px-3 ${
+                // Reordering is a desktop-only affordance (the mobile rail is
+                // too small to grab). HTML5 drag events fire on mouse; a plain
+                // click (no movement) still selects the tab.
+                draggable={desktop}
+                onDragStart={
+                  desktop
+                    ? (e) => {
+                        // Firefox only starts a drag once dataTransfer is set.
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', id);
+                        setDragId(id);
+                      }
+                    : undefined
+                }
+                onDragOver={desktop ? (e) => onDragOver(e, id) : undefined}
+                onDragEnd={desktop ? () => setDragId(null) : undefined}
+                onDrop={desktop ? (e) => e.preventDefault() : undefined}
+                className={`relative flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors ${
+                  desktop ? 'justify-start px-3' : 'justify-center px-0'
+                } ${dragging ? 'opacity-50' : ''} ${
                   active
                     ? 'bg-forest-700 text-on-accent'
                     : 'text-ink-300 hover:bg-surface-raised hover:text-ink-100'
@@ -264,7 +368,17 @@ function AdminSidebar({
                     </span>
                   )}
                 </span>
-                <span className="hidden sm:block">{label}</span>
+                {desktop && (
+                  <>
+                    <span className="flex-1 text-right">{label}</span>
+                    {/* Drag handle — the visible "you can reorder me" cue. */}
+                    <GripVertical
+                      size={16}
+                      className="shrink-0 cursor-grab opacity-40 hover:opacity-80 active:cursor-grabbing"
+                      aria-hidden
+                    />
+                  </>
+                )}
               </button>
             );
           })}

@@ -67,12 +67,15 @@ function LayoutShell() {
   // full height for the book rail. Mobile Course still shows it.
   const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname) && !fixedShell;
   // Vision ships a wide desktop layout; the Course desktop layout is wide too.
-  // Admin is a two-column dashboard (right sidebar + content) that wants room to
-  // breathe. Give these routes the FULL width so the page can use the whole
-  // viewport. Every other screen stays phone-width (max-w-md). Each of these
-  // screens re-constrains its own inner layout, so phones are unaffected.
+  // Admin is a two-column dashboard (right sidebar + content) — but only in
+  // DESKTOP mode; in mobile mode it narrows to phone width (max-w-md, like every
+  // other screen) so the owner can preview the mobile look via the nav toggle.
+  // Give the wide routes the FULL width so they can use the whole viewport; each
+  // re-constrains its own inner layout, so phones are unaffected.
   const wideContainer =
-    pathname === '/vision' || pathname === '/course' || pathname === '/admin';
+    pathname === '/vision' ||
+    pathname === '/course' ||
+    (pathname === '/admin' && mode === 'desktop');
 
   // Vision desktop is a Docs-style page (the writing card grows down the page).
   // It uses a SMALLER bottom runway than the default pb-24 so that scrolling to
