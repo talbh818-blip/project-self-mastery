@@ -7,6 +7,11 @@ import {
   RefreshCw,
   Mail,
   Clock,
+  Users,
+  MessageSquare,
+  PlayCircle,
+  HelpCircle,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   deleteUserActivity,
@@ -22,6 +27,7 @@ import { CourseAdminPanel } from './CourseAdminPanel';
 import { FeedbackAdminPanel } from './FeedbackAdminPanel';
 import { VisionQuestionsAdminPanel } from './VisionQuestionsAdminPanel';
 import { UserEditSheet } from './UserEditSheet';
+import { useOpenTickets } from './OpenTicketsContext';
 
 type Row = {
   profile: Profile;
@@ -36,6 +42,9 @@ export function AdminScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
+  // Open feedback/support ticket count — drives the red badge on the "פידבק"
+  // sidebar item so the owner sees waiting messages without leaving the tab.
+  const { openTickets } = useOpenTickets();
 
   // Log-score of the row being edited — the sheet displays log_score +
   // score_adjustment as the total in the "ניקוד" field so the admin sees
@@ -119,77 +128,70 @@ export function AdminScreen() {
 
   return (
     <section className="text-ink-100">
-      {/* Tab switcher: users / feedback / course catalog / guided questions */}
-      <div className="flex gap-2 mb-4">
-        <TabBtn active={tab === 'users'} onClick={() => setTab('users')}>
-          משתמשים
-        </TabBtn>
-        <TabBtn active={tab === 'feedback'} onClick={() => setTab('feedback')}>
-          פידבק
-        </TabBtn>
-        <TabBtn active={tab === 'course'} onClick={() => setTab('course')}>
-          קורס
-        </TabBtn>
-        <TabBtn active={tab === 'questions'} onClick={() => setTab('questions')}>
-          שאלות
-        </TabBtn>
+      {/* Two-column dashboard: a right-hand sidebar (RTL → first child renders
+          rightmost) carries the brand + section nav; content sits to its left.
+          On phones the sidebar collapses to a slim icon rail. */}
+      <div className="mx-auto flex w-full max-w-5xl gap-4 sm:gap-6">
+        <AdminSidebar tab={tab} onSelect={setTab} openTickets={openTickets} />
+
+        <div className="min-w-0 flex-1">
+          {tab === 'course' && <CourseAdminPanel />}
+          {tab === 'feedback' && <FeedbackAdminPanel />}
+          {tab === 'questions' && <VisionQuestionsAdminPanel />}
+          {tab === 'users' && (
+            <>
+              {/* Refresh button — sits inside the users panel since the other
+                  panels own their own refresh internally. */}
+              <div className="flex justify-end mb-2">
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  disabled={busy}
+                  className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
+                  aria-label="רענן"
+                >
+                  <RefreshCw size={16} />
+                  רענן
+                </button>
+              </div>
+
+              {error && (
+                <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
+                  {error}
+                </div>
+              )}
+
+              {rows === null && !error && (
+                <div className="py-8">
+                  <CompassLoader size="md" />
+                </div>
+              )}
+
+              {rows && rows.length === 0 && (
+                <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
+                  אין משתמשים עדיין.
+                </div>
+              )}
+
+              {rows && rows.length > 0 && (
+                <ul className="space-y-3">
+                  {rows.map(({ profile, activity }) => (
+                    <UserCard
+                      key={profile.id}
+                      profile={profile}
+                      activity={activity}
+                      busy={busy}
+                      onEdit={() => setEditing(profile)}
+                      onToggleBlocked={() => void handleToggleBlocked(profile)}
+                      onDeleteData={() => void handleDeleteData(profile)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
       </div>
-
-      {tab === 'course' && <CourseAdminPanel />}
-      {tab === 'feedback' && <FeedbackAdminPanel />}
-      {tab === 'questions' && <VisionQuestionsAdminPanel />}
-      {tab === 'users' && (
-        <>
-          {/* Refresh button — sits inside the users panel since the other
-              panels own their own refresh internally. */}
-          <div className="flex justify-end mb-2">
-            <button
-              type="button"
-              onClick={() => void load()}
-              disabled={busy}
-              className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
-              aria-label="רענן"
-            >
-              <RefreshCw size={16} />
-              רענן
-            </button>
-          </div>
-
-          {error && (
-            <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
-              {error}
-            </div>
-          )}
-
-          {rows === null && !error && (
-            <div className="py-8">
-              <CompassLoader size="md" />
-            </div>
-          )}
-
-          {rows && rows.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
-              אין משתמשים עדיין.
-            </div>
-          )}
-
-          {rows && rows.length > 0 && (
-            <ul className="space-y-3">
-              {rows.map(({ profile, activity }) => (
-                <UserCard
-                  key={profile.id}
-                  profile={profile}
-                  activity={activity}
-                  busy={busy}
-                  onEdit={() => setEditing(profile)}
-                  onToggleBlocked={() => void handleToggleBlocked(profile)}
-                  onDeleteData={() => void handleDeleteData(profile)}
-                />
-              ))}
-            </ul>
-          )}
-        </>
-      )}
 
       <UserEditSheet
         open={editing !== null}
@@ -203,27 +205,72 @@ export function AdminScreen() {
   );
 }
 
-function TabBtn({
-  active,
-  onClick,
-  children,
+// The four admin sections, in sidebar order (top → bottom).
+const SIDE_ITEMS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
+  { id: 'users', label: 'משתמשים', icon: Users },
+  { id: 'feedback', label: 'פידבק', icon: MessageSquare },
+  { id: 'course', label: 'קורס', icon: PlayCircle },
+  { id: 'questions', label: 'שאלות', icon: HelpCircle },
+];
+
+function AdminSidebar({
+  tab,
+  onSelect,
+  openTickets,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  tab: AdminTab;
+  onSelect: (t: AdminTab) => void;
+  openTickets: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-        active
-          ? 'bg-forest-700 text-on-accent border-forest-700'
-          : 'bg-surface-card text-ink-300 border-surface-border hover:text-ink-100'
-      }`}
-    >
-      {children}
-    </button>
+    <aside className="w-14 shrink-0 sm:w-56">
+      {/* Sticky so the nav stays reachable while a long user list scrolls. */}
+      <div className="sticky top-4 rounded-2xl border border-surface-border bg-surface-card p-2 sm:p-3">
+        {/* Brand — logo only on the phone rail, logo + name on wider screens. */}
+        <div className="flex items-center justify-center gap-2 px-1 py-2 sm:justify-start sm:px-2">
+          <img src="/logo.png?v=5" alt="" className="h-8 w-8 shrink-0" />
+          <span className="hidden text-sm font-semibold leading-tight tracking-tight text-ink-100 sm:block">
+            פרויקט מחויבות לעצמי
+          </span>
+        </div>
+
+        <div className="my-2 border-t border-surface-border" />
+
+        <nav className="flex flex-col gap-1">
+          {SIDE_ITEMS.map(({ id, label, icon: Icon }) => {
+            const active = tab === id;
+            const badge = id === 'feedback' ? openTickets : 0;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onSelect(id)}
+                title={label}
+                aria-current={active ? 'page' : undefined}
+                className={`relative flex items-center justify-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium transition-colors sm:justify-start sm:px-3 ${
+                  active
+                    ? 'bg-forest-700 text-on-accent'
+                    : 'text-ink-300 hover:bg-surface-raised hover:text-ink-100'
+                }`}
+              >
+                <span className="relative shrink-0">
+                  <Icon size={20} strokeWidth={active ? 2.2 : 1.7} />
+                  {badge > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-2 flex h-[1.05rem] min-w-[1.05rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none tabular-nums text-white ring-2 ring-surface-card"
+                      aria-label={`${badge} ממתינים למענה`}
+                    >
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
+                <span className="hidden sm:block">{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+    </aside>
   );
 }
 

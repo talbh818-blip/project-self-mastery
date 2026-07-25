@@ -15,12 +15,14 @@ import { useReminderScheduler } from '../features/notifications/delivery';
 // Routes where the brand header (compass + app name) is hidden. Content-dense
 // screens omit it to claim the vertical space — Habits (home), Vision (the
 // journaling pyramid + year map) and Features (its own title + view switcher).
-// Other screens keep it for app identity.
+// Admin renders its own brand at the top of its right-hand sidebar, so it drops
+// the global header too. Other screens keep it for app identity.
 const HIDE_BRAND_HEADER_ON: ReadonlySet<string> = new Set([
   '/',
   '/vision',
   '/features',
   '/features/notifications',
+  '/admin',
 ]);
 
 export function Layout() {
@@ -65,10 +67,12 @@ function LayoutShell() {
   // full height for the book rail. Mobile Course still shows it.
   const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname) && !fixedShell;
   // Vision ships a wide desktop layout; the Course desktop layout is wide too.
-  // Give both routes the FULL width so the page can use the whole viewport.
-  // Every other screen stays phone-width (max-w-md). Both screens re-constrain
-  // their MOBILE layout to max-w-md themselves, so phones are unaffected.
-  const wideContainer = pathname === '/vision' || pathname === '/course';
+  // Admin is a two-column dashboard (right sidebar + content) that wants room to
+  // breathe. Give these routes the FULL width so the page can use the whole
+  // viewport. Every other screen stays phone-width (max-w-md). Each of these
+  // screens re-constrains its own inner layout, so phones are unaffected.
+  const wideContainer =
+    pathname === '/vision' || pathname === '/course' || pathname === '/admin';
 
   // Vision desktop is a Docs-style page (the writing card grows down the page).
   // It uses a SMALLER bottom runway than the default pb-24 so that scrolling to
