@@ -11,6 +11,7 @@ import {
   MessageSquare,
   PlayCircle,
   HelpCircle,
+  KanbanSquare,
   GripVertical,
   type LucideIcon,
 } from 'lucide-react';
@@ -27,6 +28,7 @@ import { CompassLoader } from '../../components/CompassLoader';
 import { CourseAdminPanel } from './CourseAdminPanel';
 import { FeedbackAdminPanel } from './FeedbackAdminPanel';
 import { VisionQuestionsAdminPanel } from './VisionQuestionsAdminPanel';
+import { DevBoardAdminPanel } from './DevBoardAdminPanel';
 import { UserEditSheet } from './UserEditSheet';
 import { useOpenTickets } from './OpenTicketsContext';
 import { useVisionLayoutPref } from '../vision/useVisionLayoutPref';
@@ -36,7 +38,7 @@ type Row = {
   activity: UserActivity | null;
 };
 
-type AdminTab = 'users' | 'feedback' | 'course' | 'questions';
+type AdminTab = 'users' | 'feedback' | 'course' | 'questions' | 'dev';
 
 export function AdminScreen() {
   const [tab, setTab] = useState<AdminTab>('users');
@@ -150,6 +152,7 @@ export function AdminScreen() {
       {tab === 'course' && <CourseAdminPanel />}
       {tab === 'feedback' && <FeedbackAdminPanel />}
       {tab === 'questions' && <VisionQuestionsAdminPanel />}
+      {tab === 'dev' && <DevBoardAdminPanel />}
       {tab === 'users' && (
         <>
           {/* Refresh button — sits inside the users panel since the other
@@ -246,7 +249,7 @@ export function AdminScreen() {
   );
 }
 
-// The four admin sections, in their DEFAULT sidebar order (top → bottom).
+// The admin sections, in their DEFAULT sidebar order (top → bottom).
 // The actual on-screen order is user-arrangeable via drag-and-drop (desktop)
 // and persisted per-device in localStorage under LS_NAV_ORDER.
 const SIDE_ITEMS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
@@ -254,6 +257,7 @@ const SIDE_ITEMS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
   { id: 'feedback', label: 'פידבק', icon: MessageSquare },
   { id: 'course', label: 'קורס', icon: PlayCircle },
   { id: 'questions', label: 'שאלות', icon: HelpCircle },
+  { id: 'dev', label: 'פיתוח', icon: KanbanSquare },
 ];
 
 const LS_NAV_ORDER = 'admin-nav-order';
