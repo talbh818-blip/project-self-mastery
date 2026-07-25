@@ -45,13 +45,25 @@ export function AdminScreen() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
   // Open feedback/support ticket count — drives the red badge on the "פידבק"
-  // sidebar item so the owner sees waiting messages without leaving the tab.
+  // nav item so the owner sees waiting messages without leaving the tab.
   const { openTickets } = useOpenTickets();
   // Same desktop/mobile toggle Vision + Course use (bottom-nav "מחשב / נייד").
-  // Desktop → wide two-column dashboard; mobile → a phone-width column with a
-  // slim icon rail, so the owner can preview both widths on one screen.
+  // Desktop → wide two-column dashboard with a right sidebar; mobile → a
+  // phone-width column (like the "משתמש" screen) with a horizontal top nav, so
+  // the owner can preview both widths on one screen.
   const { mode } = useVisionLayoutPref();
   const desktop = mode === 'desktop';
+
+  // User-arranged order of the nav sections (drag-and-drop on desktop),
+  // persisted per-device and shared by both the sidebar and the mobile top bar.
+  const [order, setOrder] = useState<AdminTab[]>(loadNavOrder);
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_NAV_ORDER, JSON.stringify(order));
+    } catch {
+      // storage blocked — the order just won't persist across reloads.
+    }
+  }, [order]);
 
   // Log-score of the row being edited — the sheet displays log_score +
   // score_adjustment as the total in the "ניקוד" field so the admin sees
@@ -133,83 +145,94 @@ export function AdminScreen() {
     }
   };
 
+  const content = (
+    <>
+      {tab === 'course' && <CourseAdminPanel />}
+      {tab === 'feedback' && <FeedbackAdminPanel />}
+      {tab === 'questions' && <VisionQuestionsAdminPanel />}
+      {tab === 'users' && (
+        <>
+          {/* Refresh button — sits inside the users panel since the other
+              panels own their own refresh internally. */}
+          <div className="flex justify-end mb-2">
+            <button
+              type="button"
+              onClick={() => void load()}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
+              aria-label="רענן"
+            >
+              <RefreshCw size={16} />
+              רענן
+            </button>
+          </div>
+
+          {error && (
+            <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
+              {error}
+            </div>
+          )}
+
+          {rows === null && !error && (
+            <div className="py-8">
+              <CompassLoader size="md" />
+            </div>
+          )}
+
+          {rows && rows.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
+              אין משתמשים עדיין.
+            </div>
+          )}
+
+          {rows && rows.length > 0 && (
+            <ul className="space-y-3">
+              {rows.map(({ profile, activity }) => (
+                <UserCard
+                  key={profile.id}
+                  profile={profile}
+                  activity={activity}
+                  busy={busy}
+                  onEdit={() => setEditing(profile)}
+                  onToggleBlocked={() => void handleToggleBlocked(profile)}
+                  onDeleteData={() => void handleDeleteData(profile)}
+                />
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </>
+  );
+
   return (
     <section className="text-ink-100">
-      {/* Two-column dashboard: a right-hand sidebar (RTL → first child renders
-          rightmost) carries the brand + section nav; content sits to its left.
-          Desktop mode gets the wide max-w-5xl shell; mobile mode narrows the
-          whole thing to phone width (max-w-md, like the "משתמש" screen) and the
-          sidebar becomes a slim icon rail. */}
-      <div
-        className={`mx-auto flex w-full ${
-          desktop ? 'max-w-5xl gap-6' : 'max-w-md gap-3'
-        }`}
-      >
-        <AdminSidebar
-          desktop={desktop}
-          tab={tab}
-          onSelect={setTab}
-          openTickets={openTickets}
-        />
-
-        <div className="min-w-0 flex-1">
-          {tab === 'course' && <CourseAdminPanel />}
-          {tab === 'feedback' && <FeedbackAdminPanel />}
-          {tab === 'questions' && <VisionQuestionsAdminPanel />}
-          {tab === 'users' && (
-            <>
-              {/* Refresh button — sits inside the users panel since the other
-                  panels own their own refresh internally. */}
-              <div className="flex justify-end mb-2">
-                <button
-                  type="button"
-                  onClick={() => void load()}
-                  disabled={busy}
-                  className="inline-flex items-center gap-1.5 text-sm text-ink-300 hover:text-ink-100 disabled:opacity-50"
-                  aria-label="רענן"
-                >
-                  <RefreshCw size={16} />
-                  רענן
-                </button>
-              </div>
-
-              {error && (
-                <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 light:text-red-700 text-sm px-4 py-3">
-                  {error}
-                </div>
-              )}
-
-              {rows === null && !error && (
-                <div className="py-8">
-                  <CompassLoader size="md" />
-                </div>
-              )}
-
-              {rows && rows.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-surface-border bg-surface-card/40 px-4 py-10 text-center text-ink-300 text-sm">
-                  אין משתמשים עדיין.
-                </div>
-              )}
-
-              {rows && rows.length > 0 && (
-                <ul className="space-y-3">
-                  {rows.map(({ profile, activity }) => (
-                    <UserCard
-                      key={profile.id}
-                      profile={profile}
-                      activity={activity}
-                      busy={busy}
-                      onEdit={() => setEditing(profile)}
-                      onToggleBlocked={() => void handleToggleBlocked(profile)}
-                      onDeleteData={() => void handleDeleteData(profile)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
+      {desktop ? (
+        // Desktop: a right-hand sidebar (RTL → first child renders rightmost)
+        // carries the brand + section nav; content sits to its left, wide shell.
+        <div className="mx-auto flex w-full max-w-5xl gap-6">
+          <AdminSidebar
+            tab={tab}
+            onSelect={setTab}
+            openTickets={openTickets}
+            order={order}
+            setOrder={setOrder}
+          />
+          <div className="min-w-0 flex-1">{content}</div>
         </div>
-      </div>
+      ) : (
+        // Mobile: phone width (like the "משתמש" screen) with the SAME nav laid
+        // out as a horizontal bar across the top; the active item shows its label.
+        <div className="mx-auto w-full max-w-md">
+          <AdminTopNav
+            tab={tab}
+            onSelect={setTab}
+            openTickets={openTickets}
+            order={order}
+          />
+          {content}
+        </div>
+      )}
 
       <UserEditSheet
         open={editing !== null}
@@ -254,28 +277,49 @@ function loadNavOrder(): AdminTab[] {
   return known;
 }
 
+// Shared bits between the desktop sidebar and the mobile top bar: the icon +
+// its notification badge. `active` drives icon weight; `badge` shows on פידבק.
+function NavIcon({
+  Icon,
+  active,
+  badge,
+}: {
+  Icon: LucideIcon;
+  active: boolean;
+  badge: number;
+}) {
+  return (
+    <span className="relative shrink-0">
+      <Icon size={20} strokeWidth={active ? 2.2 : 1.7} />
+      {badge > 0 && (
+        <span
+          className="absolute -top-1.5 -right-2 flex h-[1.05rem] min-w-[1.05rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none tabular-nums text-white ring-2 ring-surface-card"
+          aria-label={`${badge} ממתינים למענה`}
+        >
+          {badge > 9 ? '9+' : badge}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Desktop: vertical right-hand sidebar. Brand at the top, then the sections —
+// each row draggable to reorder (grip handle as the cue). `order`/`setOrder`
+// are owned by AdminScreen so the mobile bar stays in sync.
 function AdminSidebar({
-  desktop,
   tab,
   onSelect,
   openTickets,
+  order,
+  setOrder,
 }: {
-  desktop: boolean;
   tab: AdminTab;
   onSelect: (t: AdminTab) => void;
   openTickets: number;
+  order: AdminTab[];
+  setOrder: React.Dispatch<React.SetStateAction<AdminTab[]>>;
 }) {
-  // User-arranged order of the nav items (drag-and-drop), persisted per-device.
-  const [order, setOrder] = useState<AdminTab[]>(loadNavOrder);
   const [dragId, setDragId] = useState<AdminTab | null>(null);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(LS_NAV_ORDER, JSON.stringify(order));
-    } catch {
-      // storage blocked — the order just won't persist across reloads.
-    }
-  }, [order]);
 
   // While dragging, live-reorder so the list settles as the pointer passes over
   // each item. Move the dragged id to sit where the hovered item currently is.
@@ -294,25 +338,15 @@ function AdminSidebar({
   };
 
   return (
-    <aside className={`shrink-0 ${desktop ? 'w-56' : 'w-12'}`}>
+    <aside className="w-56 shrink-0">
       {/* Sticky so the nav stays reachable while a long user list scrolls. */}
-      <div
-        className={`sticky top-4 rounded-2xl border border-surface-border bg-surface-card ${
-          desktop ? 'p-3' : 'p-1.5'
-        }`}
-      >
-        {/* Brand — logo + name on desktop, logo only on the mobile rail. */}
-        <div
-          className={`flex items-center gap-2 py-2 ${
-            desktop ? 'px-2' : 'justify-center px-0'
-          }`}
-        >
+      <div className="sticky top-4 rounded-2xl border border-surface-border bg-surface-card p-3">
+        {/* Brand — logo + app name. */}
+        <div className="flex items-center gap-2 px-2 py-2">
           <img src="/logo.png?v=5" alt="" className="h-8 w-8 shrink-0" />
-          {desktop && (
-            <span className="text-sm font-semibold leading-tight tracking-tight text-ink-100">
-              פרויקט מחויבות לעצמי
-            </span>
-          )}
+          <span className="text-sm font-semibold leading-tight tracking-tight text-ink-100">
+            פרויקט מחויבות לעצמי
+          </span>
         </div>
 
         <div className="my-2 border-t border-surface-border" />
@@ -332,59 +366,89 @@ function AdminSidebar({
                 onClick={() => onSelect(id)}
                 title={label}
                 aria-current={active ? 'page' : undefined}
-                // Reordering is a desktop-only affordance (the mobile rail is
-                // too small to grab). HTML5 drag events fire on mouse; a plain
-                // click (no movement) still selects the tab.
-                draggable={desktop}
-                onDragStart={
-                  desktop
-                    ? (e) => {
-                        // Firefox only starts a drag once dataTransfer is set.
-                        e.dataTransfer.effectAllowed = 'move';
-                        e.dataTransfer.setData('text/plain', id);
-                        setDragId(id);
-                      }
-                    : undefined
-                }
-                onDragOver={desktop ? (e) => onDragOver(e, id) : undefined}
-                onDragEnd={desktop ? () => setDragId(null) : undefined}
-                onDrop={desktop ? (e) => e.preventDefault() : undefined}
-                className={`relative flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors ${
-                  desktop ? 'justify-start px-3' : 'justify-center px-0'
-                } ${dragging ? 'opacity-50' : ''} ${
+                // HTML5 drag events fire on mouse; a plain click (no movement)
+                // still selects the tab.
+                draggable
+                onDragStart={(e) => {
+                  // Firefox only starts a drag once dataTransfer is set.
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', id);
+                  setDragId(id);
+                }}
+                onDragOver={(e) => onDragOver(e, id)}
+                onDragEnd={() => setDragId(null)}
+                onDrop={(e) => e.preventDefault()}
+                className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                  dragging ? 'opacity-50' : ''
+                } ${
                   active
                     ? 'bg-forest-700 text-on-accent'
                     : 'text-ink-300 hover:bg-surface-raised hover:text-ink-100'
                 }`}
               >
-                <span className="relative shrink-0">
-                  <Icon size={20} strokeWidth={active ? 2.2 : 1.7} />
-                  {badge > 0 && (
-                    <span
-                      className="absolute -top-1.5 -right-2 flex h-[1.05rem] min-w-[1.05rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none tabular-nums text-white ring-2 ring-surface-card"
-                      aria-label={`${badge} ממתינים למענה`}
-                    >
-                      {badge > 9 ? '9+' : badge}
-                    </span>
-                  )}
-                </span>
-                {desktop && (
-                  <>
-                    <span className="flex-1 text-right">{label}</span>
-                    {/* Drag handle — the visible "you can reorder me" cue. */}
-                    <GripVertical
-                      size={16}
-                      className="shrink-0 cursor-grab opacity-40 hover:opacity-80 active:cursor-grabbing"
-                      aria-hidden
-                    />
-                  </>
-                )}
+                <NavIcon Icon={Icon} active={active} badge={badge} />
+                <span className="flex-1 text-right">{label}</span>
+                {/* Drag handle — the visible "you can reorder me" cue. */}
+                <GripVertical
+                  size={16}
+                  className="shrink-0 cursor-grab opacity-40 hover:opacity-80 active:cursor-grabbing"
+                  aria-hidden
+                />
               </button>
             );
           })}
         </nav>
       </div>
     </aside>
+  );
+}
+
+// Mobile: the same sections as a horizontal bar across the top. Icon-only by
+// default; the ACTIVE section expands to show its label (to the left of the
+// icon in RTL). Sticky so it stays put while the user list scrolls. No drag —
+// reordering is a desktop affordance — but it honours the order set there.
+function AdminTopNav({
+  tab,
+  onSelect,
+  openTickets,
+  order,
+}: {
+  tab: AdminTab;
+  onSelect: (t: AdminTab) => void;
+  openTickets: number;
+  order: AdminTab[];
+}) {
+  return (
+    // Negative margins let the solid backdrop span edge-to-edge (cancelling the
+    // page's px-3/sm:px-4) so scrolled content never shows through the gaps.
+    <div className="sticky top-0 z-10 -mx-3 mb-3 bg-surface-base px-3 pb-2 pt-1 sm:-mx-4 sm:px-4">
+      <nav className="flex items-center justify-around gap-1 rounded-2xl border border-surface-border bg-surface-card p-1.5">
+        {order.map((id) => {
+          const item = SIDE_ITEMS.find((i) => i.id === id);
+          if (!item) return null;
+          const { label, icon: Icon } = item;
+          const active = tab === id;
+          const badge = id === 'feedback' ? openTickets : 0;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onSelect(id)}
+              title={label}
+              aria-current={active ? 'page' : undefined}
+              className={`relative flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-forest-700 text-on-accent'
+                  : 'text-ink-300 hover:bg-surface-raised hover:text-ink-100'
+              }`}
+            >
+              <NavIcon Icon={Icon} active={active} badge={badge} />
+              {active && <span className="whitespace-nowrap">{label}</span>}
+            </button>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
 

@@ -65,7 +65,13 @@ function LayoutShell() {
   // The brand header (compass + app name) is hidden on the content-dense Habits
   // and Vision screens — and on the Course desktop app-shell, which claims the
   // full height for the book rail. Mobile Course still shows it.
-  const showBrandHeader = !HIDE_BRAND_HEADER_ON.has(pathname) && !fixedShell;
+  // Admin is a special case: DESKTOP renders the brand inside its own sidebar,
+  // so it drops the global header — but MOBILE admin has a horizontal top nav
+  // (no room for the brand), so it shows the global header like every other
+  // mobile screen.
+  const adminMobile = pathname === '/admin' && mode === 'mobile';
+  const showBrandHeader =
+    (!HIDE_BRAND_HEADER_ON.has(pathname) || adminMobile) && !fixedShell;
   // Vision ships a wide desktop layout; the Course desktop layout is wide too.
   // Admin is a two-column dashboard (right sidebar + content) — but only in
   // DESKTOP mode; in mobile mode it narrows to phone width (max-w-md, like every
