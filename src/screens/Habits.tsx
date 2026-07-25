@@ -1984,7 +1984,6 @@ function DataView({
             <HabitDataCard
               key={habit.id}
               habit={habit}
-              stats={stats?.byHabit.get(habit.id) ?? null}
               totalPoints={combined?.pointsByHabit.get(habit.id) ?? 0}
               vCountInRange={vCountInRangeByHabit.get(habit.id) ?? 0}
               startDate={startDateByHabit.get(habit.id) ?? null}
@@ -2091,7 +2090,6 @@ function WeekdayBars({ counts }: { counts: number[] }) {
 // ---------------------------------------------------------------------------
 function HabitDataCard({
   habit,
-  stats,
   totalPoints,
   vCountInRange,
   startDate,
@@ -2100,7 +2098,6 @@ function HabitDataCard({
   onClick,
 }: {
   habit: Habit;
-  stats: HabitScoreResult | null;
   /**
    * Combined V1 + V2 total for this habit, sourced from
    * combined.pointsByHabit so the "נק'" line matches the cumulative-points
