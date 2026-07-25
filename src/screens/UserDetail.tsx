@@ -153,6 +153,38 @@ export function UserDetail() {
                   <UserHabitCard key={h.id} habit={h} />
                 ))}
               </div>
+              {/* Reconciliation line — mirrors the one on the owner's own
+                  Habits data view so the two screens stay in sync. When
+                  Σ(visible habit cards) doesn't equal the true score, the
+                  gap comes from score_adjustment or archived / un-slotted
+                  habits — neither has a card of its own, so we surface the
+                  delta explicitly. Hidden when the numbers already agree. */}
+              {(() => {
+                const habitCardsSum = (data.habits ?? []).reduce(
+                  (s, h) => s + Math.round(h.total_points),
+                  0,
+                );
+                const trueTotal = Math.round(data.score);
+                const gap = trueTotal - habitCardsSum;
+                if (gap === 0) return null;
+                const sign = gap > 0 ? '+' : '';
+                return (
+                  <p className="text-[10px] text-ink-300 text-center leading-snug">
+                    + התאמת אדמין / הרגלים ישנים:{' '}
+                    <span
+                      className={`tabular-nums font-medium ${
+                        gap > 0 ? 'text-forest-500' : 'text-red-400'
+                      }`}
+                    >
+                      {sign}
+                      {gap}
+                    </span>{' '}
+                    נק׳ ={' '}
+                    <span className="text-ink-100 tabular-nums">{trueTotal}</span>{' '}
+                    (הניקוד הכולל בגרף)
+                  </p>
+                );
+              })()}
             </div>
 
             {/* Cumulative points trend — same chart as the owner's Habits view.
