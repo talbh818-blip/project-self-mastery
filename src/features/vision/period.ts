@@ -132,11 +132,25 @@ export function isFuturePeriod(
   const start = parsePeriodStart(scope, key).getTime();
   if (scope === 'weekly') {
     // Weekly visions can be written a week ahead: the current week AND the NEXT
-    // week are open; only weeks beyond next-week stay locked. (Daily / monthly /
-    // yearly keep the strict "hasn't started yet" rule.)
+    // week are open; only weeks beyond next-week stay locked. (Daily / yearly
+    // keep the strict "hasn't started yet" rule.)
     const nextWeekStart = weekStart(now);
     nextWeekStart.setDate(nextWeekStart.getDate() + 7);
     return start > nextWeekStart.getTime();
+  }
+  if (scope === 'monthly') {
+    // Monthly visions open a week early: the current (and past) months are
+    // always writable, and the NEXT month unlocks once we're within 7 days of
+    // its first day — so you can set next month's vision in the run-up to it.
+    // Months beyond next stay locked.
+    if (start <= now.getTime()) return false;
+    const nextMonthStart = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      1,
+    ).getTime();
+    const weekBefore = nextMonthStart - 7 * 24 * 60 * 60 * 1000;
+    return !(start === nextMonthStart && now.getTime() >= weekBefore);
   }
   return start > now.getTime();
 }
