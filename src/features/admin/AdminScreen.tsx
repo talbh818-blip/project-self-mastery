@@ -211,11 +211,10 @@ export function AdminScreen() {
   return (
     <section className="text-ink-100">
       {desktop ? (
-        // Desktop: the section nav sits flush-LEFT (it's the last child, so in
-        // RTL it renders leftmost) and the content claims the full width to its
-        // right — giving the dev board the whole viewport.
+        // Desktop: the section nav sits flush-RIGHT (it's the first child, so in
+        // RTL it renders rightmost) as a full-height sidebar; the content claims
+        // the width to its left.
         <div className="flex w-full gap-4">
-          <div className="min-w-0 flex-1">{content}</div>
           <AdminSidebar
             tab={tab}
             onSelect={setTab}
@@ -223,6 +222,7 @@ export function AdminScreen() {
             order={order}
             setOrder={setOrder}
           />
+          <div className="min-w-0 flex-1">{content}</div>
         </div>
       ) : (
         // Mobile: phone width (like the "משתמש" screen) with the SAME nav laid
@@ -344,8 +344,10 @@ function AdminSidebar({
 
   return (
     <aside className="w-56 shrink-0">
-      {/* Sticky so the nav stays reachable while a long user list scrolls. */}
-      <div className="sticky top-4 rounded-2xl border border-surface-border bg-surface-card p-3">
+      {/* Full-height panel: sticky so the nav stays reachable while a long user
+          list scrolls, and min-h fills the viewport so the sidebar runs from the
+          top all the way down to just above the bottom nav — not a short card. */}
+      <div className="sticky top-4 min-h-[calc(100vh-6rem)] rounded-2xl border border-surface-border bg-surface-card p-3">
         {/* Brand — logo + app name. */}
         <div className="flex items-center gap-2 px-2 py-2">
           <img src="/logo.png?v=5" alt="" className="h-8 w-8 shrink-0" />
