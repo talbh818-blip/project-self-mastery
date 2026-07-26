@@ -211,9 +211,11 @@ export function AdminScreen() {
   return (
     <section className="text-ink-100">
       {desktop ? (
-        // Desktop: a right-hand sidebar (RTL → first child renders rightmost)
-        // carries the brand + section nav; content sits to its left, wide shell.
-        <div className="mx-auto flex w-full max-w-5xl gap-6">
+        // Desktop: the section nav sits flush-LEFT (it's the last child, so in
+        // RTL it renders leftmost) and the content claims the full width to its
+        // right — giving the dev board the whole viewport.
+        <div className="flex w-full gap-4">
+          <div className="min-w-0 flex-1">{content}</div>
           <AdminSidebar
             tab={tab}
             onSelect={setTab}
@@ -221,7 +223,6 @@ export function AdminScreen() {
             order={order}
             setOrder={setOrder}
           />
-          <div className="min-w-0 flex-1">{content}</div>
         </div>
       ) : (
         // Mobile: phone width (like the "משתמש" screen) with the SAME nav laid

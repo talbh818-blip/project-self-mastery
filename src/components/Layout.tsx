@@ -83,6 +83,10 @@ function LayoutShell() {
     pathname === '/course' ||
     (pathname === '/admin' && mode === 'desktop');
 
+  // Admin desktop goes edge-to-edge (no horizontal padding) so the section nav
+  // can sit flush-left and the dev board claims the full viewport width.
+  const adminDesktop = pathname === '/admin' && mode === 'desktop';
+
   // Vision desktop is a Docs-style page (the writing card grows down the page).
   // It uses a SMALLER bottom runway than the default pb-24 so that scrolling to
   // the very end leaves only a small gap below the container's edge above the
@@ -177,7 +181,9 @@ function LayoutShell() {
       )}
       <main
         ref={mainRef}
-        className={`flex-1 mx-auto w-full px-3 sm:px-4 pt-5 ${
+        className={`flex-1 mx-auto w-full pt-5 ${
+          adminDesktop ? 'px-0' : 'px-3 sm:px-4'
+        } ${
           wideContainer ? 'max-w-none' : 'max-w-md'
         } ${
           fixedShell

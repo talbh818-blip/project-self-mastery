@@ -11,7 +11,7 @@
 // by column, which preserves per-column order; a drag live-reorders the array
 // and, on drop, reindexes the affected column(s)' `position` and persists them.
 // ============================================================================
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Plus, Trash2, RefreshCw, Check, X } from 'lucide-react';
 import {
   fetchDevBoard,
@@ -72,6 +72,59 @@ export function DevBoardAdminPanel() {
   useEffect(() => {
     cardsRef.current = cards;
   }, [cards]);
+
+  // Board fills the viewport down to just above the bottom nav — measured so
+  // the columns "reach the bottom" on any screen instead of sizing to content.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [boardH, setBoardH] = useState<number>();
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = boardRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      // 96px ≈ the page's bottom runway (pb-24), which clears the fixed nav.
+      setBoardH(Math.max(320, Math.round(window.innerHeight - top - 96)));
+    };
+    measure();
+    const onWin = () => window.requestAnimationFrame(measure);
+    window.addEventListener('resize', onWin);
+    window.addEventListener('scroll', onWin, { passive: true });
+    const t = window.setTimeout(measure, 250); // after fonts/layout settle
+    return () => {
+      window.removeEventListener('resize', onWin);
+      window.removeEventListener('scroll', onWin);
+      window.clearTimeout(t);
+    };
+  }, [columns]);
+
+  // Grab-and-pan the whole board horizontally (Trello-style): a mouse drag on
+  // any empty board/column area scrolls sideways. Interactive elements (cards,
+  // buttons, inputs) are skipped so their own gestures still work; touch keeps
+  // its native horizontal scroll.
+  const pan = useRef({ x: 0, left: 0, active: false });
+  const onPanStart = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('button, a, input, textarea, [draggable="true"]')) return;
+    const el = boardRef.current;
+    if (!el) return;
+    pan.current = { x: e.clientX, left: el.scrollLeft, active: true };
+    el.setPointerCapture(e.pointerId);
+  };
+  const onPanMove = (e: React.PointerEvent) => {
+    if (!pan.current.active) return;
+    const el = boardRef.current;
+    if (el) el.scrollLeft = pan.current.left - (e.clientX - pan.current.x);
+  };
+  const onPanEnd = (e: React.PointerEvent) => {
+    if (!pan.current.active) return;
+    pan.current.active = false;
+    try {
+      boardRef.current?.releasePointerCapture(e.pointerId);
+    } catch {
+      // pointer already released — ignore
+    }
+  };
 
   const load = useCallback(async () => {
     setError(null);
@@ -289,9 +342,19 @@ export function DevBoardAdminPanel() {
 
       {columns !== null && (
         // Horizontal board. dir=rtl → the first column sits on the right.
-        // .shelf-scroll is the themed horizontal scrollbar (index.css).
-        <div dir="rtl" className="shelf-scroll overflow-x-auto pb-3">
-          <div className="flex items-start gap-3 w-max">
+        // .shelf-scroll is the themed horizontal scrollbar (index.css). Height
+        // is measured so columns fill down to the bottom; a mouse drag pans it.
+        <div
+          ref={boardRef}
+          dir="rtl"
+          className="shelf-scroll cursor-grab select-none overflow-x-auto overflow-y-hidden active:cursor-grabbing"
+          style={{ height: boardH ?? '70vh' }}
+          onPointerDown={onPanStart}
+          onPointerMove={onPanMove}
+          onPointerUp={onPanEnd}
+          onPointerCancel={onPanEnd}
+        >
+          <div className="flex h-full w-max items-stretch gap-3 pb-2">
             {columns.map((col) => (
               <BoardColumn
                 key={col.id}
@@ -318,8 +381,8 @@ export function DevBoardAdminPanel() {
               />
             ))}
 
-            {/* Add-column tile */}
-            <div className="w-72 shrink-0">
+            {/* Add-column tile — top-aligned so it doesn't stretch full height */}
+            <div className="w-72 shrink-0 self-start">
               {newColOpen ? (
                 <div className="rounded-2xl border border-surface-border bg-surface-card p-3">
                   <input
@@ -427,7 +490,7 @@ function BoardColumn({
 }) {
   const dragging = dragCardId !== null;
   return (
-    <div className="flex w-72 shrink-0 flex-col rounded-2xl border border-surface-border bg-surface-card">
+    <div className="flex h-full w-72 shrink-0 flex-col rounded-2xl border border-surface-border bg-surface-card">
       {/* Column header */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-surface-border">
         {renaming ? (
@@ -461,43 +524,50 @@ function BoardColumn({
         </IconBtn>
       </div>
 
-      {/* Cards + empty drop zone. dragOver on the body (not intercepted by a
-          card) appends to the end of this column. */}
-      <div
-        className="flex flex-col gap-2 p-2 min-h-[3rem]"
-        onDragOver={(e) => {
-          if (!dragging) return;
-          e.preventDefault();
-          onMoveToEnd();
-        }}
-      >
-        {cards.map((card) => (
-          <CardTile
-            key={card.id}
-            card={card}
-            isDragging={dragCardId === card.id}
-            onOpen={() => onOpenCard(card)}
-            onDragStart={() => onCardDragStart(card)}
-            onDragEnd={onCardDragEnd}
-            onDragOverCard={(e) => {
-              if (!dragging) return;
-              e.preventDefault();
-              e.stopPropagation(); // don't also trigger the column's move-to-end
-              onMoveBeforeCard(card.id);
-            }}
-          />
-        ))}
+      {/* Cards — a scrollable, full-height drop area. dragOver on the body (not
+          intercepted by a card) appends to the end of this column. The dir=ltr
+          wrapper parks the green scrollbar on the right (the RTL end). */}
+      <div dir="ltr" className="min-h-0 flex-1 overflow-y-auto vision-feed-scroll">
+        <div
+          dir="rtl"
+          className="flex min-h-full flex-col gap-2 p-2"
+          onDragOver={(e) => {
+            if (!dragging) return;
+            e.preventDefault();
+            onMoveToEnd();
+          }}
+        >
+          {cards.map((card) => (
+            <CardTile
+              key={card.id}
+              card={card}
+              isDragging={dragCardId === card.id}
+              onOpen={() => onOpenCard(card)}
+              onDragStart={() => onCardDragStart(card)}
+              onDragEnd={onCardDragEnd}
+              onDragOverCard={(e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                e.stopPropagation(); // don't also trigger the column's move-to-end
+                onMoveBeforeCard(card.id);
+              }}
+            />
+          ))}
 
-        {cards.length === 0 && (
-          <div className="rounded-xl border border-dashed border-surface-border/70 px-3 py-4 text-center text-xs text-ink-500">
-            אין משימות
-          </div>
-        )}
+          {cards.length === 0 && (
+            <div className="rounded-xl border border-dashed border-surface-border/70 px-3 py-6 text-center text-xs text-ink-500">
+              אין משימות
+            </div>
+          )}
+        </div>
+      </div>
 
+      {/* Add-task — pinned at the column's bottom (Trello-style). */}
+      <div className="border-t border-surface-border/60 p-2">
         <button
           type="button"
           onClick={onAddCard}
-          className="mt-0.5 inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-300 transition-colors hover:bg-surface-raised hover:text-ink-100"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm text-ink-300 transition-colors hover:bg-surface-raised hover:text-ink-100"
         >
           <Plus size={15} />
           הוסף משימה
