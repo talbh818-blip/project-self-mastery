@@ -22,6 +22,7 @@ import {
   BONUS_RUN_7,
   DECAY_BY_DELAY,
   LOCK_AFTER_DAYS,
+  MARK_LOCK_AFTER_DAYS,
   MAX_TREES_PER_MONTH,
   MISS_PENALTY,
   MONTHLY_PIE,
@@ -35,6 +36,8 @@ import {
 // ── small formatters ────────────────────────────────────────────────────────
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
 const denom = (frac: number) => Math.round(1 / frac); // 1/45 → 45
+const delayLabel = (i: number) =>
+  i === 0 ? 'באותו יום' : i === 1 ? 'יום אחרי' : i === 2 ? 'יומיים אחרי' : `${i} ימים אחרי`;
 
 export function ScoringDocPanel() {
   // A worked example for "day value" — computed live from the constants.
@@ -149,11 +152,13 @@ export function ScoringDocPanel() {
         <Table
           head={['מתי סומן', 'אחוז מהערך']}
           rows={[
-            ['באותו יום', pct(DECAY_BY_DELAY[0])],
-            ['יום אחרי', pct(DECAY_BY_DELAY[1])],
-            ['יומיים אחרי', pct(DECAY_BY_DELAY[2])],
-            ['שלושה ימים אחרי', pct(DECAY_BY_DELAY[3])],
-            [`${LOCK_AFTER_DAYS} ימים ומעלה`, 'נעול — אי אפשר לסמן'],
+            ...DECAY_BY_DELAY.map(
+              (f, i) => [delayLabel(i), pct(f)] as [string, string],
+            ),
+            [
+              `${MARK_LOCK_AFTER_DAYS} ימים ומעלה`,
+              'נעול — אפשר לסמן, אבל בלי ניקוד',
+            ],
           ]}
         />
 

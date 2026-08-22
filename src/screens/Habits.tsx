@@ -159,6 +159,20 @@ export function Habits() {
     currentAmount: number | null | undefined,
   ) => {
     if (!user) return;
+    // Accidental-unmark undo: re-tapping a now-blank cell that was unmarked in
+    // the last hour restores its EXACT prior mark + points (bypasses the lock /
+    // decay recompute). Only when the cell is currently blank.
+    if (currentMark === undefined) {
+      try {
+        if (await data.restoreRecentMark(habit.id, date)) {
+          setMutationError(null);
+          return;
+        }
+      } catch (e) {
+        setMutationError(e instanceof Error ? e.message : 'שגיאה בשמירה');
+        return;
+      }
+    }
     // Past the 4-day window the date is locked for SCORING — but the user can
     // still RECORD it as a personal note. We write a 'V_late' mark: it shows
     // as a green V, yet every scoring path ignores it (no points, the miss

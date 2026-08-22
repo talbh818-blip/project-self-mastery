@@ -50,6 +50,7 @@ import {
   type UpdateHabitInput,
 } from './mutations';
 import { applyOutbox, clearCell, enqueueLog, flushOutbox } from './outbox';
+import { recordRemoval, takeRecentRemoval } from './habitUndo';
 import {
   readPersisted,
   removePersistedByPrefix,
@@ -132,6 +133,9 @@ export type UseHabitData = {
     status: LogStatus | null;
     amount: number | null;
   }) => Promise<void>;
+  /** Restore a mark removed < 1h ago with its exact prior points. Returns true
+   *  if something was restored, false if there was nothing recent. */
+  restoreRecentMark: (habitId: string, date: string) => Promise<boolean>;
   createHabit: (params: {
     slotIndex: SlotIndex;
     input: CreateHabitInput;
@@ -309,6 +313,16 @@ export function useHabitData(userId: string | null): UseHabitData {
       let earnedPoints: number | null = prevRow?.earned_points ?? null;
       if (status === null) {
         earnedPoints = null; // row is being deleted
+        // Stash the removed mark so re-adding it within the hour restores its
+        // EXACT points (an accidental unmark shouldn't cost points on re-mark).
+        if (prevRow) {
+          recordRemoval(userId, habitId, date, {
+            status: prevRow.status,
+            amount: prevRow.amount,
+            target_at_log: prevRow.target_at_log,
+            earned_points: prevRow.earned_points,
+          });
+        }
       } else if (status === 'V' && habit && isV2Date(date)) {
         const now = new Date();
         const period = periodOf(habit, date);
@@ -414,6 +428,70 @@ export function useHabitData(userId: string | null): UseHabitData {
         });
         throw e;
       }
+    },
+    [userId, state],
+  );
+
+  // Re-add a mark that was removed < 1h ago, restoring its EXACT prior points
+  // (bypasses decay/lock recompute). Returns true if a snapshot was restored,
+  // false if there was nothing recent to restore (caller then marks normally).
+  const restoreRecentMark = useCallback(
+    async (habitId: string, date: string): Promise<boolean> => {
+      if (!userId || state.status !== 'ready') return false;
+      const snap = takeRecentRemoval(userId, habitId, date);
+      if (!snap) return false;
+      const prevLogs = state.data.logs;
+      const nextLogs = prevLogs.filter(
+        (l) => !(l.habit_id === habitId && l.date === date),
+      );
+      nextLogs.push({
+        id: `optimistic-${habitId}-${date}`,
+        user_id: userId,
+        habit_id: habitId,
+        date,
+        status: snap.status,
+        amount: snap.amount,
+        target_at_log: snap.target_at_log,
+        earned_points: snap.earned_points,
+      });
+      setState({
+        status: 'ready',
+        data: { ...state.data, logs: nextLogs },
+        error: null,
+      });
+      try {
+        await setHabitLog({
+          userId,
+          habitId,
+          date,
+          newStatus: snap.status,
+          newAmount: snap.amount,
+          targetAtLog: snap.target_at_log,
+          earnedPoints: snap.earned_points,
+        });
+        clearCell(userId, habitId, date);
+      } catch (e) {
+        const offline =
+          typeof navigator !== 'undefined' && navigator.onLine === false;
+        if (offline) {
+          enqueueLog(userId, {
+            habitId,
+            date,
+            status: snap.status,
+            amount: snap.amount,
+            targetAtLog: snap.target_at_log,
+            earnedPoints: snap.earned_points,
+          });
+          return true;
+        }
+        setState({
+          status: 'ready',
+          data: { ...state.data, logs: prevLogs },
+          error: null,
+        });
+        throw e;
+      }
+      return true;
     },
     [userId, state],
   );
@@ -741,6 +819,7 @@ export function useHabitData(userId: string | null): UseHabitData {
     combined,
     slotsForRange,
     setLog,
+    restoreRecentMark,
     createHabit,
     updateHabit,
     archiveHabit,

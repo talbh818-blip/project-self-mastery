@@ -25,10 +25,11 @@
 //   pool the same way — the days NOT marked cost nothing while the period
 //   is open.
 //
-//   Marking late decays the mark: same day 100%, next day 50%, 2-3 days
-//   late 20%, from the 4th day the date is LOCKED (cannot be marked).
-//   Earnings are SNAPSHOTTED at tap time into habit_logs.earned_points, so
-//   nothing about a mark's value ever changes retroactively.
+//   Marking late decays the mark: the first 3 days count 100%, the next 2
+//   at 50%, one more at 20%; from MARK_LOCK_AFTER_DAYS on the date is locked
+//   (still tappable, but the mark is scoring-neutral). Earnings are
+//   SNAPSHOTTED at tap time into habit_logs.earned_points, so nothing about a
+//   mark's value ever changes retroactively.
 //
 //   When a period locks (its last day is LOCK_AFTER_DAYS old), every
 //   unfilled quota slot costs MISS_PENALTY (70%) of that slot's value.
@@ -77,10 +78,22 @@ export const TREE_PRICES = [200, 300, 250, 400, 350, 450, 300, 250, 200, 300] as
 export const MAX_TREES_PER_MONTH = TREE_PRICES.length;
 
 /** Marking-delay decay: index = whole days between the marked date and the
- *  day the tap happens. 0 = same day. From LOCK_AFTER_DAYS on, the date is
- *  locked and cannot be marked at all. */
-export const DECAY_BY_DELAY = [1.0, 0.5, 0.2, 0.2] as const;
-export const LOCK_AFTER_DAYS = 4; // date is locked when (today - date) >= 4
+ *  day the tap happens (0 = same day). The first 3 days count FULL, the next
+ *  2 at half, one more at a fifth; from MARK_LOCK_AFTER_DAYS on the mark earns
+ *  nothing. */
+export const DECAY_BY_DELAY = [1.0, 1.0, 1.0, 0.5, 0.5, 0.2] as const;
+
+/** A date can still be MARKED for points (with the decay above) until it's
+ *  this old; from here on it's "locked": tapping still records a scoring-
+ *  neutral V_late (the cell fills, but earns 0). = DECAY_BY_DELAY.length. */
+export const MARK_LOCK_AFTER_DAYS = DECAY_BY_DELAY.length; // 6
+
+/** A PERIOD settles (penalties/bonuses) once its last day is this old. Kept
+ *  SEPARATE from — and smaller than — the marking window on purpose: a late
+ *  mark made inside the window still fills the slot and cancels the penalty on
+ *  the next recompute, so final scores are identical either way. This one MUST
+ *  match the SQL port (migration 0036). */
+export const LOCK_AFTER_DAYS = 4; // period settles when (today - period.end) >= 4
 
 /** Penalty per unfilled quota slot once a period locks: 70% of the slot. */
 export const MISS_PENALTY = 0.7;
@@ -142,11 +155,12 @@ export function isV2Date(dateStr: string): boolean {
   return dateStr >= SCORING_V2_EPOCH;
 }
 
-/** A V2-era date can no longer be marked once it's LOCK_AFTER_DAYS old.
+/** A V2-era date can no longer be marked FOR POINTS once it's
+ *  MARK_LOCK_AFTER_DAYS old (the tap still records a neutral V_late).
  *  Pre-epoch dates stay markable under the old (v1) rules. */
 export function isDateLockedV2(dateStr: string, today: Date): boolean {
   if (!isV2Date(dateStr)) return false;
-  return daysBetweenStr(dateStr, toDateString(today)) >= LOCK_AFTER_DAYS;
+  return daysBetweenStr(dateStr, toDateString(today)) >= MARK_LOCK_AFTER_DAYS;
 }
 
 /** Decay factor for marking `dateStr` on `today`. 0 = locked / too late. */
