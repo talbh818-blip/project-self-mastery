@@ -566,7 +566,7 @@ function StepArrow({
         onClick();
       }}
       onMouseDown={(e) => e.stopPropagation()}
-      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md text-ink-100 hover:text-forest-700 hover:bg-surface-raised transition-colors disabled:opacity-25 disabled:pointer-events-none"
+      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md text-forest-700 hover:text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-25 disabled:pointer-events-none"
     >
       <Chevron size={18} strokeWidth={2.75} />
     </button>
