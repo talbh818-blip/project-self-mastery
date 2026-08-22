@@ -8,6 +8,12 @@
 //        └ checking שבוע שעבר reveals (subdued) לפני 2 / 3 / 4 שבועות
 // The selection + order is remembered per-user. Everything is READ-ONLY and
 // rendered with real formatting via VisionReadOnly.
+//
+// Each card also PAGES through earlier periods of its own scope: chevrons in
+// the header step older (ChevronRight, before the icon) / newer (ChevronLeft,
+// disabled at the current period). The step is per-card and ephemeral (not
+// persisted). Content for a paged-to period is fetched on demand and cached in
+// `meta`, so paging back and forth is instant after the first visit.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -15,6 +21,8 @@ import {
   X,
   Check,
   GripVertical,
+  ChevronLeft,
+  ChevronRight,
   ChevronsDownUp,
   ChevronsUpDown,
 } from 'lucide-react';
@@ -122,68 +130,142 @@ function weekRange(key: string): string {
 
 type PeriodInfo = { key: string; title: string; subtitle?: string };
 
-function periodFor(item: SelItem, today: Date): PeriodInfo {
+/** How many periods back a card starts on: weekly begins at its week-offset,
+ *  yearly/monthly at the current period (0). */
+function baseStepBack(item: SelItem): number {
+  return item.scope === 'weekly' ? item.weekOffset ?? 1 : 0;
+}
+
+/** A weekly card's title shifts as it pages: "השבוע" / "שבוע שעבר" / "לפני N…". */
+function weeklyLabel(stepBack: number): string {
+  if (stepBack <= 0) return 'השבוע';
+  if (stepBack === 1) return 'שבוע שעבר';
+  return `לפני ${stepBack} שבועות`;
+}
+
+/** The period a card shows at `stepBack` periods before now (0 = current). */
+function periodAt(item: SelItem, today: Date, stepBack: number): PeriodInfo {
   if (item.scope === 'yearly') {
-    const key = getYearKey(today);
+    const key = getYearKey(new Date(today.getFullYear() - stepBack, 0, 1));
     return { key, title: `חזון שנתי - ${key}` };
   }
   if (item.scope === 'monthly') {
-    const key = getMonthKey(today);
+    const key = getMonthKey(new Date(today.getFullYear(), today.getMonth() - stepBack, 1));
     return { key, title: `חזון חודשי - ${formatPeriodLabel('monthly', key)}` };
   }
-  const off = item.weekOffset ?? 1;
-  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7 * off);
+  const d = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate() - 7 * stepBack,
+  );
   const key = getWeekKey(d);
-  return { key, title: item.label, subtitle: weekRange(key) };
+  return { key, title: weeklyLabel(stepBack), subtitle: weekRange(key) };
 }
 
+type CardMeta = { content: unknown; icon: string | null };
+
 export function VisionReminisce({ userId, today, onClose }: Props) {
-  const itemPeriods = useMemo(() => {
-    const m = new Map<string, PeriodInfo>();
-    for (const it of ITEMS) m.set(it.id, periodFor(it, today));
-    return m;
-  }, [today]);
-
-  const allKeys = useMemo(
-    () => Array.from(new Set([...itemPeriods.values()].map((p) => p.key))),
-    [itemPeriods],
-  );
-
-  const [meta, setMeta] = useState<
-    Map<string, { content: unknown; icon: string | null }>
-  >(new Map());
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!userId) return;
-    let cancelled = false;
-    setLoading(true);
-    fetchVisionRowMeta(userId, allKeys)
-      .then((rows) => {
-        if (cancelled) return;
-        const m = new Map<string, { content: unknown; icon: string | null }>();
-        for (const r of rows) m.set(r.period_key, { content: r.content, icon: r.icon });
-        setMeta(m);
-      })
-      .catch((err) => console.error('[vision] reminisce fetch failed', err))
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, allKeys]);
-
   // Selected items in display order — drag-reorderable, persisted per-user.
   const [order, setOrder] = useState<string[]>(() => readSavedSel(userId));
   // Manual "minimize" toggle — collapses every card to a compact preview.
   const [minimized, setMinimized] = useState<boolean>(() => readSavedMin(userId));
+  // Per-card paging position (periods back from now). Missing → the card's base.
+  const [stepBackById, setStepBackById] = useState<Record<string, number>>({});
+
+  const getStepBack = useCallback(
+    (id: string): number => {
+      if (id in stepBackById) return stepBackById[id];
+      const item = ITEM_BY_ID.get(id);
+      return item ? baseStepBack(item) : 0;
+    },
+    [stepBackById],
+  );
+
+  const stepOlder = useCallback((id: string) => {
+    setStepBackById((prev) => {
+      const item = ITEM_BY_ID.get(id);
+      const cur = id in prev ? prev[id] : item ? baseStepBack(item) : 0;
+      return { ...prev, [id]: cur + 1 };
+    });
+  }, []);
+
+  const stepNewer = useCallback((id: string) => {
+    setStepBackById((prev) => {
+      const item = ITEM_BY_ID.get(id);
+      const cur = id in prev ? prev[id] : item ? baseStepBack(item) : 0;
+      return { ...prev, [id]: Math.max(0, cur - 1) };
+    });
+  }, []);
+
+  // Each rendered card's current period (derived from its step-back).
+  const renderList = useMemo(
+    () =>
+      order
+        .map((id) => {
+          const item = ITEM_BY_ID.get(id);
+          if (!item) return null;
+          const stepBack = getStepBack(id);
+          return { id, item, stepBack, period: periodAt(item, today, stepBack) };
+        })
+        .filter(
+          (x): x is { id: string; item: SelItem; stepBack: number; period: PeriodInfo } =>
+            x !== null,
+        ),
+    [order, getStepBack, today],
+  );
+
+  // Content cache keyed by period_key. A key mapped to {content:null} means
+  // "fetched, but no entry exists" — so we render the empty state, not a loader.
+  const [meta, setMeta] = useState<Map<string, CardMeta>>(new Map());
+  // Keys already fetched or in-flight, so paging never refetches a cached period.
+  const fetchedRef = useRef<Set<string>>(new Set());
+
+  // A fresh user resets the cache.
+  useEffect(() => {
+    fetchedRef.current = new Set();
+    setMeta(new Map());
+  }, [userId]);
+
+  const neededKeys = useMemo(
+    () => Array.from(new Set(renderList.map((r) => r.period.key))),
+    [renderList],
+  );
+
+  // Fetch only the keys we haven't seen yet, and merge into the cache. Keys
+  // that come back with no row are cached as empty so we don't refetch them.
+  useEffect(() => {
+    if (!userId) return;
+    const toFetch = neededKeys.filter((k) => !fetchedRef.current.has(k));
+    if (toFetch.length === 0) return;
+    for (const k of toFetch) fetchedRef.current.add(k);
+    let cancelled = false;
+    fetchVisionRowMeta(userId, toFetch)
+      .then((rows) => {
+        if (cancelled) return;
+        setMeta((prev) => {
+          const next = new Map(prev);
+          for (const r of rows) next.set(r.period_key, { content: r.content, icon: r.icon });
+          for (const k of toFetch) if (!next.has(k)) next.set(k, { content: null, icon: null });
+          return next;
+        });
+      })
+      .catch((err) => {
+        console.error('[vision] reminisce fetch failed', err);
+        // Allow a retry on the next render.
+        if (!cancelled) for (const k of toFetch) fetchedRef.current.delete(k);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, neededKeys]);
+
   const loadedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userId || loadedForRef.current === userId) return;
     loadedForRef.current = userId;
     setOrder(readSavedSel(userId));
     setMinimized(readSavedMin(userId));
+    setStepBackById({});
   }, [userId]);
 
   const toggleMinimized = useCallback(() => {
@@ -259,8 +341,8 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
     });
   };
 
-  const activePeriod = activeId ? itemPeriods.get(activeId) : null;
-  const activeMeta = activePeriod ? meta.get(activePeriod.key) : null;
+  const activeEntry = activeId ? renderList.find((r) => r.id === activeId) : null;
+  const activeMeta = activeEntry ? meta.get(activeEntry.period.key) : null;
 
   return (
     <div className="flex flex-col max-h-[calc(100vh-6.5rem)] rounded-2xl bg-surface-base ring-1 ring-surface-border overflow-hidden">
@@ -336,11 +418,7 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         className="flex-1 min-h-0 vision-feed-scroll overflow-y-auto overscroll-contain p-3"
       >
         <div dir="rtl">
-          {loading ? (
-            <div className="py-12">
-              <CompassLoader size="md" />
-            </div>
-          ) : order.length === 0 ? (
+          {order.length === 0 ? (
             <div className="text-center py-14 px-4">
               <Eye size={24} className="text-ink-500 mx-auto mb-3" />
               <p className="text-ink-300 text-[12px] leading-relaxed">
@@ -357,21 +435,21 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
             >
               <SortableContext items={order} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2.5">
-                  {order.map((id) => {
-                    const item = ITEM_BY_ID.get(id);
-                    if (!item) return null;
-                    const p = itemPeriods.get(id);
-                    if (!p) return null;
-                    const m = meta.get(p.key);
+                  {renderList.map(({ id, stepBack, period }) => {
+                    const m = meta.get(period.key);
                     return (
                       <SortableMemory
                         key={id}
                         id={id}
-                        title={p.title}
-                        subtitle={p.subtitle}
+                        title={period.title}
+                        subtitle={period.subtitle}
                         icon={m?.icon ?? null}
                         content={m?.content ?? null}
+                        loading={m === undefined}
                         collapsed={dragging || minimized}
+                        onOlder={() => stepOlder(id)}
+                        onNewer={() => stepNewer(id)}
+                        canNewer={stepBack > 0}
                       />
                     );
                   })}
@@ -379,10 +457,10 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
               </SortableContext>
               {/* A clean clone of the dragged card follows the cursor. */}
               <DragOverlay>
-                {activeId && activePeriod ? (
+                {activeId && activeEntry ? (
                   <MemoryCardView
-                    title={activePeriod.title}
-                    subtitle={activePeriod.subtitle}
+                    title={activeEntry.period.title}
+                    subtitle={activeEntry.period.subtitle}
                     icon={activeMeta?.icon ?? null}
                     content={activeMeta?.content ?? null}
                     collapsed
@@ -444,23 +522,62 @@ function CheckRow({
   );
 }
 
+/** One paging chevron. older → ChevronRight (physical right, before the icon);
+ *  newer → ChevronLeft (physical left, disabled at the current period). Matches
+ *  the DateBar stepper convention. */
+function StepArrow({
+  dir,
+  disabled,
+  onClick,
+}: {
+  dir: 'older' | 'newer';
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  const Chevron = dir === 'older' ? ChevronRight : ChevronLeft;
+  return (
+    <button
+      type="button"
+      aria-label={dir === 'older' ? 'חזון קודם' : 'חזון הבא'}
+      title={dir === 'older' ? 'קודם' : 'הבא'}
+      disabled={disabled}
+      // Stop the click from bubbling into the card (drag / selection).
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md text-ink-300 hover:text-forest-700 hover:bg-surface-raised transition-colors disabled:opacity-30 disabled:pointer-events-none"
+    >
+      <Chevron size={15} />
+    </button>
+  );
+}
+
 // Presentational card — shared by the in-list sortable item AND the drag
 // overlay clone. `collapsed` clamps the body to a short, fading preview so a
-// dragging list is easy to reorder.
+// dragging list is easy to reorder. When step handlers are provided, the header
+// shows paging chevrons flanking the title.
 function MemoryCardView({
   title,
   subtitle,
   icon,
   content,
+  loading,
   collapsed,
   overlay,
   dimmed,
   handleProps,
+  onOlder,
+  onNewer,
+  canNewer,
 }: {
   title: string;
   subtitle?: string;
   icon: string | null;
   content: unknown;
+  /** Content for this period hasn't been fetched yet → inline loader. */
+  loading?: boolean;
   collapsed?: boolean;
   /** The floating drag clone (gets a stronger shadow + grabbing cursor). */
   overlay?: boolean;
@@ -468,6 +585,11 @@ function MemoryCardView({
   dimmed?: boolean;
   /** Spread onto the grip button (sortable attributes + listeners). */
   handleProps?: Record<string, unknown>;
+  /** Page to an older / newer period of this card's scope. */
+  onOlder?: () => void;
+  onNewer?: () => void;
+  /** Whether a newer period exists (false at the current period). */
+  canNewer?: boolean;
 }) {
   const empty = isVisionContentEmpty(content);
   return (
@@ -489,11 +611,15 @@ function MemoryCardView({
           <GripVertical size={16} />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
+            {/* Older (ChevronRight) sits BEFORE the icon, on the right. */}
+            {onOlder && <StepArrow dir="older" onClick={onOlder} />}
             {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
-            <span className="text-[13px] font-bold text-ink-100 truncate">
+            <span className="min-w-0 flex-1 text-[13px] font-bold text-ink-100 truncate">
               {title}
             </span>
+            {/* Newer (ChevronLeft) on the left; disabled at the current period. */}
+            {onNewer && <StepArrow dir="newer" disabled={!canNewer} onClick={onNewer} />}
           </div>
           {subtitle && (
             <div
@@ -506,7 +632,11 @@ function MemoryCardView({
           )}
         </div>
       </header>
-      {empty ? (
+      {loading ? (
+        <div className="py-4 flex justify-center">
+          <CompassLoader size="sm" />
+        </div>
+      ) : empty ? (
         <p className="text-[13px] text-ink-500 italic">
           עוד לא נכתב חזון לתקופה זו.
         </p>
@@ -537,7 +667,11 @@ function SortableMemory({
   subtitle?: string;
   icon: string | null;
   content: unknown;
+  loading?: boolean;
   collapsed: boolean;
+  onOlder?: () => void;
+  onNewer?: () => void;
+  canNewer?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
