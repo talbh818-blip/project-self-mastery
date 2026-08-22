@@ -40,9 +40,31 @@ type Row = {
 
 type AdminTab = 'users' | 'feedback' | 'course' | 'questions' | 'dev';
 
+// In-session cache of the loaded user rows so navigating away from /admin and
+// back repaints instantly instead of flashing the loader. Memory-only (admin
+// data); a full page reload starts fresh and revalidates.
+let adminRowsCache: Row[] | null = null;
+
+const LS_ACTIVE_TAB = 'admin-active-tab';
+
+// Restore the last-open section so re-entering /admin lands where you left off
+// (e.g. stay on "פידבק" instead of snapping back to "משתמשים"). Validated
+// against the known sections so a removed tab can't wedge the screen.
+function loadActiveTab(): AdminTab {
+  try {
+    const v = localStorage.getItem(LS_ACTIVE_TAB);
+    if (v && SIDE_ITEMS.some((i) => i.id === v)) return v as AdminTab;
+  } catch {
+    // storage blocked — fall through to the default.
+  }
+  return 'users';
+}
+
 export function AdminScreen() {
-  const [tab, setTab] = useState<AdminTab>('users');
-  const [rows, setRows] = useState<Row[] | null>(null);
+  const [tab, setTab] = useState<AdminTab>(loadActiveTab);
+  // Seed from the in-session cache so navigating back to /admin paints the
+  // last-loaded users instantly (no loader flash); we revalidate on mount.
+  const [rows, setRows] = useState<Row[] | null>(() => adminRowsCache);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Profile | null>(null);
@@ -67,6 +89,15 @@ export function AdminScreen() {
     }
   }, [order]);
 
+  // Remember the active section across visits (per-device).
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_ACTIVE_TAB, tab);
+    } catch {
+      // storage blocked — the tab just won't persist.
+    }
+  }, [tab]);
+
   // Log-score of the row being edited — the sheet displays log_score +
   // score_adjustment as the total in the "ניקוד" field so the admin sees
   // the actual number from the card, and translates back to an adjustment
@@ -76,21 +107,23 @@ export function AdminScreen() {
     : 0;
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [profiles, activity] = await Promise.all([
         fetchAllProfiles(),
         fetchActivityRollup(),
       ]);
-      setRows(
-        profiles.map((p) => ({
-          profile: p,
-          activity: activity.get(p.id) ?? null,
-        })),
-      );
+      const next = profiles.map((p) => ({
+        profile: p,
+        activity: activity.get(p.id) ?? null,
+      }));
+      adminRowsCache = next;
+      setRows(next);
+      setError(null);
     } catch (e) {
       console.error('[admin] load failed:', e);
-      setError(describeError(e, 'שגיאה בטעינה'));
+      // A failed background revalidation must not wipe a working view — only
+      // surface the error when there's nothing cached to show.
+      if (adminRowsCache == null) setError(describeError(e, 'שגיאה בטעינה'));
     }
   }, []);
 

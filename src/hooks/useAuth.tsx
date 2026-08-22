@@ -25,7 +25,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      // Supabase fires this on every tab focus (TOKEN_REFRESHED / SIGNED_IN)
+      // with a BRAND-NEW session object. Blindly storing it churns the `user`
+      // object identity, which re-runs every effect keyed on `user` — that's
+      // what made screens flash their loader and refetch from scratch each time
+      // the browser tab regained focus. Keep the SAME object while the signed-in
+      // user is unchanged; only swap on a real identity change (sign in / out /
+      // different user). Nothing reads the access token from React state — the
+      // supabase client refreshes and uses it internally — so holding the prior
+      // object is safe.
+      setSession((prev) => (prev?.user?.id === newSession?.user?.id ? prev : newSession));
     });
     return () => sub.subscription.unsubscribe();
   }, []);
