@@ -220,6 +220,20 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
   // Keys already fetched or in-flight, so paging never refetches a cached period.
   const fetchedRef = useRef<Set<string>>(new Set());
 
+  // Stays true while the panel is mounted; `userIdRef` tracks the current user.
+  // A fetch that resolves after unmount or a user switch must NOT write the
+  // cache — but we deliberately do NOT cancel on ordinary effect re-runs (see
+  // the fetch effect below).
+  const aliveRef = useRef(true);
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
   // A fresh user resets the cache.
   useEffect(() => {
     fetchedRef.current = new Set();
@@ -233,15 +247,23 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
 
   // Fetch only the keys we haven't seen yet, and merge into the cache. Keys
   // that come back with no row are cached as empty so we don't refetch them.
+  //
+  // IMPORTANT: we do NOT cancel an in-flight fetch when this effect re-runs. A
+  // re-render (state settling on mount, a stable-but-new `neededKeys` array)
+  // re-runs the effect, but the keys are already in `fetchedRef`, so the re-run
+  // fetches nothing. Cancelling the first fetch would then strand every card on
+  // its loader forever. The result is a period-keyed cache entry that's always
+  // valid, so it's safe to let it land regardless of effect churn — we only
+  // guard against unmount / a user switch.
   useEffect(() => {
     if (!userId) return;
     const toFetch = neededKeys.filter((k) => !fetchedRef.current.has(k));
     if (toFetch.length === 0) return;
     for (const k of toFetch) fetchedRef.current.add(k);
-    let cancelled = false;
-    fetchVisionRowMeta(userId, toFetch)
+    const uid = userId;
+    fetchVisionRowMeta(uid, toFetch)
       .then((rows) => {
-        if (cancelled) return;
+        if (!aliveRef.current || userIdRef.current !== uid) return;
         setMeta((prev) => {
           const next = new Map(prev);
           for (const r of rows) next.set(r.period_key, { content: r.content, icon: r.icon });
@@ -251,12 +273,9 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
       })
       .catch((err) => {
         console.error('[vision] reminisce fetch failed', err);
-        // Allow a retry on the next render.
-        if (!cancelled) for (const k of toFetch) fetchedRef.current.delete(k);
+        // Drop the keys so a later render can retry them.
+        for (const k of toFetch) fetchedRef.current.delete(k);
       });
-    return () => {
-      cancelled = true;
-    };
   }, [userId, neededKeys]);
 
   const loadedForRef = useRef<string | null>(null);
@@ -547,9 +566,9 @@ function StepArrow({
         onClick();
       }}
       onMouseDown={(e) => e.stopPropagation()}
-      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md text-ink-300 hover:text-forest-700 hover:bg-surface-raised transition-colors disabled:opacity-30 disabled:pointer-events-none"
+      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md text-ink-100 hover:text-forest-700 hover:bg-surface-raised transition-colors disabled:opacity-25 disabled:pointer-events-none"
     >
-      <Chevron size={15} />
+      <Chevron size={18} strokeWidth={2.75} />
     </button>
   );
 }
@@ -615,10 +634,13 @@ function MemoryCardView({
             {/* Older (ChevronRight) sits BEFORE the icon, on the right. */}
             {onOlder && <StepArrow dir="older" onClick={onOlder} />}
             {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
-            <span className="min-w-0 flex-1 text-[13px] font-bold text-ink-100 truncate">
+            {/* Not flex-1: the title takes only its own width (truncating when
+                long) so the "newer" chevron hugs the end of the text rather
+                than floating out at the end of the line. */}
+            <span className="min-w-0 text-[13px] font-bold text-ink-100 truncate">
               {title}
             </span>
-            {/* Newer (ChevronLeft) on the left; disabled at the current period. */}
+            {/* Newer (ChevronLeft) right after the text; disabled at current. */}
             {onNewer && <StepArrow dir="newer" disabled={!canNewer} onClick={onNewer} />}
           </div>
           {subtitle && (
