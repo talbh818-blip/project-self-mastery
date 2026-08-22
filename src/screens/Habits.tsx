@@ -221,9 +221,10 @@ export function Habits() {
 
   // Admin-applied score adjustment is added on top of the computed total so
   // admin edits flow through to the same number the user sees everywhere.
-  // The total = frozen v1 (pre-epoch days) + v2 (the monthly-pie system).
+  // The total = frozen v1 (pre-epoch days) + v2 (the monthly-pie system),
+  // FLOORED at 0 with debt forgiveness — a score never reads negative.
   const totalScore = displayPoints(
-    (data.combined?.totalScore ?? 0) + (profile?.score_adjustment ?? 0),
+    Math.max(0, (data.combined?.flooredTotalScore ?? 0) + (profile?.score_adjustment ?? 0)),
   );
 
   // The tree's score math (totalScore − cycle_score_floor) is only meaningful
@@ -410,7 +411,7 @@ export function Habits() {
           days={weekRange.days}
           today={today}
           stats={data.stats}
-          pointsByHabit={data.combined?.pointsByHabit ?? null}
+          pointsByHabit={data.combined?.flooredPointsByHabit ?? null}
           onShowDetail={setDetailHabit}
           onMarkCell={handleCellClick}
           onReorder={data.reorderHabits}
@@ -1897,8 +1898,13 @@ function DataView({
   // source of drift automatically — score_adjustment, pre-range V1
   // history, points from archived habits that dropped out of activeStats
   // — instead of trying to enumerate them one at a time.
-  const trueTotal =
-    (combined?.totalScore ?? 0) + (profile?.score_adjustment ?? 0);
+  // Floored total (never negative) so the chart's ending number matches the
+  // score shown everywhere; the offset also lifts the whole line, keeping a
+  // declining score's curve from crossing below zero.
+  const trueTotal = Math.max(
+    0,
+    (combined?.flooredTotalScore ?? 0) + (profile?.score_adjustment ?? 0),
+  );
   const chartBaseOffset = trueTotal - runningTotal;
 
   // Perfect days — every active habit got a V (only counted if user has >0).

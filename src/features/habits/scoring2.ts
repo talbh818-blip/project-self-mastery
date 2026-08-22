@@ -683,6 +683,12 @@ export type CombinedStats = {
   v1: UserStatsV1;
   /** per-habit combined points for the habit cards. */
   pointsByHabit: Map<string, number>;
+  /** per-habit points FLOORED at 0 with debt forgiveness (never negative,
+   *  fresh start). Use this for DISPLAY; pointsByHabit stays raw for trees. */
+  flooredPointsByHabit: Map<string, number>;
+  /** Σ of flooredPointsByHabit — the floored total for display (callers still
+   *  add score_adjustment, then floor at 0). Never negative. */
+  flooredTotalScore: number;
   /** date → Σ earned_points snapshots of rows on that date (v2 era only).
    *  Feeds the dashboard trend graph. */
   v2EarnedByDate: Map<string, number>;
@@ -705,6 +711,47 @@ export function computeCombinedStats(params: {
     const a = v1.byHabit.get(h.id)?.totalPoints ?? 0;
     const b = v2.byHabit.get(h.id)?.total ?? 0;
     pointsByHabit.set(h.id, a + b);
+  }
+
+  // ── Floor at 0, with a "fresh start" (no hidden debt) ─────────────────────
+  // A score must never read negative — not per habit, not in total — and once
+  // it bottoms out at 0, later earnings lift it from 0 rather than first paying
+  // off buried debt. We get that by folding each habit's chronological deltas
+  // (opening frozen-v1 lump, then v2 earned snapshots + settlement
+  // penalties/bonuses by date) with a running floor at 0; the amount the floor
+  // clamps away is "forgiven debt". floored = raw + forgiven keeps the raw
+  // numbers (which trees etc. still use) untouched and only ever adds back.
+  const flooredPointsByHabit = new Map<string, number>();
+  let flooredTotalScore = 0;
+  for (const h of params.habits) {
+    const raw = pointsByHabit.get(h.id) ?? 0;
+    const byDate = new Map<string, number>();
+    for (const l of params.logs) {
+      if (l.habit_id === h.id && l.date >= SCORING_V2_EPOCH && l.earned_points != null) {
+        byDate.set(l.date, (byDate.get(l.date) ?? 0) + l.earned_points);
+      }
+    }
+    const settlements = v2.byHabit.get(h.id)?.settlementsByDate;
+    if (settlements) {
+      for (const [d, x] of settlements) byDate.set(d, (byDate.get(d) ?? 0) + x);
+    }
+    // Opening lump = frozen v1, then the v2 deltas in date order.
+    const deltas = [
+      v1.byHabit.get(h.id)?.totalPoints ?? 0,
+      ...Array.from(byDate.keys())
+        .sort()
+        .map((d) => byDate.get(d) as number),
+    ];
+    let clamped = 0;
+    let unclamped = 0;
+    for (const dl of deltas) {
+      unclamped += dl;
+      clamped = Math.max(0, clamped + dl);
+    }
+    const forgiven = clamped - unclamped; // ≥ 0 — debt the floor wiped
+    const floored = Math.max(0, raw + forgiven);
+    flooredPointsByHabit.set(h.id, floored);
+    flooredTotalScore += floored;
   }
   const v2EarnedByDate = new Map<string, number>();
   for (const l of params.logs) {
@@ -731,6 +778,8 @@ export function computeCombinedStats(params: {
     v2,
     v1,
     pointsByHabit,
+    flooredPointsByHabit,
+    flooredTotalScore,
     v2EarnedByDate,
     v2SettlementsByDate,
   };
