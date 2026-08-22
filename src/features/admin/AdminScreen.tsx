@@ -12,6 +12,7 @@ import {
   PlayCircle,
   HelpCircle,
   KanbanSquare,
+  Calculator,
   GripVertical,
   type LucideIcon,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ import { CourseAdminPanel } from './CourseAdminPanel';
 import { FeedbackAdminPanel } from './FeedbackAdminPanel';
 import { VisionQuestionsAdminPanel } from './VisionQuestionsAdminPanel';
 import { DevBoardAdminPanel } from './DevBoardAdminPanel';
+import { ScoringDocPanel } from './ScoringDocPanel';
 import { UserEditSheet } from './UserEditSheet';
 import { useOpenTickets } from './OpenTicketsContext';
 import { useVisionLayoutPref } from '../vision/useVisionLayoutPref';
@@ -38,7 +40,7 @@ type Row = {
   activity: UserActivity | null;
 };
 
-type AdminTab = 'users' | 'feedback' | 'course' | 'questions' | 'dev';
+type AdminTab = 'users' | 'feedback' | 'course' | 'questions' | 'scoring' | 'dev';
 
 // In-session cache of the loaded user rows so navigating away from /admin and
 // back repaints instantly instead of flashing the loader. Memory-only (admin
@@ -185,6 +187,7 @@ export function AdminScreen() {
       {tab === 'course' && <CourseAdminPanel />}
       {tab === 'feedback' && <FeedbackAdminPanel />}
       {tab === 'questions' && <VisionQuestionsAdminPanel />}
+      {tab === 'scoring' && <ScoringDocPanel />}
       {tab === 'dev' && <DevBoardAdminPanel />}
       {tab === 'users' && (
         <>
@@ -291,6 +294,7 @@ const SIDE_ITEMS: { id: AdminTab; label: string; icon: LucideIcon }[] = [
   { id: 'feedback', label: 'פידבק', icon: MessageSquare },
   { id: 'course', label: 'קורס', icon: PlayCircle },
   { id: 'questions', label: 'שאלות', icon: HelpCircle },
+  { id: 'scoring', label: 'ניקוד', icon: Calculator },
   { id: 'dev', label: 'פיתוח', icon: KanbanSquare },
 ];
 
