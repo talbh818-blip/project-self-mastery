@@ -214,29 +214,22 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
     [order, getStepBack, today],
   );
 
-  // Content cache keyed by period_key. A key mapped to {content:null} means
-  // "fetched, but no entry exists" — so we render the empty state, not a loader.
+  // Content cache keyed by period_key. A key PRESENT in the map is resolved
+  // (value {content:null} = "no entry exists" → empty state); a key ABSENT is
+  // still loading. Keying the loader off the cache itself — not a separate
+  // "already fetched" set — is what guarantees a card can't get stranded on its
+  // spinner: every needed key is fetched until it actually lands here (on
+  // success OR error).
   const [meta, setMeta] = useState<Map<string, CardMeta>>(new Map());
-  // Keys already fetched or in-flight, so paging never refetches a cached period.
-  const fetchedRef = useRef<Set<string>>(new Set());
-
-  // Stays true while the panel is mounted; `userIdRef` tracks the current user.
-  // A fetch that resolves after unmount or a user switch must NOT write the
-  // cache — but we deliberately do NOT cancel on ordinary effect re-runs (see
-  // the fetch effect below).
-  const aliveRef = useRef(true);
+  // In-flight keys, so we don't fire duplicate requests for the same period.
+  const inFlightRef = useRef<Set<string>>(new Set());
+  // Tracks the current user so a late response from a previous user is dropped.
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
-  useEffect(() => {
-    aliveRef.current = true;
-    return () => {
-      aliveRef.current = false;
-    };
-  }, []);
 
   // A fresh user resets the cache.
   useEffect(() => {
-    fetchedRef.current = new Set();
+    inFlightRef.current = new Set();
     setMeta(new Map());
   }, [userId]);
 
@@ -245,38 +238,63 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
     [renderList],
   );
 
-  // Fetch only the keys we haven't seen yet, and merge into the cache. Keys
-  // that come back with no row are cached as empty so we don't refetch them.
-  //
-  // IMPORTANT: we do NOT cancel an in-flight fetch when this effect re-runs. A
-  // re-render (state settling on mount, a stable-but-new `neededKeys` array)
-  // re-runs the effect, but the keys are already in `fetchedRef`, so the re-run
-  // fetches nothing. Cancelling the first fetch would then strand every card on
-  // its loader forever. The result is a period-keyed cache entry that's always
-  // valid, so it's safe to let it land regardless of effect churn — we only
-  // guard against unmount / a user switch.
+  // A weekly period_key (YYYY-MM-DD) can also exist as a DAILY entry, so pin
+  // each key to the scope the card actually wants and ignore rows of another
+  // scope that happen to share the key.
+  const keyScope = useMemo(() => {
+    const m = new Map<string, VisionScope>();
+    for (const r of renderList) if (!m.has(r.period.key)) m.set(r.period.key, r.item.scope);
+    return m;
+  }, [renderList]);
+
+  // Ensure every needed key ends up in the cache. Re-runs whenever the needed
+  // set OR the cache changes: it fetches exactly the keys that aren't cached
+  // and aren't already in flight, then writes a cache entry for each — content
+  // when the entry exists, {content:null} when it doesn't OR the request
+  // failed. That failure fallback is the safety net: a fetch error still
+  // resolves the loader instead of spinning forever.
   useEffect(() => {
     if (!userId) return;
-    const toFetch = neededKeys.filter((k) => !fetchedRef.current.has(k));
+    const toFetch = neededKeys.filter(
+      (k) => !meta.has(k) && !inFlightRef.current.has(k),
+    );
     if (toFetch.length === 0) return;
-    for (const k of toFetch) fetchedRef.current.add(k);
+    for (const k of toFetch) inFlightRef.current.add(k);
     const uid = userId;
     fetchVisionRowMeta(uid, toFetch)
       .then((rows) => {
-        if (!aliveRef.current || userIdRef.current !== uid) return;
+        if (userIdRef.current !== uid) return;
         setMeta((prev) => {
           const next = new Map(prev);
-          for (const r of rows) next.set(r.period_key, { content: r.content, icon: r.icon });
-          for (const k of toFetch) if (!next.has(k)) next.set(k, { content: null, icon: null });
+          for (const k of toFetch) {
+            const want = keyScope.get(k);
+            const row = rows.find(
+              (r) => r.period_key === k && (want == null || r.scope === want),
+            );
+            next.set(
+              k,
+              row
+                ? { content: row.content, icon: row.icon }
+                : { content: null, icon: null },
+            );
+          }
           return next;
         });
       })
       .catch((err) => {
         console.error('[vision] reminisce fetch failed', err);
-        // Drop the keys so a later render can retry them.
-        for (const k of toFetch) fetchedRef.current.delete(k);
+        if (userIdRef.current !== uid) return;
+        // Never hang: resolve the loader with an empty state.
+        setMeta((prev) => {
+          const next = new Map(prev);
+          for (const k of toFetch) if (!next.has(k)) next.set(k, { content: null, icon: null });
+          return next;
+        });
+      })
+      .finally(() => {
+        for (const k of toFetch) inFlightRef.current.delete(k);
       });
-  }, [userId, neededKeys]);
+  }, [userId, neededKeys, meta, keyScope]);
 
   const loadedForRef = useRef<string | null>(null);
   useEffect(() => {
