@@ -213,9 +213,13 @@
   בטוטאל. מיושם ב-`computeCombinedStats` (`flooredPointsByHabit`/`flooredTotalScore`)
   כ**running-floor**: מקפלים את הדלתות הכרונולוגיות פר‑הרגל עם `max(0,…)`, והסכום
   שנחתך = "חוב שנמחל"; `floored = raw + forgiven` (ה-`raw` נשאר לעצים). כך אחרי
-  שמגיעים ל‑0, נקודות חדשות מטפסות מ‑0 בלי חוב נסתר. **הצד הקליינטי בלבד עד כה** —
-  הדשבורד באדמין (`UserDetail`) נשען על RPC ב-SQL (`get_user_dashboard`) שעדיין
-  מחזיר raw; צריך לרצף גם שם (מיגרציה) בהזדמנות.
+  שמגיעים ל‑0, נקודות חדשות מטפסות מ‑0 בלי חוב נסתר.
+- **הריצוף כולו בצד הקליינט** (ה-DB/RPC ממשיכים להחזיר raw): מסך ההרגלים דרך
+  `computeCombinedStats`; דשבורד האדמין (`UserDetail`) מריץ running-floor על
+  `daily_points` מה-RPC ומקזז חוב (per-habit שם עובר `max(0,…)` פשוט, אין לו סדרה
+  יומית); רשימת האדמין (`AdminScreen`) עושה `max(0,…)` על ה-rollup. אין צורך
+  במיגרציית SQL. **אין לרצף את שדה העריכה ב-`UserEditSheet`** — הוא כלי עריכת
+  ה-adjustment וצריך את המספר הגולמי.
 
 ---
 

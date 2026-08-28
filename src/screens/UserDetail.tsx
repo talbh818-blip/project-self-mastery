@@ -53,6 +53,25 @@ export function UserDetail() {
     };
   }, [id]);
 
+  // Floor the score at 0 with a fresh start (never negative), same as the
+  // user's own app. This dashboard gets RAW numbers from the RPC, so we floor
+  // in the client: run a floor over the daily-point deltas and add the clamped-
+  // away "forgiven debt" back onto the raw score. floored = raw + forgiven.
+  const flooredScore = useMemo(() => {
+    if (!data) return 0;
+    const daily = data.daily_points ?? [];
+    if (daily.length === 0) return Math.max(0, Math.round(data.score));
+    const sorted = [...daily].sort((a, b) => a.date.localeCompare(b.date));
+    let clamped = 0;
+    let unclamped = 0;
+    for (const d of sorted) {
+      unclamped += d.points;
+      clamped = Math.max(0, clamped + d.points);
+    }
+    const forgiven = clamped - unclamped; // ≥ 0 — debt the floor wiped
+    return Math.max(0, Math.round(data.score) + forgiven);
+  }, [data]);
+
   if (error) {
     return (
       <section className="pt-2 space-y-3">
@@ -138,7 +157,7 @@ export function UserDetail() {
           label="ימים במסע"
         />
         <Kpi icon={<Emoji emoji="🌳" size={22} />} value={data.trees_planted} label="עצים שנשתלו" />
-        <Kpi icon={<Emoji emoji="✨" size={22} />} value={data.score} label="סה״כ ניקוד" />
+        <Kpi icon={<Emoji emoji="✨" size={22} />} value={flooredScore} label="סה״כ ניקוד" />
         <Kpi icon={<Emoji emoji="📖" size={22} />} value={data.vision_count} label="כתיבות חזון" />
       </div>
 
@@ -161,10 +180,10 @@ export function UserDetail() {
                   delta explicitly. Hidden when the numbers already agree. */}
               {(() => {
                 const habitCardsSum = (data.habits ?? []).reduce(
-                  (s, h) => s + Math.round(h.total_points),
+                  (s, h) => s + Math.max(0, Math.round(h.total_points)),
                   0,
                 );
-                const trueTotal = Math.round(data.score);
+                const trueTotal = flooredScore;
                 const gap = trueTotal - habitCardsSum;
                 if (gap === 0) return null;
                 const sign = gap > 0 ? '+' : '';
@@ -193,7 +212,7 @@ export function UserDetail() {
                 daily_points series alone doesn't include score_adjustment. */}
             <CumulativePointsCard
               daily={data.daily_points ?? []}
-              currentScore={data.score}
+              currentScore={flooredScore}
             />
 
             <div className="bg-surface-card rounded-2xl p-5 space-y-3">
@@ -400,7 +419,8 @@ function UserHabitCard({ habit }: { habit: DashboardHabit }) {
     color: habit.color,
   };
   const freqText = shortFreq(habit.frequency_period, habit.frequency_target);
-  const points = habit.total_points;
+  // Never show a negative per-habit score (matches the score floor elsewhere).
+  const points = Math.max(0, habit.total_points);
 
   return (
     <div className="rounded-2xl border border-surface-border bg-surface-card p-2.5 flex flex-col items-center text-center gap-1.5 min-w-0">

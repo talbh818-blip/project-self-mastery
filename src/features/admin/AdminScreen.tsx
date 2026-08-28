@@ -513,7 +513,9 @@ function UserCard({
 }) {
   const name = profile.display_name ?? profile.email ?? profile.id.slice(0, 8);
   const initials = (name || '?').slice(0, 2).toUpperCase();
-  const totalScore = (activity?.log_score ?? 0) + profile.score_adjustment;
+  // Floor at 0 for display — a score never reads negative (list view has only
+  // the rollup total, so this is a plain clamp; the detail view floors fully).
+  const totalScore = Math.max(0, (activity?.log_score ?? 0) + profile.score_adjustment);
   const lastSeen = profile.last_seen_at ? relativeFromNow(profile.last_seen_at) : 'מעולם לא';
   const activeWithin7d = profile.last_seen_at
     ? Date.now() - new Date(profile.last_seen_at).getTime() < 7 * 24 * 3600 * 1000
