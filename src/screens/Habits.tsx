@@ -481,7 +481,7 @@ export function Habits() {
                   // the combined (frozen v1 + v2) one the rest of the UI shows.
                   const s = data.stats.byHabit.get(detailHabit.id);
                   if (!s) return null;
-                  const pts = data.combined?.pointsByHabit.get(detailHabit.id);
+                  const pts = data.combined?.flooredPointsByHabit.get(detailHabit.id);
                   return pts === undefined
                     ? s
                     : { ...s, totalPoints: displayPoints(pts) };
@@ -2004,7 +2004,7 @@ function DataView({
             <HabitDataCard
               key={habit.id}
               habit={habit}
-              totalPoints={combined?.pointsByHabit.get(habit.id) ?? 0}
+              totalPoints={combined?.flooredPointsByHabit.get(habit.id) ?? 0}
               vCountInRange={vCountInRangeByHabit.get(habit.id) ?? 0}
               startDate={startDateByHabit.get(habit.id) ?? null}
               today={today}
@@ -2015,7 +2015,7 @@ function DataView({
         </div>
         {(() => {
           const habitCardsSum = orderedHabits.reduce(
-            (s, h) => s + Math.round(combined?.pointsByHabit.get(h.id) ?? 0),
+            (s, h) => s + Math.round(combined?.flooredPointsByHabit.get(h.id) ?? 0),
             0,
           );
           const chartTotal = Math.round(trueTotal);
