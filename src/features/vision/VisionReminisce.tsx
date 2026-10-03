@@ -2,58 +2,27 @@
 // VisionReminisce — the desktop "look back" panel (read-only).
 // ----------------------------------------------------------------------------
 // A quiet, journal-like column to the LEFT of the writing page (toggled by the
-// eye in the rail). The user CHECKS which past visions to view (multi-select),
-// and can DRAG the chosen visions into any order (Trello-style):
-//   ☑ חזון שנתי · ☑ חזון חודשי · ☑ שבוע שעבר
-//        └ checking שבוע שעבר reveals (subdued) לפני 2 / 3 / 4 שבועות
-// The selection + order is remembered per-user. Everything is READ-ONLY and
-// rendered with real formatting via VisionReadOnly.
+// eye in the rail). At the top are THREE tab buttons — חזון שנתי · חזון חודשי ·
+// חזון שבועי — and exactly ONE is active at a time. The active scope's visions
+// are listed top-to-bottom, NEWEST first (the current period at the top, older
+// periods below). Periods the user never wrote are still shown, as an empty
+// card ("עוד לא נכתב חזון לתקופה זו"), so the timeline has no holes. Everything
+// is READ-ONLY and rendered with real formatting via VisionReadOnly.
 //
-// Each card also PAGES through earlier periods of its own scope: chevrons in
-// the header step older (ChevronRight, before the icon) / newer (ChevronLeft,
-// disabled at the current period). The step is per-card and ephemeral (not
-// persisted). Content for a paged-to period is fetched on demand and cached in
-// `meta`, so paging back and forth is instant after the first visit.
+// The chosen tab is remembered per-user. There is no paging and no drag — the
+// whole range (first-written … current, gaps filled) is always on screen.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Eye,
-  X,
-  Check,
-  GripVertical,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsDownUp,
-  ChevronsUpDown,
-} from 'lucide-react';
-import {
-  DndContext,
-  DragOverlay,
-  MouseSensor,
-  TouchSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { Eye, X, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { CompassLoader } from '../../components/CompassLoader';
 import { HabitIcon } from '../habits/HabitIcon';
-import { fetchVisionRowMeta } from './queries';
+import { fetchVisionEntriesForScope } from './queries';
 import { isVisionContentEmpty } from './content';
 import { VisionReadOnly } from './VisionReadOnly';
 import {
+  addPeriod,
   formatPeriodLabel,
-  getMonthKey,
-  getWeekKey,
-  getYearKey,
+  getPeriodKey,
   parsePeriodStart,
   type VisionScope,
 } from './period';
@@ -64,31 +33,24 @@ type Props = {
   onClose: () => void;
 };
 
-type SelItem = {
-  id: string;
-  label: string;
-  scope: VisionScope;
-  /** weekly: how many weeks back from now (1 = last week). */
-  weekOffset?: number;
-  /** A sub-option revealed only when "שבוע שעבר" (w1) is checked. */
-  sub?: boolean;
-};
+type ScopeTab = { scope: VisionScope; label: string };
 
-const ITEMS: SelItem[] = [
-  { id: 'yearly', label: 'חזון שנתי', scope: 'yearly' },
-  { id: 'monthly', label: 'חזון חודשי', scope: 'monthly' },
-  { id: 'w1', label: 'שבוע שעבר', scope: 'weekly', weekOffset: 1 },
-  { id: 'w2', label: 'לפני 2 שבועות', scope: 'weekly', weekOffset: 2, sub: true },
-  { id: 'w3', label: 'לפני 3 שבועות', scope: 'weekly', weekOffset: 3, sub: true },
-  { id: 'w4', label: 'לפני 4 שבועות', scope: 'weekly', weekOffset: 4, sub: true },
+// The three tabs, in display order (RTL → first one is rightmost).
+const TABS: ScopeTab[] = [
+  { scope: 'yearly', label: 'חזון שנתי' },
+  { scope: 'monthly', label: 'חזון חודשי' },
+  { scope: 'weekly', label: 'חזון שבועי' },
 ];
-const ITEM_BY_ID = new Map(ITEMS.map((it) => [it.id, it]));
-const SUB_IDS = ['w2', 'w3', 'w4'];
+const SCOPE_IDS: VisionScope[] = TABS.map((t) => t.scope);
 
-// Selection + order is remembered per-user (the array IS the display order).
-const SEL_LS_PREFIX = 'vision-reminisce-sel:';
+// Which tab is active — remembered per-user.
+const SCOPE_LS_PREFIX = 'vision-reminisce-scope:';
 // Whether the cards are manually minimized (compact) — remembered per-user.
 const MIN_LS_PREFIX = 'vision-reminisce-min:';
+
+// A hard cap on how many periods we ever walk back, so a malformed/legacy key
+// can never spin the builder into an endless loop.
+const MAX_PERIODS = 600;
 
 function readSavedMin(userId: string | null): boolean {
   if (!userId) return false;
@@ -99,211 +61,76 @@ function readSavedMin(userId: string | null): boolean {
   }
 }
 
-function readSavedSel(userId: string | null): string[] {
-  if (!userId) return ['monthly'];
+function readSavedScope(userId: string | null): VisionScope {
+  if (!userId) return 'yearly';
   try {
-    const raw = localStorage.getItem(`${SEL_LS_PREFIX}${userId}`);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) {
-        let valid = arr.filter(
-          (id): id is string => typeof id === 'string' && ITEM_BY_ID.has(id),
-        );
-        // Sub-weeks can't be shown without their parent "שבוע שעבר".
-        if (!valid.includes('w1')) valid = valid.filter((id) => !SUB_IDS.includes(id));
-        return valid;
-      }
-    }
+    const raw = localStorage.getItem(`${SCOPE_LS_PREFIX}${userId}`);
+    if (raw && (SCOPE_IDS as string[]).includes(raw)) return raw as VisionScope;
   } catch {
     // ignore
   }
-  return ['monthly'];
-}
-
-/** Compact numeric range for a week, e.g. "24.5 – 30.5" (no month name/year). */
-function weekRange(key: string): string {
-  const start = parsePeriodStart('weekly', key);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 6);
-  return `${start.getDate()}.${start.getMonth() + 1} – ${end.getDate()}.${end.getMonth() + 1}`;
-}
-
-type PeriodInfo = { key: string; title: string; subtitle?: string };
-
-/** How many periods back a card starts on: weekly begins at its week-offset,
- *  yearly/monthly at the current period (0). */
-function baseStepBack(item: SelItem): number {
-  return item.scope === 'weekly' ? item.weekOffset ?? 1 : 0;
-}
-
-/** A weekly card's title shifts as it pages: "השבוע" / "שבוע שעבר" / "לפני N…". */
-function weeklyLabel(stepBack: number): string {
-  if (stepBack <= 0) return 'השבוע';
-  if (stepBack === 1) return 'שבוע שעבר';
-  return `לפני ${stepBack} שבועות`;
-}
-
-/** The period a card shows at `stepBack` periods before now (0 = current). */
-function periodAt(item: SelItem, today: Date, stepBack: number): PeriodInfo {
-  if (item.scope === 'yearly') {
-    const key = getYearKey(new Date(today.getFullYear() - stepBack, 0, 1));
-    return { key, title: `חזון שנתי - ${key}` };
-  }
-  if (item.scope === 'monthly') {
-    const key = getMonthKey(new Date(today.getFullYear(), today.getMonth() - stepBack, 1));
-    return { key, title: `חזון חודשי - ${formatPeriodLabel('monthly', key)}` };
-  }
-  const d = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate() - 7 * stepBack,
-  );
-  const key = getWeekKey(d);
-  return { key, title: weeklyLabel(stepBack), subtitle: weekRange(key) };
+  return 'yearly';
 }
 
 type CardMeta = { content: unknown; icon: string | null };
 
 export function VisionReminisce({ userId, today, onClose }: Props) {
-  // Selected items in display order — drag-reorderable, persisted per-user.
-  const [order, setOrder] = useState<string[]>(() => readSavedSel(userId));
-  // Manual "minimize" toggle — collapses every card to a compact preview.
+  // The active tab (single-select), persisted per-user.
+  const [scope, setScope] = useState<VisionScope>(() => readSavedScope(userId));
+  // Manual "minimize" toggle — collapses every written card to a short preview.
   const [minimized, setMinimized] = useState<boolean>(() => readSavedMin(userId));
-  // Per-card paging position (periods back from now). Missing → the card's base.
-  const [stepBackById, setStepBackById] = useState<Record<string, number>>({});
+  // The active scope's rows, keyed by period_key. null while loading.
+  const [entries, setEntries] = useState<Map<string, CardMeta> | null>(null);
 
-  const getStepBack = useCallback(
-    (id: string): number => {
-      if (id in stepBackById) return stepBackById[id];
-      const item = ITEM_BY_ID.get(id);
-      return item ? baseStepBack(item) : 0;
-    },
-    [stepBackById],
-  );
+  // Drop a late response from a previous user / scope.
+  const reqRef = useRef(0);
 
-  const stepOlder = useCallback((id: string) => {
-    setStepBackById((prev) => {
-      const item = ITEM_BY_ID.get(id);
-      const cur = id in prev ? prev[id] : item ? baseStepBack(item) : 0;
-      return { ...prev, [id]: cur + 1 };
-    });
-  }, []);
-
-  const stepNewer = useCallback((id: string) => {
-    setStepBackById((prev) => {
-      const item = ITEM_BY_ID.get(id);
-      const cur = id in prev ? prev[id] : item ? baseStepBack(item) : 0;
-      return { ...prev, [id]: Math.max(0, cur - 1) };
-    });
-  }, []);
-
-  // Each rendered card's current period (derived from its step-back).
-  const renderList = useMemo(
-    () =>
-      order
-        .map((id) => {
-          const item = ITEM_BY_ID.get(id);
-          if (!item) return null;
-          const stepBack = getStepBack(id);
-          return { id, item, stepBack, period: periodAt(item, today, stepBack) };
-        })
-        .filter(
-          (x): x is { id: string; item: SelItem; stepBack: number; period: PeriodInfo } =>
-            x !== null,
-        ),
-    [order, getStepBack, today],
-  );
-
-  // Content cache keyed by period_key. A key PRESENT in the map is resolved
-  // (value {content:null} = "no entry exists" → empty state); a key ABSENT is
-  // still loading. Keying the loader off the cache itself — not a separate
-  // "already fetched" set — is what guarantees a card can't get stranded on its
-  // spinner: every needed key is fetched until it actually lands here (on
-  // success OR error).
-  const [meta, setMeta] = useState<Map<string, CardMeta>>(new Map());
-  // In-flight keys, so we don't fire duplicate requests for the same period.
-  const inFlightRef = useRef<Set<string>>(new Set());
-  // Tracks the current user so a late response from a previous user is dropped.
-  const userIdRef = useRef(userId);
-  userIdRef.current = userId;
-
-  // A fresh user resets the cache.
-  useEffect(() => {
-    inFlightRef.current = new Set();
-    setMeta(new Map());
-  }, [userId]);
-
-  const neededKeys = useMemo(
-    () => Array.from(new Set(renderList.map((r) => r.period.key))),
-    [renderList],
-  );
-
-  // A weekly period_key (YYYY-MM-DD) can also exist as a DAILY entry, so pin
-  // each key to the scope the card actually wants and ignore rows of another
-  // scope that happen to share the key.
-  const keyScope = useMemo(() => {
-    const m = new Map<string, VisionScope>();
-    for (const r of renderList) if (!m.has(r.period.key)) m.set(r.period.key, r.item.scope);
-    return m;
-  }, [renderList]);
-
-  // Ensure every needed key ends up in the cache. Re-runs whenever the needed
-  // set OR the cache changes: it fetches exactly the keys that aren't cached
-  // and aren't already in flight, then writes a cache entry for each — content
-  // when the entry exists, {content:null} when it doesn't OR the request
-  // failed. That failure fallback is the safety net: a fetch error still
-  // resolves the loader instead of spinning forever.
-  useEffect(() => {
-    if (!userId) return;
-    const toFetch = neededKeys.filter(
-      (k) => !meta.has(k) && !inFlightRef.current.has(k),
-    );
-    if (toFetch.length === 0) return;
-    for (const k of toFetch) inFlightRef.current.add(k);
-    const uid = userId;
-    fetchVisionRowMeta(uid, toFetch)
-      .then((rows) => {
-        if (userIdRef.current !== uid) return;
-        setMeta((prev) => {
-          const next = new Map(prev);
-          for (const k of toFetch) {
-            const want = keyScope.get(k);
-            const row = rows.find(
-              (r) => r.period_key === k && (want == null || r.scope === want),
-            );
-            next.set(
-              k,
-              row
-                ? { content: row.content, icon: row.icon }
-                : { content: null, icon: null },
-            );
-          }
-          return next;
-        });
-      })
-      .catch((err) => {
-        console.error('[vision] reminisce fetch failed', err);
-        if (userIdRef.current !== uid) return;
-        // Never hang: resolve the loader with an empty state.
-        setMeta((prev) => {
-          const next = new Map(prev);
-          for (const k of toFetch) if (!next.has(k)) next.set(k, { content: null, icon: null });
-          return next;
-        });
-      })
-      .finally(() => {
-        for (const k of toFetch) inFlightRef.current.delete(k);
-      });
-  }, [userId, neededKeys, meta, keyScope]);
-
+  // Re-sync persisted prefs when the user changes.
   const loadedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (!userId || loadedForRef.current === userId) return;
     loadedForRef.current = userId;
-    setOrder(readSavedSel(userId));
+    setScope(readSavedScope(userId));
     setMinimized(readSavedMin(userId));
-    setStepBackById({});
   }, [userId]);
+
+  // Fetch every row of the active scope whenever the user or scope changes.
+  useEffect(() => {
+    if (!userId) {
+      setEntries(new Map());
+      return;
+    }
+    const req = ++reqRef.current;
+    setEntries(null); // show the loader
+    fetchVisionEntriesForScope(userId, scope)
+      .then((rows) => {
+        if (reqRef.current !== req) return;
+        const map = new Map<string, CardMeta>();
+        for (const r of rows) {
+          map.set(r.period_key, { content: r.content, icon: r.icon });
+        }
+        setEntries(map);
+      })
+      .catch((err) => {
+        console.error('[vision] reminisce scope fetch failed', err);
+        if (reqRef.current !== req) return;
+        setEntries(new Map()); // resolve to an empty timeline, never hang
+      });
+  }, [userId, scope]);
+
+  const selectScope = useCallback(
+    (next: VisionScope) => {
+      setScope(next);
+      if (userId) {
+        try {
+          localStorage.setItem(`${SCOPE_LS_PREFIX}${userId}`, next);
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [userId],
+  );
 
   const toggleMinimized = useCallback(() => {
     setMinimized((prev) => {
@@ -319,67 +146,39 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
     });
   }, [userId]);
 
-  const persist = useCallback(
-    (next: string[]) => {
-      if (!userId) return;
-      try {
-        localStorage.setItem(`${SEL_LS_PREFIX}${userId}`, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-    },
-    [userId],
-  );
+  // The ordered list of periods to show: from the latest period that has a
+  // written vision (or now, whichever is later) down to the earliest written
+  // one (or now, whichever is earlier) — NEWEST first. Gaps are kept so an
+  // unwritten period still gets an empty card.
+  const periodKeys = useMemo(() => {
+    const currentKey = getPeriodKey(scope, today);
+    const startAt = (k: string) => parsePeriodStart(scope, k).getTime();
 
-  const checked = useMemo(() => new Set(order), [order]);
-  const w1Checked = checked.has('w1');
-
-  const toggle = useCallback(
-    (id: string) => {
-      setOrder((prev) => {
-        let next: string[];
-        if (prev.includes(id)) {
-          next = prev.filter((x) => x !== id);
-          if (id === 'w1') next = next.filter((x) => !SUB_IDS.includes(x));
-        } else {
-          next = [...prev, id];
+    let minT = startAt(currentKey);
+    let maxKey = currentKey;
+    let maxT = minT;
+    if (entries) {
+      for (const k of entries.keys()) {
+        const t = startAt(k);
+        if (t < minT) minT = t;
+        if (t > maxT) {
+          maxT = t;
+          maxKey = k;
         }
-        persist(next);
-        return next;
-      });
-    },
-    [persist],
-  );
+      }
+    }
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-  );
+    const out: string[] = [];
+    let k = maxKey;
+    for (let i = 0; i < MAX_PERIODS; i++) {
+      out.push(k);
+      if (startAt(k) <= minT) break;
+      k = addPeriod(scope, k, -1);
+    }
+    return out;
+  }, [scope, today, entries]);
 
-  // Which card is mid-drag (null = none). While dragging, ALL cards collapse to
-  // a short preview so reordering long visions is easy, and the dragged one is
-  // shown via a DragOverlay clone (clean motion, no stretched original).
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const dragging = activeId !== null;
-
-  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
-
-  const handleDragEnd = (e: DragEndEvent) => {
-    setActiveId(null);
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    setOrder((prev) => {
-      const oldIndex = prev.indexOf(String(active.id));
-      const newIndex = prev.indexOf(String(over.id));
-      if (oldIndex < 0 || newIndex < 0) return prev;
-      const next = arrayMove(prev, oldIndex, newIndex);
-      persist(next);
-      return next;
-    });
-  };
-
-  const activeEntry = activeId ? renderList.find((r) => r.id === activeId) : null;
-  const activeMeta = activeEntry ? meta.get(activeEntry.period.key) : null;
+  const loading = entries === null;
 
   return (
     <div className="flex flex-col max-h-[calc(100vh-6.5rem)] rounded-2xl bg-surface-base ring-1 ring-surface-border overflow-hidden">
@@ -424,88 +223,59 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         </div>
       </div>
 
-      {/* Checkbox picker — choose what to view (multi-select). Laid out
-          HORIZONTALLY: the three mains in one row, the sub-weeks in a row
-          below (only when "שבוע שעבר" is checked). */}
-      <div dir="rtl" className="px-3 pb-2.5 shrink-0 border-b border-surface-border space-y-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <CheckRow checked={checked.has('yearly')} label="חזון שנתי" onToggle={() => toggle('yearly')} />
-          <CheckRow checked={checked.has('monthly')} label="חזון חודשי" onToggle={() => toggle('monthly')} />
-          <CheckRow checked={checked.has('w1')} label="שבוע שעבר" onToggle={() => toggle('w1')} />
-        </div>
-        {/* Sub-weeks slide open like a drawer (grid 0fr↔1fr animates the real
-            height; the inner wrapper clips during the fold). */}
-        <div
-          className="grid transition-[grid-template-rows] duration-300 ease-in-out"
-          style={{ gridTemplateRows: w1Checked ? '1fr' : '0fr' }}
-        >
-          <div className="overflow-hidden min-h-0">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
-              <CheckRow sub checked={checked.has('w2')} label="לפני 2 שבועות" onToggle={() => toggle('w2')} />
-              <CheckRow sub checked={checked.has('w3')} label="לפני 3 שבועות" onToggle={() => toggle('w3')} />
-              <CheckRow sub checked={checked.has('w4')} label="לפני 4 שבועות" onToggle={() => toggle('w4')} />
-            </div>
-          </div>
+      {/* Tab picker — choose a scope (single-select). The active scope's whole
+          timeline is listed below, newest first. */}
+      <div
+        dir="rtl"
+        className="px-3 pb-2.5 shrink-0 border-b border-surface-border"
+      >
+        <div className="flex items-center gap-1.5">
+          {TABS.map((t) => {
+            const active = t.scope === scope;
+            return (
+              <button
+                key={t.scope}
+                type="button"
+                onClick={() => selectScope(t.scope)}
+                aria-pressed={active}
+                className={`flex-1 rounded-lg py-1.5 px-2 text-[13px] font-semibold transition-colors ${
+                  active
+                    ? 'bg-forest-700 text-on-accent'
+                    : 'bg-surface-raised/50 text-ink-300 hover:text-ink-100 hover:bg-surface-raised'
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Body: the chosen visions, drag to reorder. */}
+      {/* Body: the chosen scope's visions, newest → oldest. */}
       <div
         dir="ltr"
         className="flex-1 min-h-0 vision-feed-scroll overflow-y-auto overscroll-contain p-3"
       >
         <div dir="rtl">
-          {order.length === 0 ? (
-            <div className="text-center py-14 px-4">
-              <Eye size={24} className="text-ink-500 mx-auto mb-3" />
-              <p className="text-ink-300 text-[12px] leading-relaxed">
-                סמן למעלה מה תרצה לראות.
-              </p>
+          {loading ? (
+            <div className="py-14 flex justify-center">
+              <CompassLoader size="sm" />
             </div>
           ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragCancel={() => setActiveId(null)}
-            >
-              <SortableContext items={order} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2.5">
-                  {renderList.map(({ id, stepBack, period }) => {
-                    const m = meta.get(period.key);
-                    return (
-                      <SortableMemory
-                        key={id}
-                        id={id}
-                        title={period.title}
-                        subtitle={period.subtitle}
-                        icon={m?.icon ?? null}
-                        content={m?.content ?? null}
-                        loading={m === undefined}
-                        collapsed={dragging || minimized}
-                        onOlder={() => stepOlder(id)}
-                        onNewer={() => stepNewer(id)}
-                        canNewer={stepBack > 0}
-                      />
-                    );
-                  })}
-                </div>
-              </SortableContext>
-              {/* A clean clone of the dragged card follows the cursor. */}
-              <DragOverlay>
-                {activeId && activeEntry ? (
+            <div className="space-y-2.5">
+              {periodKeys.map((key) => {
+                const m = entries?.get(key);
+                return (
                   <MemoryCardView
-                    title={activeEntry.period.title}
-                    subtitle={activeEntry.period.subtitle}
-                    icon={activeMeta?.icon ?? null}
-                    content={activeMeta?.content ?? null}
-                    collapsed
-                    overlay
+                    key={key}
+                    title={formatPeriodLabel(scope, key)}
+                    icon={m?.icon ?? null}
+                    content={m?.content ?? null}
+                    collapsed={minimized}
                   />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
@@ -513,170 +283,29 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
   );
 }
 
-function CheckRow({
-  checked,
-  label,
-  onToggle,
-  sub,
-}: {
-  checked: boolean;
-  label: string;
-  onToggle: () => void;
-  sub?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={checked}
-      className="inline-flex items-center gap-1.5 rounded-lg py-1 px-1.5 transition-colors hover:bg-surface-raised/50"
-    >
-      <span
-        className={`shrink-0 inline-flex items-center justify-center rounded-[5px] border transition-colors ${
-          sub ? 'h-4 w-4' : 'h-[18px] w-[18px]'
-        } ${
-          checked
-            ? 'bg-forest-700 border-forest-700 text-on-accent'
-            : 'border-surface-border text-transparent'
-        }`}
-      >
-        <Check size={sub ? 11 : 12} strokeWidth={3.5} />
-      </span>
-      <span
-        className={`text-[13px] ${
-          sub
-            ? checked
-              ? 'text-ink-300 font-semibold'
-              : 'text-ink-500 font-medium'
-            : checked
-              ? 'text-ink-100 font-semibold'
-              : 'text-ink-300 font-medium'
-        }`}
-      >
-        {label}
-      </span>
-    </button>
-  );
-}
-
-/** One paging chevron. older → ChevronRight (physical right, before the icon);
- *  newer → ChevronLeft (physical left, disabled at the current period). Matches
- *  the DateBar stepper convention. */
-function StepArrow({
-  dir,
-  disabled,
-  onClick,
-}: {
-  dir: 'older' | 'newer';
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  const Chevron = dir === 'older' ? ChevronRight : ChevronLeft;
-  return (
-    <button
-      type="button"
-      aria-label={dir === 'older' ? 'חזון קודם' : 'חזון הבא'}
-      title={dir === 'older' ? 'קודם' : 'הבא'}
-      disabled={disabled}
-      // Stop the click from bubbling into the card (drag / selection).
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md text-forest-700 hover:text-ink-100 hover:bg-surface-raised transition-colors disabled:opacity-25 disabled:pointer-events-none"
-    >
-      <Chevron size={18} strokeWidth={2.75} />
-    </button>
-  );
-}
-
-// Presentational card — shared by the in-list sortable item AND the drag
-// overlay clone. `collapsed` clamps the body to a short, fading preview so a
-// dragging list is easy to reorder. When step handlers are provided, the header
-// shows paging chevrons flanking the title.
+// Presentational card. `collapsed` clamps a written body to a short, fading
+// preview. An unwritten period shows a quiet empty line.
 function MemoryCardView({
   title,
-  subtitle,
   icon,
   content,
-  loading,
   collapsed,
-  overlay,
-  dimmed,
-  handleProps,
-  onOlder,
-  onNewer,
-  canNewer,
 }: {
   title: string;
-  subtitle?: string;
   icon: string | null;
   content: unknown;
-  /** Content for this period hasn't been fetched yet → inline loader. */
-  loading?: boolean;
   collapsed?: boolean;
-  /** The floating drag clone (gets a stronger shadow + grabbing cursor). */
-  overlay?: boolean;
-  /** The original in-list item while it's the one being dragged. */
-  dimmed?: boolean;
-  /** Spread onto the grip button (sortable attributes + listeners). */
-  handleProps?: Record<string, unknown>;
-  /** Page to an older / newer period of this card's scope. */
-  onOlder?: () => void;
-  onNewer?: () => void;
-  /** Whether a newer period exists (false at the current period). */
-  canNewer?: boolean;
 }) {
   const empty = isVisionContentEmpty(content);
   return (
-    <article
-      className={`border-s-2 border-forest-700 rounded-xl bg-surface-card/70 p-3.5 ${
-        overlay ? 'shadow-2xl ring-1 ring-forest-600 cursor-grabbing' : ''
-      } ${dimmed ? 'opacity-40' : ''}`}
-    >
-      <header className="mb-2 flex items-start gap-2">
-        {/* Drag handle (Trello-style reorder) — on the RIGHT (RTL start). */}
-        <button
-          type="button"
-          aria-label="גרור לסידור מחדש"
-          title="גרור לסידור"
-          {...handleProps}
-          style={{ touchAction: 'none' }}
-          className="shrink-0 -ms-1 mt-0.5 cursor-grab active:cursor-grabbing text-ink-500 hover:text-ink-300 transition-colors"
-        >
-          <GripVertical size={16} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1">
-            {/* Older (ChevronRight) sits BEFORE the icon, on the right. */}
-            {onOlder && <StepArrow dir="older" onClick={onOlder} />}
-            {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
-            {/* Not flex-1: the title takes only its own width (truncating when
-                long) so the "newer" chevron hugs the end of the text rather
-                than floating out at the end of the line. */}
-            <span className="min-w-0 text-[13px] font-bold text-ink-100 truncate">
-              {title}
-            </span>
-            {/* Newer (ChevronLeft) right after the text; disabled at current. */}
-            {onNewer && <StepArrow dir="newer" disabled={!canNewer} onClick={onNewer} />}
-          </div>
-          {subtitle && (
-            <div
-              dir="ltr"
-              className="text-[11px] text-ink-300 mt-0.5"
-              style={{ textAlign: 'right' }}
-            >
-              {subtitle}
-            </div>
-          )}
-        </div>
+    <article className="border-s-2 border-forest-700 rounded-xl bg-surface-card/70 p-3.5">
+      <header className="mb-2 flex items-center gap-1.5">
+        {icon && <HabitIcon name={icon} size={16} className="shrink-0" />}
+        <span className="min-w-0 text-[13px] font-bold text-ink-100 truncate">
+          {title}
+        </span>
       </header>
-      {loading ? (
-        <div className="py-4 flex justify-center">
-          <CompassLoader size="sm" />
-        </div>
-      ) : empty ? (
+      {empty ? (
         <p className="text-[13px] text-ink-500 italic">
           עוד לא נכתב חזון לתקופה זו.
         </p>
@@ -694,39 +323,5 @@ function MemoryCardView({
         <VisionReadOnly content={content} />
       )}
     </article>
-  );
-}
-
-function SortableMemory({
-  id,
-  collapsed,
-  ...view
-}: {
-  id: string;
-  title: string;
-  subtitle?: string;
-  icon: string | null;
-  content: unknown;
-  loading?: boolean;
-  collapsed: boolean;
-  onOlder?: () => void;
-  onNewer?: () => void;
-  canNewer?: boolean;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-  return (
-    <div ref={setNodeRef} style={style}>
-      <MemoryCardView
-        {...view}
-        collapsed={collapsed}
-        dimmed={isDragging}
-        handleProps={{ ...attributes, ...listeners }}
-      />
-    </div>
   );
 }

@@ -49,6 +49,25 @@ export async function fetchVisionRowMeta(
   return (data ?? []) as VisionRowMeta[];
 }
 
+/**
+ * Fetch every vision row (period_key + icon + content) a user has for ONE
+ * scope. Used by the "look back" panel to list all periods of a scope from
+ * newest to oldest, filling gaps with empty cards. Scope is pinned so a weekly
+ * period_key (YYYY-MM-DD) never picks up a daily row that shares the shape.
+ */
+export async function fetchVisionEntriesForScope(
+  userId: string,
+  scope: VisionScope,
+): Promise<VisionRowMeta[]> {
+  const { data, error } = await supabase
+    .from('vision_entries')
+    .select('scope, period_key, icon, content')
+    .eq('user_id', userId)
+    .eq('scope', scope);
+  if (error) throw error;
+  return (data ?? []) as VisionRowMeta[];
+}
+
 export async function fetchVisionEntry(
   userId: string,
   scope: VisionScope,
