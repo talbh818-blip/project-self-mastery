@@ -66,14 +66,10 @@ export function VisionDailyStrip({
   const days = useMemo(() => weekDays(weekKey), [weekKey]);
   const dayKeys = useMemo(() => days.map((d) => d.key), [days]);
 
-  // Default: open today's day when this week contains it; otherwise no day is
-  // open until one is picked (past/future weeks start empty).
-  const defaultSelected = useMemo(
-    () => (dayKeys.includes(todayKey) ? todayKey : null),
-    [dayKeys, todayKey],
-  );
-  const [selected, setSelected] = useState<string | null>(defaultSelected);
-  useEffect(() => setSelected(defaultSelected), [defaultSelected]);
+  // Nothing opens by default — the day's writing surface appears only when a
+  // day is tapped (a drop-down feel). Switching weeks closes it again.
+  const [selected, setSelected] = useState<string | null>(null);
+  useEffect(() => setSelected(null), [weekKey]);
 
   // Which of the seven days already have a written daily vision → white dot.
   const [written, setWritten] = useState<Set<string>>(new Set());
@@ -119,6 +115,7 @@ export function VisionDailyStrip({
       <div className="flex gap-1.5">
         {days.map((d) => {
           const isFuture = isFuturePeriod('daily', d.key, today);
+          const isToday = d.key === todayKey;
           const isSel = d.key === selected;
           const hasContent = written.has(d.key);
           return (
@@ -144,13 +141,20 @@ export function VisionDailyStrip({
                   className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-white"
                 />
               )}
+              {/* Subtle green marker so "today" is always easy to spot. */}
+              {isToday && (
+                <span
+                  aria-hidden
+                  className="absolute bottom-[3px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-forest-500"
+                />
+              )}
               {weekdayShort(d.date.getDay())} · {d.date.getDate()}
             </button>
           );
         })}
       </div>
 
-      {/* The selected day's own writing surface — same plain surface as above. */}
+      {/* The selected day's own writing surface — appears only on tap. */}
       {selected && !selectedFuture && userId ? (
         <DailyEditor
           key={selected}
@@ -159,10 +163,6 @@ export function VisionDailyStrip({
           onRegister={onDailyRegister}
           onFocus={onDailyFocus}
         />
-      ) : selected === null ? (
-        <p className="mt-4 text-center text-[12px] text-ink-500">
-          בחר יום כדי לכתוב חזון יומי.
-        </p>
       ) : null}
     </div>
   );
@@ -229,5 +229,12 @@ function DailyEditor({
     );
   }
 
-  return <EditorContent editor={editor} className="vision-daily-write mt-2" />;
+  // A hair darker than the weekly page card so the two surfaces read apart.
+  // -mx-3 lets the tint extend slightly past the text while px-3 keeps the
+  // writing itself at the SAME width as the weekly vision above.
+  return (
+    <div className="mt-2 -mx-3 rounded-xl bg-surface-base/60 px-3 py-2">
+      <EditorContent editor={editor} className="vision-daily-write" />
+    </div>
+  );
 }

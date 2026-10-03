@@ -993,7 +993,10 @@ html[data-theme="light"] .vision-editor .vision-question {
    (Docs-style page scroll, no internal scrollbar). The inner .ProseMirror fills
    it (min-height:100%) so a click anywhere focuses the editor when it's short. */
 .vision-desktop-write {
-  flex: 1 1 auto;
+  /* grow to fill when short, but NEVER shrink below its own content: when the
+     daily strip below grows, the whole card gets taller (page scrolls) instead
+     of stealing lines from the weekly writing. */
+  flex: 1 0 auto;
 }
 .vision-desktop-write .ProseMirror {
   min-height: 100%;
