@@ -62,8 +62,10 @@ type Props = {
   periodKey: string;
   /** 'bottom' (default) = the full-size strip below the writing (mobile).
    *  'inline' = compact rings for the desktop document header (no divider,
-   *  smaller, start-aligned). */
-  variant?: 'bottom' | 'inline';
+   *  smaller, start-aligned).
+   *  'card' = its own standalone card (desktop rail, under the calendar):
+   *  centred full-size rings on a surface-base card, no top divider. */
+  variant?: 'bottom' | 'inline' | 'card';
 };
 
 /** [start, end] (local midnight) of the period a (scope, key) names. */
@@ -335,6 +337,7 @@ export function VisionHabitsStrip({
   if (items.length === 0) return null;
 
   const inline = variant === 'inline';
+  const card = variant === 'card';
   const showToggle = scope !== 'daily';
   const label = rangeMode === 'rolling' ? ROLLING_LABEL[scope] : PERIOD_LABEL[scope];
 
@@ -346,7 +349,13 @@ export function VisionHabitsStrip({
   return (
     <div
       dir="rtl"
-      className={inline ? 'min-w-0' : 'pt-3 mt-3 border-t border-surface-border'}
+      className={
+        inline
+          ? 'min-w-0'
+          : card
+            ? 'mt-3 rounded-2xl bg-surface-base ring-1 ring-surface-border px-3.5 py-3'
+            : 'pt-3 mt-3 border-t border-surface-border'
+      }
     >
       <div
         className={`flex items-center ${

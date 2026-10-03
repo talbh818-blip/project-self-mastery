@@ -26,7 +26,6 @@ import { useAssistMode } from './useAssistMode';
 import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
-import { VisionHabitsStrip } from './VisionHabitsStrip';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { useAuth } from '../../hooks/useAuth';
@@ -102,11 +101,6 @@ export function VisionEditor({
     readOnly,
     onChange,
   });
-
-  // The open period's key, parsed out of resetKey (`${scope}:${periodKey}:${ver}`).
-  // Feeds the per-habit summary strip in the header's second row, which shows
-  // how each habit is doing for THIS exact period (week / month / year).
-  const periodKey = resetKey.split(':')[1] ?? '';
 
   const { enabled: assistOn, toggle: toggleAssist } = useAssistMode();
 
@@ -206,11 +200,6 @@ export function VisionEditor({
           </div>
         )}
         <EditorContent editor={editor} />
-        {/* Per-habit success rings for the open period (day / week / month /
-            year), at the BOTTOM of the vision — below the writing. Self-hides
-            when the user has no habits; carries its own divider above. On a
-            daily entry each ring shows that single day's status. */}
-        <VisionHabitsStrip userId={userId} scope={scope} periodKey={periodKey} />
       </div>
       {/* Scroll runway: extra space below the card so the last lines of a long
           vision scroll clear of the fixed formatting toolbar (which would

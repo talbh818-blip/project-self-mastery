@@ -3,8 +3,9 @@
 // ----------------------------------------------------------------------------
 // Same editor ENGINE as the mobile VisionEditor (shared via useVisionTiptapEditor
 // — identical extensions, RTL, image paste/drop), but a desktop CHROME:
-//   • the formatting toolbar sits STICKY AT THE TOP (not bottom-fixed) — there
-//     is no on-screen keyboard to ride on a desktop;
+//   • the formatting toolbar sits STICKY AT THE BOTTOM of the writing column,
+//     below both the weekly writing and the daily strip, and follows focus so
+//     it drives whichever surface is active;
 //   • the writing column is WIDE and centred, with roomy notebook padding;
 //   • the DateBar (title + period stepper + icon + assist + save) sits at the
 //     top of the document card.
@@ -12,14 +13,13 @@
 // This is one of the two independent Vision layouts; it shares only the engine
 // + the controller with the mobile one.
 // ============================================================================
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Settings2 } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import type { SaveStatus } from './useVisionEntry';
 import { useAssistMode } from './useAssistMode';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
-import { VisionHabitsStrip } from './VisionHabitsStrip';
 import { VisionDailyStrip, type DailyToolbarTarget } from './VisionDailyStrip';
 import { useJournalingEnabled } from './journalingFeature';
 import { DateBar } from './DateBar';
@@ -31,11 +31,6 @@ import {
   insertGuidedQuestion,
 } from './useVisionTiptapEditor';
 import type { VisionScope } from './period';
-
-// Card content-box width (px) at/above which the habit rings ride in the header
-// flush-left; below it they move to a full-width row under the writing (mobile
-// style). Tuned so five rings + the title + side buttons fit before cutting over.
-const RINGS_HEADER_MIN_WIDTH = 680;
 
 type Props = {
   initialContent: unknown;
@@ -85,27 +80,6 @@ export function VisionEditorDesktop({
   const [dailyFocused, setDailyFocused] = useState(false);
   const handleDailyFocus = useCallback(() => setDailyFocused(true), []);
 
-  // Responsive habit-ring placement. The desktop editor is the centre column,
-  // so its width shrinks as the window narrows / the navigator rail opens. When
-  // the card is wide enough the rings sit in the header (flush-left); when it's
-  // too narrow they drop to a full-width row UNDER the writing — exactly like
-  // mobile — instead of crowding the title. We measure the card itself (not the
-  // viewport) so it's accurate regardless of the rail. Threshold = card
-  // content-box width; tune RINGS_HEADER_MIN_WIDTH if the cutover feels off.
-  const [ringsInHeader, setRingsInHeader] = useState(true);
-  const roRef = useRef<ResizeObserver | null>(null);
-  const measureCard = useCallback((node: HTMLDivElement | null) => {
-    roRef.current?.disconnect();
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      setRingsInHeader(w >= RINGS_HEADER_MIN_WIDTH);
-    });
-    ro.observe(node);
-    roRef.current = ro;
-  }, []);
-  useEffect(() => () => roRef.current?.disconnect(), []);
-
   const { editor, uploadAndInsert, uploadingCount } = useVisionTiptapEditor({
     initialContent,
     resetKey,
@@ -144,26 +118,12 @@ export function VisionEditorDesktop({
       onIconClick={onIconClick}
       saveStatus={saveStatus}
       variant="desktop"
-      // When the card is wide enough, the rings ride flush-LEFT in the header
-      // (and back-to-now moves to the right cluster). When it's too narrow the
-      // header has NO rings — DateBar then puts back-to-now back on the LEFT,
-      // and the rings render under the writing instead (see below).
-      leftSlot={
-        ringsInHeader ? (
-          <VisionHabitsStrip
-            userId={userId}
-            scope={scope}
-            periodKey={periodKey}
-            variant="inline"
-          />
-        ) : undefined
-      }
     />
   );
 
   if (!editor) {
     return (
-      <div ref={measureCard} className="vision-editor vision-page-desktop">
+      <div className="vision-editor vision-page-desktop">
         {docHeader}
         <div className="py-10">
           <CompassLoader size="md" />
@@ -183,28 +143,10 @@ export function VisionEditorDesktop({
 
   return (
     <div className="vision-desktop-doc">
-      {/* Top toolbar — sticky, Google-Docs style. A SIBLING above the document
-          card so the card's zoom animation can't disturb it. Follows focus:
-          formats the daily surface while it's active, the weekly one otherwise. */}
-      {!readOnly && (
-        <div className="vision-desktop-toolbar">
-          <VisionToolbar
-            editor={toolbarTarget.editor}
-            onPickImage={toolbarTarget.uploadAndInsert}
-            uploadingCount={toolbarTarget.uploadingCount}
-            canUpload={!!userId}
-            fitWidth={false}
-            popoverPlacement="down"
-          />
-        </div>
-      )}
-
       {/* The document card. Keyed by scope so the zoom replays only on a scope
-          change (not period changes). Measured (measureCard) to decide whether
-          the habit rings fit in the header or drop below the writing. */}
+          change (not period changes). */}
       <div
         key={scope}
-        ref={measureCard}
         className={`vision-editor vision-page-desktop vision-desktop-card vision-zoom-${zoomDir}`}
       >
         {docHeader}
@@ -254,17 +196,6 @@ export function VisionEditorDesktop({
 
         <EditorContent editor={editor} className="vision-desktop-write" />
 
-        {/* When the card is too narrow for the rings in the header, they live
-            here — a full-width row under the writing, exactly like mobile. */}
-        {!ringsInHeader && (
-          <VisionHabitsStrip
-            userId={userId}
-            scope={scope}
-            periodKey={periodKey}
-            variant="bottom"
-          />
-        )}
-
         {/* Daily-journaling strip — only under a WEEKLY vision, and only when
             the Journaling feature is on. Pick a day → write its daily vision. */}
         {!readOnly && scope === 'weekly' && journalingOn && (
@@ -276,6 +207,23 @@ export function VisionEditorDesktop({
           />
         )}
       </div>
+
+      {/* Formatting toolbar — sticky at the BOTTOM of the writing column, below
+          both the weekly writing and the daily strip. It follows focus: it
+          formats the daily surface while that's active, the weekly one
+          otherwise (popovers open upward). */}
+      {!readOnly && (
+        <div className="vision-desktop-toolbar">
+          <VisionToolbar
+            editor={toolbarTarget.editor}
+            onPickImage={toolbarTarget.uploadAndInsert}
+            uploadingCount={toolbarTarget.uploadingCount}
+            canUpload={!!userId}
+            fitWidth={false}
+            popoverPlacement="up"
+          />
+        </div>
+      )}
 
       <VisionQuestionSettingsSheet
         open={questionSettingsOpen}

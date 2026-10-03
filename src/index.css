@@ -938,9 +938,9 @@ html[data-theme="light"] .vision-editor .vision-question {
    (to the page). */
 .vision-desktop-toolbar {
   position: sticky;
-  top: 0.5rem;
+  bottom: 0.5rem;
   z-index: 10;
-  margin-bottom: 0.85rem;
+  margin-top: 0.85rem;
 }
 
 /* Desktop toolbar icons sit a touch smaller (~15%) than the mobile bar — the
@@ -1001,11 +1001,18 @@ html[data-theme="light"] .vision-editor .vision-question {
 
 /* The daily-journaling surface under a weekly vision shares the SAME plain
    writing look and width as the weekly editor above it (it lives inside the
-   same page card), but starts short and grows with the text instead of the
-   weekly surface's tall min-height. Placed after .vision-page-desktop
-   .ProseMirror so it wins on the shared element by source order. */
+   same page card), but: it's a touch SMALLER than the weekly type, and it
+   starts at ONE line and grows with the text (no tall reserved height).
+   Placed after .vision-page-desktop .ProseMirror so it wins by source order. */
 .vision-daily-write .ProseMirror {
-  min-height: 8rem;
+  min-height: 1.75rem;
+  font-size: 0.9rem;
+}
+/* Daily placeholder — a neutral greyed-out WHITE (not the greenish ink-500),
+   and a hair smaller than the body. */
+.vision-daily-write .ProseMirror p.is-editor-empty:first-child::before {
+  color: color-mix(in srgb, var(--color-ink-100) 40%, transparent);
+  font-size: 0.85rem;
 }
 
 /* The right navigation rail's scroll body — caps to the viewport so a long

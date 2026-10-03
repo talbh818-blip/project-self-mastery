@@ -119,7 +119,6 @@ export function VisionDailyStrip({
       <div className="flex gap-1.5">
         {days.map((d) => {
           const isFuture = isFuturePeriod('daily', d.key, today);
-          const isToday = d.key === todayKey;
           const isSel = d.key === selected;
           const hasContent = written.has(d.key);
           return (
@@ -129,14 +128,14 @@ export function VisionDailyStrip({
               disabled={isFuture}
               onClick={() => setSelected(d.key)}
               aria-pressed={isSel}
+              // White days. The selected one stays white on a soft, neutral
+              // lift (no green); the rest are greyed-out white; future greyer.
               className={`relative flex-1 inline-flex items-center justify-center py-1.5 rounded-lg text-[12px] font-medium tabular-nums transition-colors ${
                 isSel
-                  ? 'bg-forest-700 text-on-accent'
+                  ? 'bg-surface-raised text-ink-100'
                   : isFuture
-                    ? 'text-ink-500 opacity-50 cursor-default'
-                    : isToday
-                      ? 'bg-forest-700/15 text-ink-100 hover:bg-forest-700/25'
-                      : 'text-ink-300 hover:text-ink-100 hover:bg-surface-raised/60'
+                    ? 'text-ink-100/20 cursor-default'
+                    : 'text-ink-100/45 hover:text-ink-100 hover:bg-surface-raised/40'
               }`}
             >
               {hasContent && (

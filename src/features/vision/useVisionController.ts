@@ -43,7 +43,7 @@ export const VISION_PLACEHOLDERS: Record<VisionScope, string> = {
   yearly: 'מה החזון שלך לשנה הזו? מה הכי חשוב לך להשיג?',
   monthly: 'איך אתה רוצה שהחודש הזה ייראה?',
   weekly: 'מה המיקוד שלך לשבוע הזה?',
-  daily: 'מה קרה היום? מה תרצה לזכור — ועל מה כדאי לחשוב לקראת מחר?',
+  daily: 'איך עבר היום שלך?',
 };
 
 /** The vision's display title: scope name + a compact period range, e.g.

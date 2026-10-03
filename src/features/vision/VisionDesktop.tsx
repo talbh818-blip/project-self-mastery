@@ -37,6 +37,7 @@ import { VisionReminisce } from './VisionReminisce';
 import { VisionYearMap } from './VisionYearMap';
 import { VisionWeekMap } from './VisionWeekMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
+import { VisionHabitsStrip } from './VisionHabitsStrip';
 import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
@@ -502,6 +503,16 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
               </div>
             </div>
           </div>
+
+          {/* Habits summary — its OWN card under the calendar. Reflects the
+              period open in the editor; self-hides when there are no habits.
+              Desktop only (the mobile editor no longer shows the rings). */}
+          <VisionHabitsStrip
+            userId={userId}
+            scope={level}
+            periodKey={periodKey}
+            variant="card"
+          />
         </aside>
 
         {/* ── CENTRE — the wide writing page (or the free-scroll feed),
