@@ -1,17 +1,22 @@
 // ============================================================================
-// VisionDailyStrip — the daily-journaling row at the BOTTOM of a weekly vision.
+// VisionDailyStrip — daily journaling for a weekly vision (shared desktop+mobile)
 // ----------------------------------------------------------------------------
-// Minimal by design: under the weekly vision's writing (desktop, Journaling on)
-// sits a single full-width row of the week's seven days — "א׳ · 27 | ב׳ · 28 …"
-// (Sun→Sat, RTL). Picking a day reveals its OWN writing surface right below,
-// styled EXACTLY like the weekly writing above it (same width, same plain
-// surface) — no card, no header, no save label, no second toolbar. The ONE
-// toolbar at the top of the page follows focus: while the daily surface is
-// focused it formats THAT editor (see VisionEditorDesktop's target plumbing).
+// A single full-width row of the week's seven days — "א׳ · 27 | ב׳ · 28 …"
+// (Sun→Sat, RTL) — with the chosen day's own writing surface right below it.
+// The surface is ALWAYS open: it lands on today (or, for a past week, its last
+// day), and tapping another day switches to it. Marks on each chip:
+//   • forest "written" dot (to the RIGHT of the weekday) = that day has a vision
+//     — same language as the weekly / monthly / yearly layers; live as you type.
+//   • TODAY sits on a very light green chip so it's always easy to spot.
 //
-// A white dot marks days that already have a written daily vision (live as you
-// type). Future days are inert. Each day is a real `scope:'daily'` entry, so
-// old daily visions written elsewhere show up here automatically.
+// The surrounding card (its padding, width and slightly-darker tint) is owned by
+// the PARENT (VisionEditorDesktop / VisionEditor) so the writing lines up with
+// the weekly vision above it in each layout. Each day is a real `scope:'daily'`
+// entry, so daily visions written elsewhere show up here automatically.
+//
+// The embedded editor composes useVisionEntry('daily', dayKey) + the shared
+// Tiptap engine and reports itself UP (onDailyRegister / onDailyFocus) so the
+// one formatting toolbar follows focus between the weekly and daily surfaces.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Editor } from '@tiptap/react';
@@ -29,7 +34,7 @@ import {
   weekdayShort,
 } from './period';
 
-/** What the shared top toolbar needs to drive whichever editor is focused. */
+/** What the shared formatting toolbar needs to drive whichever editor is focused. */
 export type DailyToolbarTarget = {
   editor: Editor;
   uploadAndInsert: (file: File) => void | Promise<void>;
@@ -55,9 +60,9 @@ export function VisionDailyStrip({
 }: {
   userId: string | null;
   weekKey: string;
-  /** Register / clear the daily editor as the top toolbar's focus target. */
+  /** Register / clear the daily editor as the toolbar's focus target. */
   onDailyRegister: (target: DailyToolbarTarget | null) => void;
-  /** The daily surface gained focus → the top toolbar should drive it. */
+  /** The daily surface gained focus → the toolbar should drive it. */
   onDailyFocus: () => void;
 }) {
   const today = useMemo(() => new Date(), []);
@@ -66,12 +71,20 @@ export function VisionDailyStrip({
   const days = useMemo(() => weekDays(weekKey), [weekKey]);
   const dayKeys = useMemo(() => days.map((d) => d.key), [days]);
 
-  // Nothing opens by default — the day's writing surface appears only when a
-  // day is tapped (a drop-down feel). Switching weeks closes it again.
-  const [selected, setSelected] = useState<string | null>(null);
-  useEffect(() => setSelected(null), [weekKey]);
+  // A day is ALWAYS open: today for the current week, else the latest non-future
+  // day of the week (a past week opens on its Saturday); a fully-future week has
+  // nothing to open.
+  const defaultSelected = useMemo(() => {
+    if (dayKeys.includes(todayKey)) return todayKey;
+    for (let i = days.length - 1; i >= 0; i--) {
+      if (!isFuturePeriod('daily', days[i].key, today)) return days[i].key;
+    }
+    return null;
+  }, [days, dayKeys, todayKey, today]);
+  const [selected, setSelected] = useState<string | null>(defaultSelected);
+  useEffect(() => setSelected(defaultSelected), [defaultSelected]);
 
-  // Which of the seven days already have a written daily vision → white dot.
+  // Which of the seven days already have a written daily vision → green dot.
   const [written, setWritten] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!userId) return;
@@ -110,7 +123,7 @@ export function VisionDailyStrip({
     selected !== null && isFuturePeriod('daily', selected, today);
 
   return (
-    <div dir="rtl" className="mt-6 pt-4 border-t border-surface-border">
+    <div dir="rtl">
       {/* Day chips — full width, one line each ("א׳ · 27"). Sunday is rightmost. */}
       <div className="flex gap-1.5">
         {days.map((d) => {
@@ -125,36 +138,35 @@ export function VisionDailyStrip({
               disabled={isFuture}
               onClick={() => setSelected(d.key)}
               aria-pressed={isSel}
-              // White days. The selected one stays white on a soft, neutral
-              // lift (no green); the rest are greyed-out white; future greyer.
-              className={`relative flex-1 inline-flex items-center justify-center py-1.5 rounded-lg text-[12px] font-medium tabular-nums transition-colors ${
-                isSel
-                  ? 'bg-surface-raised text-ink-100'
-                  : isFuture
-                    ? 'text-ink-100/20 cursor-default'
-                    : 'text-ink-100/45 hover:text-ink-100 hover:bg-surface-raised/40'
+              // TODAY → a very light green chip. The selected (non-today) day
+              // gets a soft neutral lift; the rest are greyed-out white.
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium tabular-nums transition-colors ${
+                isFuture
+                  ? 'text-ink-100/20 cursor-default'
+                  : isToday
+                    ? 'bg-forest-700/15 text-ink-100 hover:bg-forest-700/25'
+                    : isSel
+                      ? 'bg-surface-raised text-ink-100'
+                      : 'text-ink-100/45 hover:text-ink-100 hover:bg-surface-raised/40'
               }`}
             >
+              {/* "written" dot — to the RIGHT of the weekday (RTL start), same
+                  forest language as the weekly / monthly / yearly layers. */}
               {hasContent && (
                 <span
                   aria-hidden
-                  className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-white"
+                  className="shrink-0 w-[5px] h-[5px] rounded-full bg-forest-700 ring-2 ring-forest-700/20"
                 />
               )}
-              {/* Subtle green marker so "today" is always easy to spot. */}
-              {isToday && (
-                <span
-                  aria-hidden
-                  className="absolute bottom-[3px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-forest-500"
-                />
-              )}
-              {weekdayShort(d.date.getDay())} · {d.date.getDate()}
+              <span>
+                {weekdayShort(d.date.getDay())} · {d.date.getDate()}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* The selected day's own writing surface — appears only on tap. */}
+      {/* The open day's own writing surface — always shown (never fully future). */}
       {selected && !selectedFuture && userId ? (
         <DailyEditor
           key={selected}
@@ -168,7 +180,7 @@ export function VisionDailyStrip({
   );
 }
 
-// ─── The per-day editor — plain, chrome-less; the top toolbar drives it. ──────
+// ─── The per-day editor — plain; the shared toolbar drives it on focus. ───────
 
 function DailyEditor({
   dayKey,
@@ -201,7 +213,7 @@ function DailyEditor({
     onChange: handleChange,
   });
 
-  // Make this editor the top toolbar's target while it exists; clear on unmount.
+  // Make this editor the toolbar's target while it exists; clear on unmount.
   useEffect(() => {
     if (!editor) {
       onRegister(null);
@@ -211,7 +223,7 @@ function DailyEditor({
     return () => onRegister(null);
   }, [editor, uploadAndInsert, uploadingCount, onRegister]);
 
-  // Tell the parent when focus lands here so the top toolbar switches target.
+  // Tell the parent when focus lands here so the toolbar switches target.
   useEffect(() => {
     if (!editor) return;
     const f = () => onFocus();
@@ -223,17 +235,16 @@ function DailyEditor({
 
   if (loading || !editor) {
     return (
-      <div className="py-8">
+      <div className="mt-3 pt-3 border-t border-surface-border/60 py-6">
         <CompassLoader size="sm" />
       </div>
     );
   }
 
-  // A hair darker than the weekly page card so the two surfaces read apart.
-  // -mx-3 lets the tint extend slightly past the text while px-3 keeps the
-  // writing itself at the SAME width as the weekly vision above.
+  // A hairline separates the day picker from the writing; the surrounding
+  // (slightly darker) card and the matching width are provided by the parent.
   return (
-    <div className="mt-2 -mx-3 rounded-xl bg-surface-base/60 px-3 py-2">
+    <div className="mt-3 pt-3 border-t border-surface-border/60">
       <EditorContent editor={editor} className="vision-daily-write" />
     </div>
   );

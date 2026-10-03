@@ -195,18 +195,23 @@ export function VisionEditorDesktop({
         )}
 
         <EditorContent editor={editor} className="vision-desktop-write" />
+      </div>
 
-        {/* Daily-journaling strip — only under a WEEKLY vision, and only when
-            the Journaling feature is on. Pick a day → write its daily vision. */}
-        {!readOnly && scope === 'weekly' && journalingOn && (
+      {/* Daily-journaling card — its OWN page card BELOW the weekly one, a hair
+          darker so the two read apart. Being a separate block (not inside the
+          weekly card) is what lets it grow DOWNWARD and scroll the page instead
+          of stealing height from the weekly writing. Weekly vision + Journaling
+          only. Same page padding → the writing lines up with the weekly above. */}
+      {!readOnly && scope === 'weekly' && journalingOn && (
+        <div className="vision-editor vision-page-desktop vision-daily-card">
           <VisionDailyStrip
             userId={userId}
             weekKey={periodKey}
             onDailyRegister={setDailyTarget}
             onDailyFocus={handleDailyFocus}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Formatting toolbar — sticky at the BOTTOM of the writing column, below
           both the weekly writing and the daily strip. It follows focus: it

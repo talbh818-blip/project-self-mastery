@@ -18,7 +18,7 @@
 // The question catalog is admin-managed (vision_questions table); we kick off
 // its fetch on mount so picks are fresh by the time the user taps.
 // ============================================================================
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Plus, Settings2 } from 'lucide-react';
 import { EditorContent } from '@tiptap/react';
 import type { SaveStatus } from './useVisionEntry';
@@ -26,6 +26,8 @@ import { useAssistMode } from './useAssistMode';
 import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
+import { VisionDailyStrip, type DailyToolbarTarget } from './VisionDailyStrip';
+import { useJournalingEnabled } from './journalingFeature';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { useAuth } from '../../hooks/useAuth';
@@ -82,6 +84,7 @@ export function VisionEditor({
 }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const journalingOn = useJournalingEnabled();
 
   // Warm the guided-writing question catalog (DB-backed, falls back to the
   // built-in list until/unless the fetch lands). pickQuestion stays sync.
@@ -90,6 +93,12 @@ export function VisionEditor({
   }, []);
   // "My questions" settings sheet (gear next to the guided-writing button).
   const [questionSettingsOpen, setQuestionSettingsOpen] = useState(false);
+
+  // The ONE bottom toolbar follows focus: while a daily surface (if any) is
+  // focused it drives THAT editor; otherwise it drives the weekly editor.
+  const [dailyTarget, setDailyTarget] = useState<DailyToolbarTarget | null>(null);
+  const [dailyFocused, setDailyFocused] = useState(false);
+  const handleDailyFocus = useCallback(() => setDailyFocused(true), []);
 
   // The shared Tiptap engine (extensions, RTL, image paste/drop + upload). The
   // desktop editor uses the very same hook — only the surrounding chrome here
@@ -101,6 +110,21 @@ export function VisionEditor({
     readOnly,
     onChange,
   });
+
+  // When the weekly editor regains focus (or re-mounts on a period/scope
+  // change), the bottom toolbar goes back to driving it.
+  useEffect(() => {
+    setDailyFocused(false);
+    if (!editor) return;
+    const onWeeklyFocus = () => setDailyFocused(false);
+    editor.on('focus', onWeeklyFocus);
+    return () => {
+      editor.off('focus', onWeeklyFocus);
+    };
+  }, [editor]);
+
+  // The open period's key, parsed out of resetKey (`${scope}:${periodKey}:${ver}`).
+  const periodKey = resetKey.split(':')[1] ?? '';
 
   const { enabled: assistOn, toggle: toggleAssist } = useAssistMode();
 
@@ -136,6 +160,13 @@ export function VisionEditor({
   const cardClass = `vision-editor vision-page vision-zoom-${zoomDir}`;
 
   const insertOneQuestion = () => insertGuidedQuestion(editor, scope);
+
+  // The bottom toolbar drives whichever editor is focused — the daily surface
+  // when it's active, the weekly one otherwise.
+  const toolbarTarget: DailyToolbarTarget =
+    dailyFocused && dailyTarget
+      ? dailyTarget
+      : { editor, uploadAndInsert, uploadingCount };
 
   return (
     <>
@@ -201,6 +232,21 @@ export function VisionEditor({
         )}
         <EditorContent editor={editor} />
       </div>
+
+      {/* Daily-journaling card — its OWN card BELOW the weekly one (a hair
+          darker so they read apart). Weekly vision + Journaling only. A day is
+          always open; the bottom toolbar follows focus between the two. */}
+      {!readOnly && scope === 'weekly' && journalingOn && (
+        <div className="vision-editor vision-page vision-daily-card">
+          <VisionDailyStrip
+            userId={userId}
+            weekKey={periodKey}
+            onDailyRegister={setDailyTarget}
+            onDailyFocus={handleDailyFocus}
+          />
+        </div>
+      )}
+
       {/* Scroll runway: extra space below the card so the last lines of a long
           vision scroll clear of the fixed formatting toolbar (which would
           otherwise cover them at the bottom of the page). Only when the
@@ -209,9 +255,9 @@ export function VisionEditor({
       {!readOnly && (
         <ToolbarShell>
           <VisionToolbar
-            editor={editor}
-            onPickImage={uploadAndInsert}
-            uploadingCount={uploadingCount}
+            editor={toolbarTarget.editor}
+            onPickImage={toolbarTarget.uploadAndInsert}
+            uploadingCount={toolbarTarget.uploadingCount}
             canUpload={!!userId}
           />
         </ToolbarShell>
