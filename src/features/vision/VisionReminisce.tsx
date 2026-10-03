@@ -148,8 +148,10 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
 
   // The ordered list of periods to show: from the latest period that has a
   // written vision (or now, whichever is later) down to the earliest written
-  // one (or now, whichever is earlier) — NEWEST first. Gaps are kept so an
-  // unwritten period still gets an empty card.
+  // one (or now, whichever is earlier) — NEWEST first. Gaps WITHIN that span
+  // are kept so an unwritten period still gets an empty card, but we never go
+  // BACK past the first real vision: only entries with actual content (not
+  // blank drafts) count toward the earliest/latest bounds.
   const periodKeys = useMemo(() => {
     const currentKey = getPeriodKey(scope, today);
     const startAt = (k: string) => parsePeriodStart(scope, k).getTime();
@@ -158,7 +160,8 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
     let maxKey = currentKey;
     let maxT = minT;
     if (entries) {
-      for (const k of entries.keys()) {
+      for (const [k, v] of entries) {
+        if (isVisionContentEmpty(v.content)) continue; // ignore blank drafts
         const t = startAt(k);
         if (t < minT) minT = t;
         if (t > maxT) {
@@ -191,9 +194,6 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
           <Eye size={18} className="text-ink-100 shrink-0" />
           <div className="min-w-0">
             <h2 className="text-sm font-bold text-ink-100 leading-tight">מבט אחורה</h2>
-            <p className="text-[11px] text-ink-300 leading-tight truncate">
-              מה שכבר כתבת - רק לקריאה
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -223,13 +223,13 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
         </div>
       </div>
 
-      {/* Tab picker — choose a scope (single-select). The active scope's whole
-          timeline is listed below, newest first. */}
-      <div
-        dir="rtl"
-        className="px-3 pb-2.5 shrink-0 border-b border-surface-border"
-      >
-        <div className="flex items-center gap-1.5">
+      {/* Tab picker — connected folder tabs (single-select). The active tab
+          shares the body's surface (surface-base) and paints over the folder
+          edge beneath it, so it reads as one piece with the list below; the
+          inactive tabs stay raised and sit ON the edge. A forest top accent
+          marks the active scope. */}
+      <div dir="rtl" className="px-3 shrink-0">
+        <div className="flex items-end gap-1.5 border-b border-surface-border">
           {TABS.map((t) => {
             const active = t.scope === scope;
             return (
@@ -238,10 +238,10 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                 type="button"
                 onClick={() => selectScope(t.scope)}
                 aria-pressed={active}
-                className={`flex-1 rounded-lg py-1.5 px-2 text-[13px] font-semibold transition-colors ${
+                className={`relative rounded-t-lg px-3.5 py-2 text-[13px] transition-colors ${
                   active
-                    ? 'bg-forest-700 text-on-accent'
-                    : 'bg-surface-raised/50 text-ink-300 hover:text-ink-100 hover:bg-surface-raised'
+                    ? '-mb-px bg-surface-base text-ink-100 font-semibold border-x border-x-surface-border border-t-2 border-t-forest-700'
+                    : 'bg-surface-raised/60 text-ink-300 font-medium hover:text-ink-100 hover:bg-surface-raised'
                 }`}
               >
                 {t.label}
