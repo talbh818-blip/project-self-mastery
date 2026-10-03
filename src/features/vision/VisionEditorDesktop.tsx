@@ -20,7 +20,7 @@ import { useAssistMode } from './useAssistMode';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
 import { VisionHabitsStrip } from './VisionHabitsStrip';
-import { VisionDailyStrip } from './VisionDailyStrip';
+import { VisionDailyStrip, type DailyToolbarTarget } from './VisionDailyStrip';
 import { useJournalingEnabled } from './journalingFeature';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
@@ -79,6 +79,12 @@ export function VisionEditorDesktop({
   }, []);
   const [questionSettingsOpen, setQuestionSettingsOpen] = useState(false);
 
+  // The ONE top toolbar follows focus: while a daily surface (if any) is
+  // focused it drives THAT editor; otherwise it drives the weekly editor.
+  const [dailyTarget, setDailyTarget] = useState<DailyToolbarTarget | null>(null);
+  const [dailyFocused, setDailyFocused] = useState(false);
+  const handleDailyFocus = useCallback(() => setDailyFocused(true), []);
+
   // Responsive habit-ring placement. The desktop editor is the centre column,
   // so its width shrinks as the window narrows / the navigator rail opens. When
   // the card is wide enough the rings sit in the header (flush-left); when it's
@@ -107,6 +113,18 @@ export function VisionEditorDesktop({
     readOnly,
     onChange,
   });
+
+  // When the weekly editor regains focus (or re-mounts on a period/scope
+  // change), the top toolbar goes back to driving it.
+  useEffect(() => {
+    setDailyFocused(false);
+    if (!editor) return;
+    const onWeeklyFocus = () => setDailyFocused(false);
+    editor.on('focus', onWeeklyFocus);
+    return () => {
+      editor.off('focus', onWeeklyFocus);
+    };
+  }, [editor]);
 
   const { enabled: assistOn, toggle: toggleAssist } = useAssistMode();
 
@@ -156,16 +174,24 @@ export function VisionEditorDesktop({
 
   const insertOneQuestion = () => insertGuidedQuestion(editor, scope);
 
+  // The top toolbar drives whichever editor is focused — the daily surface when
+  // it's active, the weekly one otherwise.
+  const toolbarTarget: DailyToolbarTarget =
+    dailyFocused && dailyTarget
+      ? dailyTarget
+      : { editor, uploadAndInsert, uploadingCount };
+
   return (
     <div className="vision-desktop-doc">
       {/* Top toolbar — sticky, Google-Docs style. A SIBLING above the document
-          card so the card's zoom animation can't disturb it. */}
+          card so the card's zoom animation can't disturb it. Follows focus:
+          formats the daily surface while it's active, the weekly one otherwise. */}
       {!readOnly && (
         <div className="vision-desktop-toolbar">
           <VisionToolbar
-            editor={editor}
-            onPickImage={uploadAndInsert}
-            uploadingCount={uploadingCount}
+            editor={toolbarTarget.editor}
+            onPickImage={toolbarTarget.uploadAndInsert}
+            uploadingCount={toolbarTarget.uploadingCount}
             canUpload={!!userId}
             fitWidth={false}
             popoverPlacement="down"
@@ -242,7 +268,12 @@ export function VisionEditorDesktop({
         {/* Daily-journaling strip — only under a WEEKLY vision, and only when
             the Journaling feature is on. Pick a day → write its daily vision. */}
         {!readOnly && scope === 'weekly' && journalingOn && (
-          <VisionDailyStrip userId={userId} weekKey={periodKey} />
+          <VisionDailyStrip
+            userId={userId}
+            weekKey={periodKey}
+            onDailyRegister={setDailyTarget}
+            onDailyFocus={handleDailyFocus}
+          />
         )}
       </div>
 

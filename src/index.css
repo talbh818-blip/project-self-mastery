@@ -622,13 +622,6 @@ html[data-theme="light"] {
   font-size: 1rem;
 }
 
-/* The daily-vision strip's embedded editor is a compact sub-surface at the
-   bottom of the weekly vision, not a full page — so it starts short and grows
-   with the writing instead of reserving 30vh. */
-.vision-daily-editor .ProseMirror {
-  min-height: 6.5rem;
-}
-
 /* Headings — H1 / H2 picked from the toolbar's size menu. */
 .vision-editor .ProseMirror h1 {
   font-size: 1.5rem;
@@ -1004,6 +997,15 @@ html[data-theme="light"] .vision-editor .vision-question {
 }
 .vision-desktop-write .ProseMirror {
   min-height: 100%;
+}
+
+/* The daily-journaling surface under a weekly vision shares the SAME plain
+   writing look and width as the weekly editor above it (it lives inside the
+   same page card), but starts short and grows with the text instead of the
+   weekly surface's tall min-height. Placed after .vision-page-desktop
+   .ProseMirror so it wins on the shared element by source order. */
+.vision-daily-write .ProseMirror {
+  min-height: 8rem;
 }
 
 /* The right navigation rail's scroll body — caps to the viewport so a long

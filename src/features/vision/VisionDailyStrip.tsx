@@ -1,25 +1,24 @@
 // ============================================================================
 // VisionDailyStrip — the daily-journaling row at the BOTTOM of a weekly vision.
 // ----------------------------------------------------------------------------
-// Shown under the weekly vision's writing (desktop, when the Journaling feature
-// is on). A compact row of the week's seven days (Sunday → Saturday, RTL):
-// picking a day opens its OWN small writing surface right below — a real daily
-// vision entry (scope 'daily'), with the same engine, toolbar and auto-save as
-// the main editor. A WHITE dot marks days that already have a written vision
-// (live — it appears/vanishes as you type), and future days are inert.
+// Minimal by design: under the weekly vision's writing (desktop, Journaling on)
+// sits a single full-width row of the week's seven days — "א׳ · 27 | ב׳ · 28 …"
+// (Sun→Sat, RTL). Picking a day reveals its OWN writing surface right below,
+// styled EXACTLY like the weekly writing above it (same width, same plain
+// surface) — no card, no header, no save label, no second toolbar. The ONE
+// toolbar at the top of the page follows focus: while the daily surface is
+// focused it formats THAT editor (see VisionEditorDesktop's target plumbing).
 //
-// This is a SECOND, independent editor living alongside the weekly one: it
-// composes useVisionEntry('daily', dayKey) + the shared Tiptap engine, so its
-// load/save/▸history all behave exactly like the main vision. The weekly editor
-// above is untouched.
+// A white dot marks days that already have a written daily vision (live as you
+// type). Future days are inert. Each day is a real `scope:'daily'` entry, so
+// old daily visions written elsewhere show up here automatically.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { NotebookPen } from 'lucide-react';
+import type { Editor } from '@tiptap/react';
 import { EditorContent } from '@tiptap/react';
 import { CompassLoader } from '../../components/CompassLoader';
-import { VisionToolbar } from './VisionToolbar';
 import { useVisionTiptapEditor } from './useVisionTiptapEditor';
-import { useVisionEntry, type SaveStatus } from './useVisionEntry';
+import { useVisionEntry } from './useVisionEntry';
 import { fetchVisionRowMeta } from './queries';
 import { isVisionContentEmpty } from './content';
 import { VISION_PLACEHOLDERS } from './useVisionController';
@@ -27,8 +26,15 @@ import {
   getDayKey,
   isFuturePeriod,
   parsePeriodStart,
-  weekdayName,
+  weekdayShort,
 } from './period';
+
+/** What the shared top toolbar needs to drive whichever editor is focused. */
+export type DailyToolbarTarget = {
+  editor: Editor;
+  uploadAndInsert: (file: File) => void | Promise<void>;
+  uploadingCount: number;
+};
 
 type DayInfo = { key: string; date: Date };
 
@@ -44,9 +50,15 @@ function weekDays(weekKey: string): DayInfo[] {
 export function VisionDailyStrip({
   userId,
   weekKey,
+  onDailyRegister,
+  onDailyFocus,
 }: {
   userId: string | null;
   weekKey: string;
+  /** Register / clear the daily editor as the top toolbar's focus target. */
+  onDailyRegister: (target: DailyToolbarTarget | null) => void;
+  /** The daily surface gained focus → the top toolbar should drive it. */
+  onDailyFocus: () => void;
 }) {
   const today = useMemo(() => new Date(), []);
   const todayKey = getDayKey(today);
@@ -61,8 +73,6 @@ export function VisionDailyStrip({
     [dayKeys, todayKey],
   );
   const [selected, setSelected] = useState<string | null>(defaultSelected);
-  // Re-apply the default whenever the week changes (defaultSelected only moves
-  // when the day set does), so navigating weeks lands on today / clears.
   useEffect(() => setSelected(defaultSelected), [defaultSelected]);
 
   // Which of the seven days already have a written daily vision → white dot.
@@ -75,7 +85,6 @@ export function VisionDailyStrip({
         if (cancelled) return;
         const next = new Set<string>();
         for (const r of rows) {
-          // A daily key shares the weekly shape (YYYY-MM-DD); pin the scope.
           if (r.scope === 'daily' && !isVisionContentEmpty(r.content)) {
             next.add(r.period_key);
           }
@@ -106,14 +115,7 @@ export function VisionDailyStrip({
 
   return (
     <div dir="rtl" className="mt-6 pt-4 border-t border-surface-border">
-      {/* Label */}
-      <div className="flex items-center gap-1.5 mb-2.5">
-        <NotebookPen size={15} className="text-forest-700 shrink-0" />
-        <span className="text-[13px] font-semibold text-ink-100">חזון יומי</span>
-        <span className="text-[12px] text-ink-500">· בחר יום לכתיבה</span>
-      </div>
-
-      {/* Day chips — Sunday → Saturday (RTL: Sunday is rightmost). */}
+      {/* Day chips — full width, one line each ("א׳ · 27"). Sunday is rightmost. */}
       <div className="flex gap-1.5">
         {days.map((d) => {
           const isFuture = isFuturePeriod('daily', d.key, today);
@@ -127,14 +129,14 @@ export function VisionDailyStrip({
               disabled={isFuture}
               onClick={() => setSelected(d.key)}
               aria-pressed={isSel}
-              className={`relative flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-colors ${
+              className={`relative flex-1 inline-flex items-center justify-center py-1.5 rounded-lg text-[12px] font-medium tabular-nums transition-colors ${
                 isSel
                   ? 'bg-forest-700 text-on-accent'
                   : isFuture
-                    ? 'bg-surface-raised/40 text-ink-500 opacity-50 cursor-default'
+                    ? 'text-ink-500 opacity-50 cursor-default'
                     : isToday
                       ? 'bg-forest-700/15 text-ink-100 hover:bg-forest-700/25'
-                      : 'bg-surface-raised/50 text-ink-300 hover:text-ink-100 hover:bg-surface-raised'
+                      : 'text-ink-300 hover:text-ink-100 hover:bg-surface-raised/60'
               }`}
             >
               {hasContent && (
@@ -143,29 +145,23 @@ export function VisionDailyStrip({
                   className="absolute top-1 left-1.5 w-1.5 h-1.5 rounded-full bg-white"
                 />
               )}
-              <span
-                className={`text-[11px] leading-none ${isSel ? 'text-on-accent/75' : ''}`}
-              >
-                {weekdayName(d.date.getDay())}
-              </span>
-              <span className="text-[13px] font-semibold leading-none tabular-nums">
-                {d.date.getDate()}
-              </span>
+              {weekdayShort(d.date.getDay())} · {d.date.getDate()}
             </button>
           );
         })}
       </div>
 
-      {/* The selected day's own writing surface. */}
+      {/* The selected day's own writing surface — same plain surface as above. */}
       {selected && !selectedFuture && userId ? (
         <DailyEditor
           key={selected}
-          userId={userId}
           dayKey={selected}
           onWrittenChange={markWritten}
+          onRegister={onDailyRegister}
+          onFocus={onDailyFocus}
         />
       ) : selected === null ? (
-        <p className="mt-3 text-center text-[12px] text-ink-500 py-4">
+        <p className="mt-4 text-center text-[12px] text-ink-500">
           בחר יום כדי לכתוב חזון יומי.
         </p>
       ) : null}
@@ -173,18 +169,20 @@ export function VisionDailyStrip({
   );
 }
 
-// ─── The per-day editor ───────────────────────────────────────────────────────
+// ─── The per-day editor — plain, chrome-less; the top toolbar drives it. ──────
 
 function DailyEditor({
-  userId,
   dayKey,
   onWrittenChange,
+  onRegister,
+  onFocus,
 }: {
-  userId: string;
   dayKey: string;
   onWrittenChange: (dayKey: string, hasContent: boolean) => void;
+  onRegister: (target: DailyToolbarTarget | null) => void;
+  onFocus: () => void;
 }) {
-  const { entry, loading, status, contentVersion, scheduleSave } = useVisionEntry(
+  const { entry, loading, contentVersion, scheduleSave } = useVisionEntry(
     'daily',
     dayKey,
   );
@@ -204,50 +202,33 @@ function DailyEditor({
     onChange: handleChange,
   });
 
-  const date = parsePeriodStart('daily', dayKey);
-  const title = `יום ${weekdayName(date.getDay())} · ${date.getDate()}.${date.getMonth() + 1}`;
+  // Make this editor the top toolbar's target while it exists; clear on unmount.
+  useEffect(() => {
+    if (!editor) {
+      onRegister(null);
+      return;
+    }
+    onRegister({ editor, uploadAndInsert, uploadingCount });
+    return () => onRegister(null);
+  }, [editor, uploadAndInsert, uploadingCount, onRegister]);
 
-  return (
-    <div className="mt-3 rounded-xl border border-surface-border bg-surface-base overflow-hidden">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-surface-border">
-        <span className="text-[13px] font-semibold text-ink-100">{title}</span>
-        <SaveLabel status={status} />
+  // Tell the parent when focus lands here so the top toolbar switches target.
+  useEffect(() => {
+    if (!editor) return;
+    const f = () => onFocus();
+    editor.on('focus', f);
+    return () => {
+      editor.off('focus', f);
+    };
+  }, [editor, onFocus]);
+
+  if (loading || !editor) {
+    return (
+      <div className="py-8">
+        <CompassLoader size="sm" />
       </div>
+    );
+  }
 
-      {loading || !editor ? (
-        <div className="py-8">
-          <CompassLoader size="sm" />
-        </div>
-      ) : (
-        <>
-          <div className="px-2 pt-2">
-            <VisionToolbar
-              editor={editor}
-              onPickImage={uploadAndInsert}
-              uploadingCount={uploadingCount}
-              canUpload={!!userId}
-              fitWidth={false}
-              popoverPlacement="up"
-            />
-          </div>
-          <div className="vision-editor vision-daily-editor px-3 pb-3 pt-2">
-            <EditorContent editor={editor} />
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function SaveLabel({ status }: { status: SaveStatus }) {
-  if (status === 'pending' || status === 'saving') {
-    return <span className="text-[11px] text-ink-500">שומר…</span>;
-  }
-  if (status === 'saved') {
-    return <span className="text-[11px] text-forest-700">נשמר</span>;
-  }
-  if (status === 'error') {
-    return <span className="text-[11px] text-red-400">שגיאה בשמירה</span>;
-  }
-  return null;
+  return <EditorContent editor={editor} className="vision-daily-write mt-2" />;
 }
