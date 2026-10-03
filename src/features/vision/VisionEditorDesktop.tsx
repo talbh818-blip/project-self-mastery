@@ -20,6 +20,8 @@ import { useAssistMode } from './useAssistMode';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
 import { VisionHabitsStrip } from './VisionHabitsStrip';
+import { VisionDailyStrip } from './VisionDailyStrip';
+import { useJournalingEnabled } from './journalingFeature';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { useAuth } from '../../hooks/useAuth';
@@ -70,6 +72,7 @@ export function VisionEditorDesktop({
 }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const journalingOn = useJournalingEnabled();
 
   useEffect(() => {
     void ensureQuestionsLoaded();
@@ -234,6 +237,12 @@ export function VisionEditorDesktop({
             periodKey={periodKey}
             variant="bottom"
           />
+        )}
+
+        {/* Daily-journaling strip — only under a WEEKLY vision, and only when
+            the Journaling feature is on. Pick a day → write its daily vision. */}
+        {!readOnly && scope === 'weekly' && journalingOn && (
+          <VisionDailyStrip userId={userId} weekKey={periodKey} />
         )}
       </div>
 
