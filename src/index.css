@@ -517,13 +517,13 @@ html[data-theme="light"] {
   bottom: 0;
   z-index: 15;
   pointer-events: none;
-  /* +10px so the bar FLOATS a little above the dock (or the keyboard), rather
+  /* +18px so the bar clearly FLOATS above the dock (or the keyboard), rather
      than sitting flush against it. */
   transform: translateY(
     calc(
       -1 *
         (max(calc(env(safe-area-inset-bottom) + 56px), var(--vision-kb, 0px)) +
-          10px)
+          18px)
     )
   );
   transition: transform 0.15s ease-out;
@@ -964,7 +964,8 @@ html[data-theme="light"] .vision-editor .vision-question {
   bottom: 0;
   z-index: 15;
   pointer-events: none;
-  transform: translateY(calc(-1 * (env(safe-area-inset-bottom) + 56px + 0.4rem)));
+  /* 56px dock + 18px so it clearly FLOATS above the nav (plus any safe area). */
+  transform: translateY(calc(-74px - env(safe-area-inset-bottom)));
 }
 .vision-desktop-toolbar-inner {
   max-width: 940px;
