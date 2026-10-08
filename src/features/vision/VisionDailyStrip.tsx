@@ -52,6 +52,21 @@ function weekDays(weekKey: string): DayInfo[] {
   });
 }
 
+// The drawer's open/closed choice is remembered per-user (across weeks and
+// visits). null = no stored choice yet → default open.
+const DRAWER_LS_PREFIX = 'vision-daily-drawer:';
+function readSavedDrawerOpen(userId: string | null): boolean | null {
+  if (!userId) return null;
+  try {
+    const v = localStorage.getItem(`${DRAWER_LS_PREFIX}${userId}`);
+    if (v === '1') return true;
+    if (v === '0') return false;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export function VisionDailyStrip({
   userId,
   weekKey,
@@ -86,22 +101,42 @@ export function VisionDailyStrip({
   // again collapses the drawer (tap once more to reopen); tapping another day
   // opens that one.
   const [activeDay, setActiveDay] = useState<string | null>(defaultSelected);
-  const [open, setOpen] = useState<boolean>(defaultSelected !== null);
+  const [open, setOpen] = useState<boolean>(() =>
+    defaultSelected === null ? false : readSavedDrawerOpen(userId) ?? true,
+  );
+  // On a week change (or once auth resolves), re-apply the remembered choice:
+  // a day is active, and the drawer opens the way the user last left it.
   useEffect(() => {
     setActiveDay(defaultSelected);
-    setOpen(defaultSelected !== null);
-  }, [defaultSelected]);
+    setOpen(
+      defaultSelected === null ? false : readSavedDrawerOpen(userId) ?? true,
+    );
+  }, [defaultSelected, userId]);
+
+  const setOpenPersist = useCallback(
+    (next: boolean) => {
+      setOpen(next);
+      if (userId) {
+        try {
+          localStorage.setItem(`${DRAWER_LS_PREFIX}${userId}`, next ? '1' : '0');
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [userId],
+  );
 
   const toggleDay = useCallback(
     (key: string) => {
       if (activeDay === key) {
-        setOpen((o) => !o); // same day → open/close the drawer
+        setOpenPersist(!open); // same day → open/close (remembered)
       } else {
         setActiveDay(key); // different day → switch and open
-        setOpen(true);
+        setOpenPersist(true);
       }
     },
-    [activeDay],
+    [activeDay, open, setOpenPersist],
   );
 
   // Which of the seven days already have a written daily vision → green dot.

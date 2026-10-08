@@ -980,10 +980,14 @@ html[data-theme="light"] .vision-editor .vision-question {
 .vision-desktop-card {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-  /* Tighter than the default 1.25rem bottom padding so the habit rings sit
-     close to the card's bottom edge (less dead space under them). */
+  /* FIXED page height: the weekly card fills (most of) the viewport on its OWN
+     and does NOT grow/shrink to absorb the doc's leftover space — so the daily
+     card below can grow and scroll the page WITHOUT stealing height from the
+     weekly writing. It only gets taller when the weekly text itself overflows
+     this min-height (the inner .vision-desktop-write flex-grows to fill it).
+     Tune the 13rem if the empty page feels too short / too tall. */
+  flex: 0 0 auto;
+  min-height: calc(100vh - 13rem);
   padding-bottom: 0.6rem;
 }
 

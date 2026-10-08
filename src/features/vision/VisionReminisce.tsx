@@ -2,15 +2,16 @@
 // VisionReminisce — the desktop "look back" panel (read-only).
 // ----------------------------------------------------------------------------
 // A quiet, journal-like column to the LEFT of the writing page (toggled by the
-// eye in the rail). At the top are THREE tab buttons — חזון שנתי · חזון חודשי ·
-// חזון שבועי — and exactly ONE is active at a time. The active scope's visions
-// are listed top-to-bottom, NEWEST first (the current period at the top, older
-// periods below). Periods the user never wrote are still shown, as an empty
-// card ("עוד לא נכתב חזון לתקופה זו"), so the timeline has no holes. Everything
-// is READ-ONLY and rendered with real formatting via VisionReadOnly.
+// eye in the rail). At the top are FOUR tab buttons — שנתי · חודשי · שבועי ·
+// יומי — and exactly ONE is active at a time. The active scope's visions are
+// listed top-to-bottom, NEWEST first (the current period at the top, older
+// below). For yearly / monthly / weekly, periods the user never wrote still
+// show as an empty card ("עוד לא נכתב חזון לתקופה זו") so the timeline has no
+// holes. DAILY is different: it lists ONLY the days that have a written vision
+// (gap-filling every calendar day would be endless). Everything is READ-ONLY
+// and rendered with real formatting via VisionReadOnly.
 //
-// The chosen tab is remembered per-user. There is no paging and no drag — the
-// whole range (first-written … current, gaps filled) is always on screen.
+// The chosen tab is remembered per-user. There is no paging and no drag.
 // ============================================================================
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, X, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
@@ -35,11 +36,12 @@ type Props = {
 
 type ScopeTab = { scope: VisionScope; label: string };
 
-// The three tabs, in display order (RTL → first one is rightmost).
+// The tabs, in display order (RTL → first one is rightmost).
 const TABS: ScopeTab[] = [
-  { scope: 'yearly', label: 'חזון שנתי' },
-  { scope: 'monthly', label: 'חזון חודשי' },
-  { scope: 'weekly', label: 'חזון שבועי' },
+  { scope: 'yearly', label: 'שנתי' },
+  { scope: 'monthly', label: 'חודשי' },
+  { scope: 'weekly', label: 'שבועי' },
+  { scope: 'daily', label: 'יומי' },
 ];
 const SCOPE_IDS: VisionScope[] = TABS.map((t) => t.scope);
 
@@ -153,6 +155,20 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
   // BACK past the first real vision: only entries with actual content (not
   // blank drafts) count toward the earliest/latest bounds.
   const periodKeys = useMemo(() => {
+    // Daily: list only the days that actually HAVE a written vision, newest
+    // first. Gap-filling every calendar day would be endless and meaningless.
+    if (scope === 'daily') {
+      if (!entries) return [];
+      return [...entries.entries()]
+        .filter(([, v]) => !isVisionContentEmpty(v.content))
+        .map(([k]) => k)
+        .sort(
+          (a, b) =>
+            parsePeriodStart('daily', b).getTime() -
+            parsePeriodStart('daily', a).getTime(),
+        );
+    }
+
     const currentKey = getPeriodKey(scope, today);
     const startAt = (k: string) => parsePeriodStart(scope, k).getTime();
 
@@ -238,7 +254,7 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
                 type="button"
                 onClick={() => selectScope(t.scope)}
                 aria-pressed={active}
-                className={`relative rounded-t-lg px-3.5 py-2 text-[13px] transition-colors ${
+                className={`relative flex-1 rounded-t-lg px-2 py-2 text-center text-[12px] transition-colors ${
                   active
                     ? '-mb-px bg-surface-base text-ink-100 font-semibold border-x border-x-surface-border border-t-2 border-t-forest-700'
                     : 'bg-surface-raised/60 text-ink-300 font-medium hover:text-ink-100 hover:bg-surface-raised'
@@ -260,6 +276,12 @@ export function VisionReminisce({ userId, today, onClose }: Props) {
           {loading ? (
             <div className="py-14 flex justify-center">
               <CompassLoader size="sm" />
+            </div>
+          ) : periodKeys.length === 0 ? (
+            <div className="text-center py-14 px-4">
+              <p className="text-ink-300 text-[12px] leading-relaxed">
+                עוד לא נכתבו חזונות יומיים.
+              </p>
             </div>
           ) : (
             <div className="space-y-2.5">
