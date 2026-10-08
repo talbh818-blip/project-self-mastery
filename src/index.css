@@ -959,8 +959,10 @@ html[data-theme="light"] .vision-editor .vision-question {
    page and re-enables clicks. */
 .vision-desktop-toolbar {
   position: fixed;
-  left: calc(440px + 1rem);
-  right: calc(440px + 1rem);
+  /* 440px aside + 2rem (main px-4 + centre px-4) → the band lines up EXACTLY
+     with the writing column, so the bar below matches the vision card's width. */
+  left: calc(440px + 2rem);
+  right: calc(440px + 2rem);
   bottom: 0;
   z-index: 15;
   pointer-events: none;
@@ -968,9 +970,10 @@ html[data-theme="light"] .vision-editor .vision-question {
   transform: translateY(calc(-74px - env(safe-area-inset-bottom)));
 }
 .vision-desktop-toolbar-inner {
+  /* No inner padding: the bar spans the FULL vision-card width (its edges line
+     up with the weekly / daily card edges above). */
   max-width: 940px;
   margin-inline: auto;
-  padding-inline: 2.5rem;
   pointer-events: none;
 }
 .vision-desktop-toolbar-inner > * {
@@ -1036,11 +1039,18 @@ html[data-theme="light"] .vision-editor .vision-question {
    as the text grows it expands naturally, growing the card → the doc → the page
    (Docs-style page scroll, no internal scrollbar). The inner .ProseMirror fills
    it (min-height:100%) so a click anywhere focuses the editor when it's short. */
+/* The writing surface fills the card as a flex column so the editable
+   .ProseMirror area ITSELF stretches to the whole card — a click ANYWHERE in
+   the page (not just on the first line) lands in the editor. Using flex:1 to
+   fill (rather than min-height:100%) resolves reliably regardless of how the
+   card's height is derived. */
 .vision-desktop-write {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 .vision-desktop-write .ProseMirror {
-  min-height: 100%;
+  flex: 1 1 auto;
 }
 
 /* The daily-journaling card: its OWN page card below the weekly one. Reuses
