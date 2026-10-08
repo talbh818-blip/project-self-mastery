@@ -81,8 +81,28 @@ export function VisionDailyStrip({
     }
     return null;
   }, [days, dayKeys, todayKey, today]);
-  const [selected, setSelected] = useState<string | null>(defaultSelected);
-  useEffect(() => setSelected(defaultSelected), [defaultSelected]);
+  // `activeDay` is the day the editor holds; `open` is whether its drawer is
+  // expanded. A fresh week lands on its default day, open. Tapping the open day
+  // again collapses the drawer (tap once more to reopen); tapping another day
+  // opens that one.
+  const [activeDay, setActiveDay] = useState<string | null>(defaultSelected);
+  const [open, setOpen] = useState<boolean>(defaultSelected !== null);
+  useEffect(() => {
+    setActiveDay(defaultSelected);
+    setOpen(defaultSelected !== null);
+  }, [defaultSelected]);
+
+  const toggleDay = useCallback(
+    (key: string) => {
+      if (activeDay === key) {
+        setOpen((o) => !o); // same day → open/close the drawer
+      } else {
+        setActiveDay(key); // different day → switch and open
+        setOpen(true);
+      }
+    },
+    [activeDay],
+  );
 
   // Which of the seven days already have a written daily vision → green dot.
   const [written, setWritten] = useState<Set<string>>(new Set());
@@ -119,8 +139,9 @@ export function VisionDailyStrip({
     });
   }, []);
 
-  const selectedFuture =
-    selected !== null && isFuturePeriod('daily', selected, today);
+  const activeFuture =
+    activeDay !== null && isFuturePeriod('daily', activeDay, today);
+  const drawerOpen = open && activeDay !== null && !activeFuture;
 
   return (
     <div dir="rtl">
@@ -129,14 +150,14 @@ export function VisionDailyStrip({
         {days.map((d) => {
           const isFuture = isFuturePeriod('daily', d.key, today);
           const isToday = d.key === todayKey;
-          const isSel = d.key === selected;
+          const isSel = drawerOpen && d.key === activeDay;
           const hasContent = written.has(d.key);
           return (
             <button
               key={d.key}
               type="button"
               disabled={isFuture}
-              onClick={() => setSelected(d.key)}
+              onClick={() => toggleDay(d.key)}
               aria-pressed={isSel}
               // TODAY → a very light green chip. The selected (non-today) day
               // gets a soft neutral lift; the rest are greyed-out white.
@@ -166,16 +187,27 @@ export function VisionDailyStrip({
         })}
       </div>
 
-      {/* The open day's own writing surface — always shown (never fully future). */}
-      {selected && !selectedFuture && userId ? (
-        <DailyEditor
-          key={selected}
-          dayKey={selected}
-          onWrittenChange={markWritten}
-          onRegister={onDailyRegister}
-          onFocus={onDailyFocus}
-        />
-      ) : null}
+      {/* The open day's writing surface — a drawer that slides open/closed
+          (grid-rows 0fr↔1fr animates the real height; the inner wrapper clips
+          during the fold). The editor stays mounted while a day is active so
+          the close animation has content to collapse. */}
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{ gridTemplateRows: drawerOpen ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden min-h-0">
+          {activeDay && !activeFuture && userId ? (
+            <DailyEditor
+              key={activeDay}
+              dayKey={activeDay}
+              active={drawerOpen}
+              onWrittenChange={markWritten}
+              onRegister={onDailyRegister}
+              onFocus={onDailyFocus}
+            />
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
@@ -184,11 +216,14 @@ export function VisionDailyStrip({
 
 function DailyEditor({
   dayKey,
+  active,
   onWrittenChange,
   onRegister,
   onFocus,
 }: {
   dayKey: string;
+  /** Whether the drawer is open — only then does the toolbar target this. */
+  active: boolean;
   onWrittenChange: (dayKey: string, hasContent: boolean) => void;
   onRegister: (target: DailyToolbarTarget | null) => void;
   onFocus: () => void;
@@ -213,15 +248,17 @@ function DailyEditor({
     onChange: handleChange,
   });
 
-  // Make this editor the toolbar's target while it exists; clear on unmount.
+  // Make this editor the toolbar's target while the drawer is OPEN; clear it
+  // when closed (collapsed but still mounted) or on unmount, so the toolbar
+  // falls back to the weekly editor.
   useEffect(() => {
-    if (!editor) {
+    if (!editor || !active) {
       onRegister(null);
       return;
     }
     onRegister({ editor, uploadAndInsert, uploadingCount });
     return () => onRegister(null);
-  }, [editor, uploadAndInsert, uploadingCount, onRegister]);
+  }, [editor, active, uploadAndInsert, uploadingCount, onRegister]);
 
   // Tell the parent when focus lands here so the toolbar switches target.
   useEffect(() => {
