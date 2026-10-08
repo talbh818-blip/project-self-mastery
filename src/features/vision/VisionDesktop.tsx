@@ -35,7 +35,6 @@ import {
 import { VisionEditorDesktop } from './VisionEditorDesktop';
 import { VisionReminisce } from './VisionReminisce';
 import { VisionYearMap } from './VisionYearMap';
-import { VisionWeekMap } from './VisionWeekMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
 import { VisionHabitsStrip } from './VisionHabitsStrip';
 import { VisionIconPicker } from './VisionIconPicker';
@@ -47,7 +46,6 @@ import {
   VISION_PLACEHOLDERS,
   type VisionController,
 } from './useVisionController';
-import { useJournalingEnabled } from './journalingFeature';
 import {
   addAnchor,
   getPeriodKey,
@@ -56,13 +54,11 @@ import {
   type VisionScope,
 } from './period';
 
-// The level views, right→left in RTL (broad → fine), matching the user's order.
-// The "weekly" slot is the daily-journaling view, surfaced as "יומי" and gated
-// behind the Journaling feature opt-in.
+// The level views, right→left in RTL (broad → fine). (The old "כתיבה יומית"
+// day-grid view was retired — daily writing now lives inside the weekly vision.)
 const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
   { value: 'yearly', label: 'שנתי' },
   { value: 'monthly', label: 'חודשי' },
-  { value: 'weekly', label: 'כתיבה יומית' },
 ];
 
 // The desktop's last-chosen LEVEL view is remembered per-user so reopening the
@@ -132,15 +128,11 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     readSavedDesktopLevelView(userId),
   );
   const [feedActive, setFeedActive] = useState(false);
-  // The daily-journaling ("יומי") view is opt-in. When it's locked, a remembered
-  // 'weekly' preference falls back to the yearly map so the view is never shown.
-  const journalingOn = useJournalingEnabled();
+  // The old day-grid view was retired; a stale 'weekly' preference falls back
+  // to the yearly map so it's never shown.
   const safeLevelView: VisionLevelView =
-    !journalingOn && levelView === 'weekly' ? 'yearly' : levelView;
+    levelView === 'weekly' ? 'yearly' : levelView;
   const view: VisionView = feedActive ? 'feed' : safeLevelView;
-  const levelOptions = journalingOn
-    ? LEVEL_OPTIONS
-    : LEVEL_OPTIONS.filter((o) => o.value !== 'weekly');
   const [feedQuery, setFeedQuery] = useState('');
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
   const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
@@ -311,7 +303,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
             {/* RIGHT group (RTL start): level switch + free-scroll. */}
             <div className="flex items-center gap-2">
               <div className="inline-flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
-                {levelOptions.map((opt) => {
+                {LEVEL_OPTIONS.map((opt) => {
                   const active = view === opt.value;
                   return (
                     <button
@@ -456,28 +448,6 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                       הגלילה החופשית מוצגת במרכז. בחר חזון כדי לפתוח אותו.
                     </p>
                   </div>
-                ) : view === 'weekly' ? (
-                  <VisionWeekMap
-                    userId={userId}
-                    today={today}
-                    monthAnchor={monthlyAnchor}
-                    onStepMonth={stepMonthlyWindow}
-                    canStepMonthNext={monthlyCanStepNext}
-                    selectedLevel={level}
-                    selectedKey={periodKey}
-                    onPickYear={(yearKey) =>
-                      goToPeriod('yearly', parsePeriodStart('yearly', yearKey))
-                    }
-                    onPickMonth={(monthKey) =>
-                      goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                    }
-                    onPickWeek={(weekKey) =>
-                      goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                    }
-                    onPickDay={(dayKey) =>
-                      goToPeriod('daily', parsePeriodStart('daily', dayKey))
-                    }
-                  />
                 ) : (
                   <VisionYearMap
                     userId={userId}

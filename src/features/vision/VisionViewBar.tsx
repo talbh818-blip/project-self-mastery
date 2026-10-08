@@ -33,14 +33,14 @@ export type VisionView = VisionLevelView | 'feed';
 const LEVEL_LABELS: Record<VisionLevelView, string> = {
   yearly: 'שנתי',
   monthly: 'חודשי',
-  // The "weekly" slot is the daily-journaling view (year/month strips → weeks →
-  // days), surfaced as "כתיבה יומית" and gated behind the Journaling feature.
+  // Retired view — kept only so a stale saved 'weekly' preference has a label
+  // before it's mapped back to the yearly map.
   weekly: 'כתיבה יומית',
 };
 
-// Menu order, top→bottom: weekly(יומי), monthly, yearly (fine→broad, like a
-// calendar's Day/Week/Month/Year list).
-const MENU_ORDER: VisionLevelView[] = ['weekly', 'monthly', 'yearly'];
+// Menu order, top→bottom: monthly, yearly (broad). (The old daily day-grid view
+// was retired — daily writing now lives inside the weekly vision.)
+const MENU_ORDER: VisionLevelView[] = ['monthly', 'yearly'];
 
 type Props = {
   /** Is the navigator drawer (map / cards) currently expanded? */
@@ -53,9 +53,6 @@ type Props = {
   levelView: VisionLevelView;
   onPickLevelView: (v: VisionLevelView) => void;
   onPickFeed: () => void;
-  /** Whether the daily-journaling ("יומי") view is unlocked (its Features
-   *  opt-in). When false it's dropped from the menu entirely. */
-  dailyEnabled: boolean;
   /** Open the version-history (restore) sheet for the open vision. */
   onOpenHistory: () => void;
   /** Feed-view search box. Only shown when `view === 'feed'`. */
@@ -73,14 +70,9 @@ export function VisionViewBar({
   onOpenHistory,
   searchQuery,
   onSearchChange,
-  dailyEnabled,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const onLevelView = view !== 'feed';
-  // Drop the daily-journaling ("יומי") option unless its feature is unlocked.
-  const menuOrder = dailyEnabled
-    ? MENU_ORDER
-    : MENU_ORDER.filter((o) => o !== 'weekly');
   // The left cluster (history + collapse) makes sense for EVERY level view —
   // each has a navigator + an editor below (yearly map / monthly cards / the
   // daily week-grid). Only the feed (its own search box) is excluded.
@@ -127,7 +119,7 @@ export function VisionViewBar({
                 role="listbox"
                 className="absolute z-50 top-full mt-1 right-0 min-w-[148px] rounded-xl bg-surface-card ring-1 ring-surface-border shadow-xl p-1"
               >
-                {menuOrder.map((opt) => {
+                {MENU_ORDER.map((opt) => {
                   const active = view === opt;
                   return (
                     <button

@@ -27,7 +27,6 @@ import { useKeyboardTracking } from './useKeyboardTracking';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
 import { VisionDailyStrip, type DailyToolbarTarget } from './VisionDailyStrip';
-import { useJournalingEnabled } from './journalingFeature';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { useAuth } from '../../hooks/useAuth';
@@ -84,7 +83,6 @@ export function VisionEditor({
 }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const journalingOn = useJournalingEnabled();
 
   // Warm the guided-writing question catalog (DB-backed, falls back to the
   // built-in list until/unless the fetch lands). pickQuestion stays sync.
@@ -234,9 +232,9 @@ export function VisionEditor({
       </div>
 
       {/* Daily-journaling card — its OWN card BELOW the weekly one (a hair
-          darker so they read apart). Weekly vision + Journaling only. A day is
-          always open; the bottom toolbar follows focus between the two. */}
-      {!readOnly && scope === 'weekly' && journalingOn && (
+          darker so they read apart). Weekly vision only. A day is always open;
+          the bottom toolbar follows focus between the two. */}
+      {!readOnly && scope === 'weekly' && (
         <div className="vision-editor vision-page vision-daily-card">
           <VisionDailyStrip
             userId={userId}

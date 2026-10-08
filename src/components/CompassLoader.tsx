@@ -6,13 +6,14 @@
 //   <CompassLoader />                       // for inline content loading
 //   <CompassLoader size="sm" />             // for tight inline spots
 //
-// ANTI-FLASH DELAY: an inline loader renders NOTHING for its first ~500ms and
-// only then reveals the spinner. The vast majority of loads (cache hits, quick
-// fetches) finish inside that window — the parent unmounts this component
-// before the timer fires, so the user never sees a spinner flash on a fast
-// screen switch. Only a genuinely slow load (>500ms) ever shows it. Fullscreen
-// loaders (app boot / auth) default to NO delay — there's nothing else on
-// screen, so immediate feedback is right. Override per call site via `delayMs`.
+// ANTI-FLASH DELAY: an inline loader renders NOTHING for its first ~1.5s and
+// only then reveals the spinner (with a gentle fade-in). The vast majority of
+// loads (cache hits, quick fetches) finish inside that window — the parent
+// unmounts this component before the timer fires, so the user never sees a
+// spinner flash on a fast screen switch. Only a genuinely slow load (>1.5s)
+// ever shows it. Fullscreen loaders (app boot / auth) default to NO delay —
+// there's nothing else on screen, so immediate feedback is right. Override per
+// call site via `delayMs`.
 
 import { useEffect, useState } from 'react';
 
@@ -37,12 +38,12 @@ export function CompassLoader({
   fullscreen?: boolean;
   className?: string;
   /** Wait this long before revealing the spinner (anti-flash). Defaults to
-   *  0 for fullscreen (boot/auth) and 500ms for inline content loaders. */
+   *  0 for fullscreen (boot/auth) and 1500ms for inline content loaders. */
   delayMs?: number;
 }) {
   const { container, logo, dot, radius } = SIZE_MAP[size];
 
-  const effectiveDelay = delayMs ?? (fullscreen ? 0 : 500);
+  const effectiveDelay = delayMs ?? (fullscreen ? 0 : 1500);
   const [visible, setVisible] = useState(effectiveDelay === 0);
   useEffect(() => {
     if (effectiveDelay === 0) return;
@@ -69,8 +70,12 @@ export function CompassLoader({
     <div
       role="status"
       aria-label="טוען"
-      className="relative inline-flex items-center justify-center"
-      style={{ width: container, height: container }}
+      className="compass-loader-reveal relative inline-flex items-center justify-center"
+      style={{
+        width: container,
+        height: container,
+        animation: 'compass-loader-fade-in 0.45s ease-out both',
+      }}
     >
       <img
         src="/logo.png?v=5"
@@ -89,7 +94,7 @@ export function CompassLoader({
           <span
             key={i}
             aria-hidden="true"
-            className="absolute rounded-full bg-forest-700"
+            className="absolute rounded-full bg-white"
             style={{
               width: dot,
               height: dot,

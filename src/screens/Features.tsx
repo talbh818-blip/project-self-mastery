@@ -13,8 +13,6 @@ import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, Rows3 } from 'lucide-react';
 import { Emoji } from '../components/Emoji';
 import { useFeatureActive } from '../features/settings/featureFlags';
-import { FeatureIntroSheet } from '../features/settings/FeatureIntroSheet';
-import { setJournalingEnabled } from '../features/vision/journalingFeature';
 
 export function Features() {
   const navigate = useNavigate();
@@ -22,8 +20,6 @@ export function Features() {
   // Feature on/off is READ-ONLY here (synced per-user across devices); it's
   // toggled from INSIDE each feature, not from the card.
   const notifEnabled = useFeatureActive('notifications');
-  const journalEnabled = useFeatureActive('journaling');
-  const [journalSheetOpen, setJournalSheetOpen] = useState(false);
   // Grid (2-up cards) vs list (one wide row per feature). Persisted per device.
   const [cardLayout, setCardLayout] = useState<FeaturesView>(() =>
     loadFeaturesView(),
@@ -34,9 +30,6 @@ export function Features() {
   };
 
   const openNotifications = () => navigate('/features/notifications');
-  // Journaling has no settings screen of its own — its on/off toggle + "open"
-  // live in a small sheet (the button takes you to the Vision screen).
-  const openJournaling = () => setJournalSheetOpen(true);
 
   return (
     <div className="max-w-md mx-auto">
@@ -56,15 +49,6 @@ export function Features() {
             description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
             isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
             enabled={notifEnabled}            onOpen={openNotifications}
-          />
-
-          <FeatureCard
-            glyph={<WritingGlyph />}
-            accent={BLOCK.blue}
-            title="כתיבה יומית - Journaling"
-            description="רישום קצר ויומי, נפרד מהחזון"
-            isNew={isWithinNewWindow(JOURNALING_NEW_UNTIL)}
-            enabled={journalEnabled}            onOpen={openJournaling}
           />
 
           {COMING_SOON.map((f) => (
@@ -88,15 +72,6 @@ export function Features() {
             enabled={notifEnabled}            onOpen={openNotifications}
           />
 
-          <FeatureRow
-            glyph={<WritingGlyph />}
-            accent={BLOCK.blue}
-            title="כתיבה יומית - Journaling"
-            description="רישום קצר ויומי, נפרד מהחזון"
-            isNew={isWithinNewWindow(JOURNALING_NEW_UNTIL)}
-            enabled={journalEnabled}            onOpen={openJournaling}
-          />
-
           {COMING_SOON.map((f) => (
             <ComingSoonRow
               key={f.title}
@@ -108,21 +83,6 @@ export function Features() {
           ))}
         </div>
       )}
-
-      <FeatureIntroSheet
-        open={journalSheetOpen}
-        onClose={() => setJournalSheetOpen(false)}
-        title="כתיבה יומית"
-        description="רישום קצר על כל יום, נפרד מהחזון. כשמופעל — מופיע מצב 'יומי' במסך החזון."
-        glyph={<FeatureLogo glyph={<WritingGlyph />} accent={BLOCK.blue} />}
-        enabled={journalEnabled}
-        onToggle={setJournalingEnabled}
-        openLabel="פתח כתיבה יומית"
-        onOpenFeature={() => {
-          setJournalSheetOpen(false);
-          navigate('/vision');
-        }}
-      />
     </div>
   );
 }
@@ -134,8 +94,6 @@ export function Features() {
 // "חדש" badge shows on a feature until this date (one month from its launch).
 // After that it's just a normal feature.
 const NOTIFICATIONS_NEW_UNTIL = '2026-07-19';
-// "חדש" badge on the journaling feature for a month from its launch.
-const JOURNALING_NEW_UNTIL = '2026-07-19';
 
 // Per-feature "extruded block" accents: a top-face gradient (light → mid) plus
 // a darker `edge` colour rendered as a solid offset bottom shadow, so each tile
@@ -494,28 +452,6 @@ function LockGlyph() {
         fillRule="evenodd"
         clipRule="evenodd"
         d="M11 13.2h10a2.8 2.8 0 0 1 2.8 2.8v8.2A2.8 2.8 0 0 1 21 27H11a2.8 2.8 0 0 1-2.8-2.8v-8.2A2.8 2.8 0 0 1 11 13.2Zm5 4.3a1.95 1.95 0 0 0-1.1 3.55V23a1.1 1.1 0 0 0 2.2 0v-1.95A1.95 1.95 0 0 0 16 17.5Z"
-      />
-    </svg>
-  );
-}
-
-/** A centered page with handwriting on it — daily journaling. */
-function WritingGlyph() {
-  return (
-    <svg viewBox="0 0 32 32" width="38" height="38" fill="#ffffff" style={GLYPH_STYLE} aria-hidden="true">
-      {/* page (centered in the viewBox) */}
-      <path d="M11 5h8.2L23 8.8V25.4A1.6 1.6 0 0 1 21.4 27H11A1.6 1.6 0 0 1 9.4 25.4V6.6A1.6 1.6 0 0 1 11 5Z" />
-      <path d="M19.2 5 23 8.8H20.7A1.5 1.5 0 0 1 19.2 7.3Z" fillOpacity="0.4" />
-      {/* two printed lines + a handwriting squiggle */}
-      <rect x="12.4" y="12.6" width="8" height="1.6" rx="0.8" fillOpacity="0.72" />
-      <rect x="12.4" y="16.2" width="8" height="1.6" rx="0.8" fillOpacity="0.72" />
-      <path
-        d="M12.4 21.4c0.9-1.4 1.8-1.4 2.7 0s1.8 1.4 2.7 0 1.8-1.4 2.7 0"
-        fill="none"
-        stroke="#ffffff"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </svg>
   );

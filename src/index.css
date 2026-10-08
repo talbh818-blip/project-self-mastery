@@ -117,6 +117,16 @@ input[type='number'] {
   50% { opacity: 0.15; }
 }
 
+/* The loader fades + scales in gently when it finally reveals (after its
+   anti-flash delay), instead of popping in from nowhere. */
+@keyframes compass-loader-fade-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compass-loader-reveal { animation: none !important; }
+}
+
 /* ----------------------------------------------------------------------------
  * Light theme — applied via data-theme="light" on <html>. Overrides the
  * surface + ink tokens; forest accents stay the same so brand identity
@@ -507,8 +517,14 @@ html[data-theme="light"] {
   bottom: 0;
   z-index: 15;
   pointer-events: none;
+  /* +10px so the bar FLOATS a little above the dock (or the keyboard), rather
+     than sitting flush against it. */
   transform: translateY(
-    calc(-1 * max(calc(env(safe-area-inset-bottom) + 56px), var(--vision-kb, 0px)))
+    calc(
+      -1 *
+        (max(calc(env(safe-area-inset-bottom) + 56px), var(--vision-kb, 0px)) +
+          10px)
+    )
   );
   transition: transform 0.15s ease-out;
   will-change: transform;
@@ -936,11 +952,33 @@ html[data-theme="light"] .vision-editor .vision-question {
 /* Sticky top toolbar — pins to the top of the viewport as the page scrolls.
    A small breathing gap above (so it isn't flush to the very top) and below
    (to the page). */
+/* Formatting toolbar — FIXED above the bottom-nav dock, always visible (no
+   scrolling needed), confined to the centre writing column so it never covers
+   the rail (right) or the look-back panel (left). The 440px matches the two
+   asides' width in VisionDesktop; the inner wrapper re-centres it on the 940px
+   page and re-enables clicks. */
 .vision-desktop-toolbar {
-  position: sticky;
-  bottom: 0.5rem;
-  z-index: 10;
-  margin-top: 0.85rem;
+  position: fixed;
+  left: calc(440px + 1rem);
+  right: calc(440px + 1rem);
+  bottom: 0;
+  z-index: 15;
+  pointer-events: none;
+  transform: translateY(calc(-1 * (env(safe-area-inset-bottom) + 56px + 0.4rem)));
+}
+.vision-desktop-toolbar-inner {
+  max-width: 940px;
+  margin-inline: auto;
+  padding-inline: 2.5rem;
+  pointer-events: none;
+}
+.vision-desktop-toolbar-inner > * {
+  pointer-events: auto;
+}
+/* Runway below the writing so the last lines can scroll clear of the fixed
+   toolbar + dock instead of hiding behind them. */
+.vision-desktop-runway {
+  height: 5.5rem;
 }
 
 /* Desktop toolbar icons sit a touch smaller (~15%) than the mobile bar — the

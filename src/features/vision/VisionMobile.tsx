@@ -20,7 +20,6 @@ import {
   type VisionLevelView,
 } from './VisionViewBar';
 import { VisionYearMap } from './VisionYearMap';
-import { VisionWeekMap } from './VisionWeekMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
 import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
@@ -30,7 +29,6 @@ import {
   VISION_PLACEHOLDERS,
   type VisionController,
 } from './useVisionController';
-import { useJournalingEnabled } from './journalingFeature';
 import {
   addAnchor,
   getPeriodKey,
@@ -96,11 +94,10 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
     readSavedLevelView(userId),
   );
   const [feedActive, setFeedActive] = useState(false);
-  // The daily-journaling ("יומי") view is opt-in. When it's locked, a remembered
-  // 'weekly' preference falls back to the yearly map so the view is never shown.
-  const journalingOn = useJournalingEnabled();
+  // The old day-grid view was retired; a stale 'weekly' preference falls back
+  // to the yearly map so it's never shown.
   const safeLevelView: VisionLevelView =
-    !journalingOn && levelView === 'weekly' ? 'yearly' : levelView;
+    levelView === 'weekly' ? 'yearly' : levelView;
   const view: VisionView = feedActive ? 'feed' : safeLevelView;
   const [feedQuery, setFeedQuery] = useState('');
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
@@ -242,7 +239,6 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
         onOpenHistory={() => setHistoryOpen(true)}
         searchQuery={feedQuery}
         onSearchChange={setFeedQuery}
-        dailyEnabled={journalingOn}
       />
 
       {view === 'feed' ? (
@@ -262,29 +258,7 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
             style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden min-h-0">
-              {view === 'weekly' ? (
-                <VisionWeekMap
-                  userId={userId}
-                  today={today}
-                  monthAnchor={monthlyAnchor}
-                  onStepMonth={stepMonthlyWindow}
-                  canStepMonthNext={monthlyCanStepNext}
-                  selectedLevel={level}
-                  selectedKey={periodKey}
-                  onPickYear={(yearKey) =>
-                    goToPeriod('yearly', parsePeriodStart('yearly', yearKey))
-                  }
-                  onPickMonth={(monthKey) =>
-                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                  }
-                  onPickWeek={(weekKey) =>
-                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                  }
-                  onPickDay={(dayKey) =>
-                    goToPeriod('daily', parsePeriodStart('daily', dayKey))
-                  }
-                />
-              ) : (
+              {(
                 <VisionYearMap
                   userId={userId}
                   year={mapYear}

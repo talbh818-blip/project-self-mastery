@@ -21,7 +21,6 @@ import { useAssistMode } from './useAssistMode';
 import { VisionQuestionSettingsSheet } from './VisionQuestionSettingsSheet';
 import { VisionToolbar } from './VisionToolbar';
 import { VisionDailyStrip, type DailyToolbarTarget } from './VisionDailyStrip';
-import { useJournalingEnabled } from './journalingFeature';
 import { DateBar } from './DateBar';
 import { CompassLoader } from '../../components/CompassLoader';
 import { useAuth } from '../../hooks/useAuth';
@@ -67,7 +66,6 @@ export function VisionEditorDesktop({
 }: Props) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const journalingOn = useJournalingEnabled();
 
   useEffect(() => {
     void ensureQuestionsLoaded();
@@ -200,9 +198,9 @@ export function VisionEditorDesktop({
       {/* Daily-journaling card — its OWN page card BELOW the weekly one, a hair
           darker so the two read apart. Being a separate block (not inside the
           weekly card) is what lets it grow DOWNWARD and scroll the page instead
-          of stealing height from the weekly writing. Weekly vision + Journaling
-          only. Same page padding → the writing lines up with the weekly above. */}
-      {!readOnly && scope === 'weekly' && journalingOn && (
+          of stealing height from the weekly writing. Weekly vision only. Same
+          page padding → the writing lines up with the weekly above. */}
+      {!readOnly && scope === 'weekly' && (
         <div className="vision-editor vision-page-desktop vision-daily-card">
           <VisionDailyStrip
             userId={userId}
@@ -213,20 +211,24 @@ export function VisionEditorDesktop({
         </div>
       )}
 
-      {/* Formatting toolbar — sticky at the BOTTOM of the writing column, below
-          both the weekly writing and the daily strip. It follows focus: it
-          formats the daily surface while that's active, the weekly one
-          otherwise (popovers open upward). */}
+      {/* Runway so the last lines scroll clear of the fixed toolbar + dock. */}
+      {!readOnly && <div aria-hidden className="vision-desktop-runway" />}
+
+      {/* Formatting toolbar — FIXED above the bottom-nav dock, always visible.
+          It follows focus: it formats the daily surface while that's active, the
+          weekly one otherwise (popovers open upward). */}
       {!readOnly && (
         <div className="vision-desktop-toolbar">
-          <VisionToolbar
-            editor={toolbarTarget.editor}
-            onPickImage={toolbarTarget.uploadAndInsert}
-            uploadingCount={toolbarTarget.uploadingCount}
-            canUpload={!!userId}
-            fitWidth={false}
-            popoverPlacement="up"
-          />
+          <div className="vision-desktop-toolbar-inner">
+            <VisionToolbar
+              editor={toolbarTarget.editor}
+              onPickImage={toolbarTarget.uploadAndInsert}
+              uploadingCount={toolbarTarget.uploadingCount}
+              canUpload={!!userId}
+              fitWidth={false}
+              popoverPlacement="up"
+            />
+          </div>
         </div>
       )}
 
