@@ -985,9 +985,10 @@ html[data-theme="light"] .vision-editor .vision-question {
      card below can grow and scroll the page WITHOUT stealing height from the
      weekly writing. It only gets taller when the weekly text itself overflows
      this min-height (the inner .vision-desktop-write flex-grows to fill it).
-     Tune the 13rem if the empty page feels too short / too tall. */
+     Tune the rem below if the empty page feels too short / too tall — a bigger
+     number makes the weekly page shorter, so the daily card peeks up sooner. */
   flex: 0 0 auto;
-  min-height: calc(100vh - 13rem);
+  min-height: calc(100vh - 20rem);
   padding-bottom: 0.6rem;
 }
 
