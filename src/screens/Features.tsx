@@ -8,9 +8,8 @@
 // so granting the OS permission — which can reload the page — lands the user
 // back on the settings screen, not here on the hub.
 // ============================================================================
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Rows3 } from 'lucide-react';
 import { Emoji } from '../components/Emoji';
 import { useFeatureActive } from '../features/settings/featureFlags';
 
@@ -20,69 +19,36 @@ export function Features() {
   // Feature on/off is READ-ONLY here (synced per-user across devices); it's
   // toggled from INSIDE each feature, not from the card.
   const notifEnabled = useFeatureActive('notifications');
-  // Grid (2-up cards) vs list (one wide row per feature). Persisted per device.
-  const [cardLayout, setCardLayout] = useState<FeaturesView>(() =>
-    loadFeaturesView(),
-  );
-  const changeCardLayout = (v: FeaturesView) => {
-    setCardLayout(v);
-    saveFeaturesView(v);
-  };
 
   const openNotifications = () => navigate('/features/notifications');
 
   return (
     <div className="max-w-md mx-auto">
       <header className="mb-5">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-ink-100">פיצ'רים חדשים</h1>
-          <ViewToggle view={cardLayout} onChange={changeCardLayout} />
-        </div>
+        <h1 className="text-2xl font-bold text-ink-100">פיצ'רים חדשים</h1>
       </header>
 
-      {cardLayout === 'grid' ? (
-        <div className="grid grid-cols-2 gap-3">
-          <FeatureCard
-            glyph={<BellGlyph />}
-            accent={BLOCK.sky}
-            title="התראות לטלפון"
-            description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
-            isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
-            enabled={notifEnabled}            onOpen={openNotifications}
-          />
+      <div className="flex flex-col gap-3">
+        <FeatureRow
+          glyph={<BellGlyph />}
+          accent={BLOCK.sky}
+          title="התראות לטלפון"
+          description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
+          isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
+          enabled={notifEnabled}
+          onOpen={openNotifications}
+        />
 
-          {COMING_SOON.map((f) => (
-            <ComingSoonCard
-              key={f.title}
-              glyph={f.glyph}
-              accent={f.accent}
-              title={f.title}
-              description={f.description}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <FeatureRow
-            glyph={<BellGlyph />}
-            accent={BLOCK.sky}
-            title="התראות לטלפון"
-            description="תזכורות יזומות להרגלים — ימים ושעות לבחירתך"
-            isNew={isWithinNewWindow(NOTIFICATIONS_NEW_UNTIL)}
-            enabled={notifEnabled}            onOpen={openNotifications}
+        {COMING_SOON.map((f) => (
+          <ComingSoonRow
+            key={f.title}
+            glyph={f.glyph}
+            accent={f.accent}
+            title={f.title}
+            description={f.description}
           />
-
-          {COMING_SOON.map((f) => (
-            <ComingSoonRow
-              key={f.title}
-              glyph={f.glyph}
-              accent={f.accent}
-              title={f.title}
-              description={f.description}
-            />
-          ))}
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
@@ -125,153 +91,7 @@ function isWithinNewWindow(until: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// View switcher — grid (2-up cards) vs list (one wide row each). Per-device.
-// ---------------------------------------------------------------------------
-
-type FeaturesView = 'grid' | 'list';
-const VIEW_KEY = 'features-view';
-
-function loadFeaturesView(): FeaturesView {
-  try {
-    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid';
-  } catch {
-    return 'grid';
-  }
-}
-
-function saveFeaturesView(v: FeaturesView): void {
-  try {
-    localStorage.setItem(VIEW_KEY, v);
-  } catch {
-    /* blocked — non-fatal */
-  }
-}
-
-function ViewToggle({
-  view,
-  onChange,
-}: {
-  view: FeaturesView;
-  onChange: (v: FeaturesView) => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 gap-0.5 rounded-xl border border-surface-border bg-surface-card p-0.5">
-      <button
-        type="button"
-        onClick={() => onChange('grid')}
-        aria-label="תצוגת רשת"
-        aria-pressed={view === 'grid'}
-        className={`p-1.5 rounded-lg transition-colors ${
-          view === 'grid'
-            ? 'bg-forest-700 text-cream-50'
-            : 'text-ink-300 hover:text-ink-100'
-        }`}
-      >
-        <LayoutGrid size={20} />
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('list')}
-        aria-label="תצוגת שורות"
-        aria-pressed={view === 'list'}
-        className={`p-1.5 rounded-lg transition-colors ${
-          view === 'list'
-            ? 'bg-forest-700 text-cream-50'
-            : 'text-ink-300 hover:text-ink-100'
-        }`}
-      >
-        <Rows3 size={20} />
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Cards
-// ---------------------------------------------------------------------------
-
-function FeatureCard({
-  glyph,
-  accent,
-  title,
-  description,
-  isNew,
-  enabled,
-  onOpen,
-}: {
-  glyph: ReactNode;
-  accent: BlockAccent;
-  title: string;
-  description: string;
-  isNew?: boolean;
-  enabled: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`relative text-right rounded-2xl border bg-surface-card p-4 flex flex-col gap-2 min-h-[150px] transition-colors ${
-        enabled
-          ? 'border-forest-700/60 shadow-[0_0_0_1px_rgba(86,160,109,0.25)]'
-          : 'border-surface-border hover:border-forest-700/50'
-      }`}
-    >
-      {/* "חדש" sits in the top corner (like "בקרוב"); the active state sits
-          next to the title. */}
-      {isNew && (
-        <NewBadge color={accent.badge} className="absolute top-3 left-3 z-10" />
-      )}
-
-      <FeatureLogo glyph={glyph} accent={accent} />
-      <div className="mt-auto">
-        <div className="flex items-center gap-2">
-          <span className="text-[15px] font-semibold text-ink-100 leading-tight">
-            {title}
-          </span>
-          <ActiveBadge enabled={enabled} />
-        </div>
-        <p className="text-[11px] text-ink-300 mt-1 leading-snug">
-          {description}
-        </p>
-      </div>
-    </button>
-  );
-}
-
-function ComingSoonCard({
-  glyph,
-  accent,
-  title,
-  description,
-}: {
-  glyph: ReactNode;
-  accent: BlockAccent;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="relative rounded-2xl border border-surface-border bg-surface-card/50 p-4 flex flex-col gap-2 min-h-[150px]">
-      <span className="absolute top-3 left-3 text-[10px] px-2 py-0.5 rounded-full bg-surface-raised text-ink-300 z-10">
-        בקרוב
-      </span>
-      <span className="opacity-95">
-        <FeatureLogo glyph={glyph} accent={accent} />
-      </span>
-      <div className="mt-auto">
-        <div className="text-[15px] font-semibold text-ink-100/80 leading-tight">
-          {title}
-        </div>
-        <p className="text-[11px] text-ink-300 mt-1 leading-snug">
-          {description}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// List view — one wide row per feature
+// Feature rows — one wide row per feature
 // ---------------------------------------------------------------------------
 
 function FeatureRow({
