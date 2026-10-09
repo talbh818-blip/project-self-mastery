@@ -3,55 +3,34 @@
 // ----------------------------------------------------------------------------
 // Layout (RTL, physical right→left):
 //
-//   [ שנתי ▾ ] [ ▤ feed ] ……… [ ↺ history ] [ ▾ collapse ]
+//   [ שנתי ] [ ▤ feed ] ……… [ ↺ history ] [ ▾ collapse ]
 //
-//   • View dropdown (physical RIGHT-most): Google-Calendar-style picker for
-//     the granularity — שבועי / חודשי / שנתי. Its label shows the active
-//     level view; tinted green while a level view is active.
-//   • Free-scroll button: a SEPARATE control (its own chip, a gap away from
-//     the dropdown — deliberately not one segmented group) that switches to
-//     the free-scroll feed.
-//   • physical LEFT (level views only): version-history + collapse chevron.
-//     In the feed it's the search box; in the (coming-soon) weekly view it's
-//     empty.
+//   • "שנתי" chip (physical RIGHT-most): the yearly map is the ONLY granularity
+//     on mobile — it already shows every month at a glance, so the monthly view
+//     was retired. The chip returns to the yearly map from the feed; it's
+//     tinted green while that map is active.
+//   • Free-scroll button: a SEPARATE control (its own chip, a gap away) that
+//     switches to the free-scroll feed. Together the two chips act as a plain
+//     yearly ⇄ feed toggle.
+//   • physical LEFT (yearly map only): version-history + collapse chevron.
+//     In the feed it's the search box.
 //
 // Purely presentational — all state lives in the Vision screen.
 // ============================================================================
-import { useState } from 'react';
-import {
-  ChevronDown,
-  GalleryVertical,
-  History,
-  Search,
-  X,
-  Check,
-} from 'lucide-react';
+import { GalleryVertical, History, Search, X, ChevronDown } from 'lucide-react';
 
+// Kept for the shared controller / desktop rail; mobile only ever uses 'yearly'.
 export type VisionLevelView = 'yearly' | 'monthly' | 'weekly';
 export type VisionView = VisionLevelView | 'feed';
 
-const LEVEL_LABELS: Record<VisionLevelView, string> = {
-  yearly: 'שנתי',
-  monthly: 'חודשי',
-  // Retired view — kept only so a stale saved 'weekly' preference has a label
-  // before it's mapped back to the yearly map.
-  weekly: 'כתיבה יומית',
-};
-
-// Menu order, top→bottom: monthly, yearly (broad). (The old daily day-grid view
-// was retired — daily writing now lives inside the weekly vision.)
-const MENU_ORDER: VisionLevelView[] = ['monthly', 'yearly'];
-
 type Props = {
-  /** Is the navigator drawer (map / cards) currently expanded? */
+  /** Is the navigator drawer (the year map) currently expanded? */
   layersOpen: boolean;
   onToggleLayers: () => void;
-  /** The active view. */
+  /** The active view — 'yearly' (the map) or 'feed'. */
   view: VisionView;
-  /** The level the dropdown LABELS (the last-picked level view) — stays put
-   *  while the feed is active so the dropdown keeps a meaningful caption. */
-  levelView: VisionLevelView;
-  onPickLevelView: (v: VisionLevelView) => void;
+  /** Return to the yearly map (deactivate the feed). */
+  onPickYearly: () => void;
   onPickFeed: () => void;
   /** Open the version-history (restore) sheet for the open vision. */
   onOpenHistory: () => void;
@@ -64,95 +43,39 @@ export function VisionViewBar({
   layersOpen,
   onToggleLayers,
   view,
-  levelView,
-  onPickLevelView,
+  onPickYearly,
   onPickFeed,
   onOpenHistory,
   searchQuery,
   onSearchChange,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const onLevelView = view !== 'feed';
-  // The left cluster (history + collapse) makes sense for EVERY level view —
-  // each has a navigator + an editor below (yearly map / monthly cards / the
-  // daily week-grid). Only the feed (its own search box) is excluded.
-  const showNav = view === 'yearly' || view === 'monthly' || view === 'weekly';
+  const onYearly = view === 'yearly';
 
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
-      {/* physical RIGHT: the view dropdown + the (separate) free-scroll chip. */}
+      {/* physical RIGHT: the yearly chip + the (separate) free-scroll chip —
+          a plain yearly ⇄ feed toggle. */}
       <div className="flex items-center gap-2">
-        {/* ── View dropdown ── */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((o) => !o)}
-            aria-haspopup="listbox"
-            aria-expanded={menuOpen}
-            aria-label="בחירת תצוגה"
-            className={`
-              inline-flex items-center gap-1 h-7 ps-2 pe-2.5 rounded-lg
-              text-[13px] font-semibold transition-colors
-              ${
-                onLevelView
-                  ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
-                  : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
-              }
-            `}
-          >
-            <ChevronDown
-              size={14}
-              className={`shrink-0 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-            />
-            <span>{LEVEL_LABELS[levelView]}</span>
-          </button>
+        {/* ── Yearly map ── */}
+        <button
+          type="button"
+          onClick={onPickYearly}
+          aria-pressed={onYearly}
+          aria-label="מפה שנתית"
+          className={`
+            inline-flex items-center h-7 px-2.5 rounded-lg
+            text-[13px] font-semibold transition-colors
+            ${
+              onYearly
+                ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
+            }
+          `}
+        >
+          שנתי
+        </button>
 
-          {menuOpen && (
-            <>
-              {/* Outside-click catcher. */}
-              <div
-                className="fixed inset-0 z-40"
-                onClick={() => setMenuOpen(false)}
-                aria-hidden
-              />
-              <div
-                role="listbox"
-                className="absolute z-50 top-full mt-1 right-0 min-w-[148px] rounded-xl bg-surface-card ring-1 ring-surface-border shadow-xl p-1"
-              >
-                {MENU_ORDER.map((opt) => {
-                  const active = view === opt;
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      onClick={() => {
-                        onPickLevelView(opt);
-                        setMenuOpen(false);
-                      }}
-                      className={`
-                        w-full flex items-center justify-between gap-3 px-3 h-8 rounded-lg
-                        text-[13px] transition-colors
-                        ${
-                          active
-                            ? 'text-forest-700 font-semibold bg-forest-700/10'
-                            : 'text-ink-100 hover:bg-surface-raised'
-                        }
-                      `}
-                    >
-                      <span>{LEVEL_LABELS[opt]}</span>
-                      {active && <Check size={14} className="shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* ── Free-scroll — a SEPARATE chip (gap above), not grouped with the
-            dropdown. ── */}
+        {/* ── Free-scroll — a SEPARATE chip (gap above). ── */}
         <button
           type="button"
           onClick={onPickFeed}
@@ -173,8 +96,7 @@ export function VisionViewBar({
         </button>
       </div>
 
-      {/* physical LEFT: search (feed) / history + collapse (level views) /
-          nothing (weekly coming-soon). */}
+      {/* physical LEFT: search (feed) / history + collapse (yearly map). */}
       {view === 'feed' ? (
         <div className="relative flex-1">
           <Search
@@ -203,7 +125,7 @@ export function VisionViewBar({
             </button>
           )}
         </div>
-      ) : showNav ? (
+      ) : (
         <div className="inline-flex items-center gap-1.5">
           <button
             type="button"
@@ -237,7 +159,7 @@ export function VisionViewBar({
             />
           </button>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

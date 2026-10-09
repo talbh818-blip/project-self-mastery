@@ -230,6 +230,7 @@ export function VisionYearMap({
   // first card and the cap is `2·cardHeight + one row gap`. Re-measured on
   // resize (square size, hence card height, follows the container width).
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [maxH, setMaxH] = useState<number | null>(null);
   useLayoutEffect(() => {
     // fillHeight (desktop sidebar) skips the cap entirely — the sidebar scrolls.
@@ -249,6 +250,40 @@ export function VisionYearMap({
     ro.observe(first);
     return () => ro.disconnect();
   }, [scrollable, fillHeight, loading, visibleMonths.length]);
+
+  // On first paint of the scrollable "שנתי" view for the CURRENT year, scroll so
+  // the current month's ROW (months are a 3-column grid) sits at the TOP of the
+  // 2-row window. The browser clamps scrollTop to the max, so the final quarter
+  // — whose row can't reach the top — simply shows the last two rows instead.
+  // Runs once per mount (after the height cap is in place); a manual scroll
+  // afterwards is never yanked back.
+  const didInitialScrollRef = useRef(false);
+  const curYear = today.getFullYear();
+  const curMonth = today.getMonth();
+  useLayoutEffect(() => {
+    if (!scrollable || fillHeight || recentMonths) return;
+    if (didInitialScrollRef.current) return;
+    if (loading || maxH == null) return;
+    if (year !== curYear) return; // only the current year auto-positions
+    const scroller = scrollerRef.current;
+    const grid = gridRef.current;
+    if (!scroller || !grid) return;
+    const rowStartIndex = Math.floor(curMonth / 3) * 3; // 0, 3, 6 or 9
+    const target = grid.children[rowStartIndex] as HTMLElement | undefined;
+    if (!target) return;
+    scroller.scrollTop =
+      target.getBoundingClientRect().top - grid.getBoundingClientRect().top;
+    didInitialScrollRef.current = true;
+  }, [
+    scrollable,
+    fillHeight,
+    recentMonths,
+    loading,
+    maxH,
+    year,
+    curYear,
+    curMonth,
+  ]);
 
   const currentMonthKey = getPeriodKey('monthly', today);
   const currentWeekKey = getWeekKey(today);
@@ -317,6 +352,7 @@ export function VisionYearMap({
           fillHeight={fillHeight}
           maxH={maxH}
           gridRef={gridRef}
+          scrollerRef={scrollerRef}
           onStepMonths={onStepMonths}
           canStepMonthsNext={canStepMonthsNext}
         >
@@ -418,6 +454,7 @@ function MonthsLayout({
   fillHeight,
   maxH,
   gridRef,
+  scrollerRef,
   onStepMonths,
   canStepMonthsNext,
   children,
@@ -427,6 +464,7 @@ function MonthsLayout({
   fillHeight: boolean;
   maxH: number | null;
   gridRef: React.RefObject<HTMLDivElement | null>;
+  scrollerRef: React.RefObject<HTMLDivElement | null>;
   onStepMonths?: (delta: number) => void;
   canStepMonthsNext: boolean;
   children: React.ReactNode;
@@ -467,6 +505,7 @@ function MonthsLayout({
   if (fillHeight || !scrollable) return grid;
   return (
     <div
+      ref={scrollerRef}
       dir="ltr"
       className="vision-feed-scroll overflow-y-auto overscroll-contain pl-1.5"
       style={{ maxHeight: maxH ?? undefined }}

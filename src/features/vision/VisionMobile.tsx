@@ -1,24 +1,20 @@
 // ============================================================================
 // VisionMobile — the phone-shaped Vision layout (the original design).
 // ----------------------------------------------------------------------------
-// This is the mobile surface, unchanged in feel: a top VisionViewBar (view
-// dropdown + feed + history + collapse), a collapsible year-map / month-cards
-// navigator, and the open vision's editor BELOW it with a bottom-fixed toolbar.
+// This is the mobile surface: a top VisionViewBar (a yearly ⇄ feed toggle +
+// history + collapse), a collapsible year-map navigator, and the open vision's
+// editor BELOW it with a bottom-fixed toolbar. The yearly map is the only
+// granularity — it already shows every month — so the monthly view was retired.
 //
-// It owns its OWN navigator chrome state (which view is showing, the map's year,
-// the monthly window, the feed query, the collapse). The shared position +
-// persistence (which vision is open, loading/saving, icons, history) comes from
-// the `ctl` controller, so this layout and the desktop one can never drift on
-// the data that matters.
+// It owns its OWN navigator chrome state (feed on/off, the map's year, the feed
+// query, the collapse). The shared position + persistence (which vision is open,
+// loading/saving, icons, history) comes from the `ctl` controller, so this
+// layout and the desktop one can never drift on the data that matters.
 // ============================================================================
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { VisionEditor } from './VisionEditor';
-import {
-  VisionViewBar,
-  type VisionView,
-  type VisionLevelView,
-} from './VisionViewBar';
+import { VisionViewBar, type VisionView } from './VisionViewBar';
 import { VisionYearMap } from './VisionYearMap';
 import { VisionScrollFeed } from './VisionScrollFeed';
 import { VisionIconPicker } from './VisionIconPicker';
@@ -32,31 +28,9 @@ import {
 import {
   addAnchor,
   getPeriodKey,
-  isFuturePeriod,
   parsePeriodStart,
   type VisionScope,
 } from './period';
-
-// Per-user remembered view. ONLY a level view (yearly/monthly/weekly) is ever
-// remembered as the entry default — the free-scroll feed is deliberately NEVER
-// persisted, so opening the app always lands on the user's last level view (or
-// the yearly map for a brand-new user). Choice sticks per user, per device.
-const VIEW_LS_PREFIX = 'vision-view:';
-
-function readSavedLevelView(userId: string | null): VisionLevelView {
-  if (!userId) return 'yearly';
-  try {
-    const saved = localStorage.getItem(`${VIEW_LS_PREFIX}${userId}`);
-    // 'board' is the legacy key for what is now the yearly map.
-    if (saved === 'board') return 'yearly';
-    if (saved === 'yearly' || saved === 'monthly' || saved === 'weekly')
-      return saved;
-    // 'feed' (or anything unexpected) → fall through: feed is never a default.
-  } catch {
-    // ignore — fall through to default
-  }
-  return 'yearly';
-}
 
 export function VisionMobile({ ctl }: { ctl: VisionController }) {
   const {
@@ -87,81 +61,24 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
     canStepNext,
   } = ctl;
 
-  // Top-bar state: whether the navigator drawer is expanded, and which view is
-  // active (a LEVEL view dropdown + a SEPARATE free-scroll button).
+  // Top-bar state: whether the navigator drawer is expanded, and whether the
+  // free-scroll feed is active. The ONLY level view on mobile is the yearly map
+  // (it already shows every month at a glance), so there's no granularity to
+  // pick or persist — the view is simply yearly ⇄ feed.
   const [layersOpen, setLayersOpen] = useState(true);
-  const [levelView, setLevelView] = useState<VisionLevelView>(() =>
-    readSavedLevelView(userId),
-  );
   const [feedActive, setFeedActive] = useState(false);
-  // The old day-grid view was retired; a stale 'weekly' preference falls back
-  // to the yearly map so it's never shown.
-  const safeLevelView: VisionLevelView =
-    levelView === 'weekly' ? 'yearly' : levelView;
-  const view: VisionView = feedActive ? 'feed' : safeLevelView;
+  const view: VisionView = feedActive ? 'feed' : 'yearly';
   const [feedQuery, setFeedQuery] = useState('');
   // The year the MAP shows — decoupled from `anchor` so stepping years in the
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
-  // The "חודשי" view's window: the LATER of the two months it shows.
-  const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
 
-  // Only level views are persisted (never the feed).
-  const persistLevelView = useCallback(
-    (v: VisionLevelView) => {
-      if (!userId) return;
-      try {
-        localStorage.setItem(`${VIEW_LS_PREFIX}${userId}`, v);
-      } catch {
-        // private-mode / quota — preference just won't persist.
-      }
-    },
-    [userId],
-  );
-
-  // Once auth resolves, apply this user's saved level-view default.
-  const viewLoadedForRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!userId || viewLoadedForRef.current === userId) return;
-    viewLoadedForRef.current = userId;
-    setLevelView(readSavedLevelView(userId));
+  // Return to the yearly map from the feed; re-centre it on the open vision's
+  // year.
+  const pickYearly = useCallback(() => {
     setFeedActive(false);
-  }, [userId]);
-
-  // Pick a level view from the dropdown.
-  const pickLevelView = useCallback(
-    (v: VisionLevelView) => {
-      setLevelView(v);
-      setFeedActive(false);
-      if (v === 'yearly') setMapYear(anchor.getFullYear());
-      else if (v === 'monthly' || v === 'weekly') {
-        // Both the monthly cards and the weekly day-grid are anchored to a
-        // single reference month — land on the current one when switching in.
-        setMonthlyAnchor(today);
-        setMapYear(today.getFullYear());
-      }
-      persistLevelView(v);
-    },
-    [anchor, today, persistLevelView],
-  );
-
-  // Step the "חודשי" window a month back/forward; keep the year header in sync.
-  const stepMonthlyWindow = useCallback(
-    (delta: number) => {
-      const next = new Date(
-        monthlyAnchor.getFullYear(),
-        monthlyAnchor.getMonth() + delta,
-        1,
-      );
-      setMonthlyAnchor(next);
-      setMapYear(next.getFullYear());
-    },
-    [monthlyAnchor],
-  );
-  const monthlyCanStepNext = !isFuturePeriod(
-    'monthly',
-    getPeriodKey('monthly', addAnchor('monthly', monthlyAnchor, 1)),
-  );
+    setMapYear(anchor.getFullYear());
+  }, [anchor]);
 
   const pickFeed = useCallback(() => {
     setFeedActive(true);
@@ -184,7 +101,6 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
       setAnchor(today);
       setLevel('weekly');
       setMapYear(today.getFullYear());
-      setMonthlyAnchor(today);
     },
   };
 
@@ -193,13 +109,12 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
   const goToPeriod = (targetLevel: VisionScope, targetAnchor: Date) =>
     ctlGoToPeriod(targetLevel, targetAnchor);
 
-  // Feed → tap a vision: jump to it and land on the yearly map.
+  // Feed → tap a vision: jump to it and land back on the yearly map.
   const openFromFeed = (targetLevel: VisionScope, targetAnchor: Date) => {
     setAnchor(targetAnchor);
     setLevel(targetLevel);
     setMapYear(targetAnchor.getFullYear());
     setFeedActive(false);
-    setLevelView('yearly');
   };
 
   const editorBlock = locked ? (
@@ -233,8 +148,7 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((v) => !v)}
         view={view}
-        levelView={safeLevelView}
-        onPickLevelView={pickLevelView}
+        onPickYearly={pickYearly}
         onPickFeed={pickFeed}
         onOpenHistory={() => setHistoryOpen(true)}
         searchQuery={feedQuery}
@@ -251,35 +165,29 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
         />
       ) : (
         <>
-          {/* The navigator — yearly map / monthly cards / weekly day-grid —
-              collapses as a drawer via the grid 0fr↔1fr trick (no JS measuring). */}
+          {/* The navigator — the yearly map — collapses as a drawer via the
+              grid 0fr↔1fr trick (no JS measuring). */}
           <div
             className="grid transition-[grid-template-rows] duration-300 ease-in-out"
             style={{ gridTemplateRows: layersOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden min-h-0">
-              {(
-                <VisionYearMap
-                  userId={userId}
-                  year={mapYear}
-                  today={today}
-                  selectedLevel={level}
-                  selectedKey={periodKey}
-                  scrollable={view === 'yearly'}
-                  recentMonths={view === 'monthly'}
-                  monthAnchor={monthlyAnchor}
-                  onStepMonths={stepMonthlyWindow}
-                  canStepMonthsNext={monthlyCanStepNext}
-                  onStepYear={(delta) => setMapYear((y) => y + delta)}
-                  onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
-                  onPickMonth={(monthKey) =>
-                    goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
-                  }
-                  onPickWeek={(weekKey) =>
-                    goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
-                  }
-                />
-              )}
+              <VisionYearMap
+                userId={userId}
+                year={mapYear}
+                today={today}
+                selectedLevel={level}
+                selectedKey={periodKey}
+                scrollable
+                onStepYear={(delta) => setMapYear((y) => y + delta)}
+                onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
+                onPickMonth={(monthKey) =>
+                  goToPeriod('monthly', parsePeriodStart('monthly', monthKey))
+                }
+                onPickWeek={(weekKey) =>
+                  goToPeriod('weekly', parsePeriodStart('weekly', weekKey))
+                }
+              />
             </div>
           </div>
 
