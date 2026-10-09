@@ -10,6 +10,7 @@ import {
   TREE_PRICES,
   type TreePlanting,
 } from '../habits/scoring2';
+import { fetchWrittenVisionCount } from '../vision/queries';
 
 // ── Growth configuration ─────────────────────────────────────────────────────
 //
@@ -1807,12 +1808,15 @@ function TreeFieldModal({
 }
 
 // ============================================================================
-// TreeFieldInline — a READ-ONLY copy of the plot (the same isometric field +
-// stats as the "my plot" popup) for embedding elsewhere, e.g. above the habit
-// rings in the Vision rail. No planting flow, no close, no buttons; it fetches
-// its own plot data (profile + plantings) and computes the same economy/stage
-// the popup does. `totalScore` is passed in (the floored, adjusted number the
-// user sees everywhere) so it always matches the Habits screen.
+// TreeFieldInline — an EDITABLE copy of the plot for embedding elsewhere, e.g.
+// above the habit rings in the Vision rail. No planting flow / close / buttons,
+// but the trees ARE draggable here (same long-press → drag / swap as the "my
+// plot" popup), persisting straight to profiles.tree_placements. Three stat
+// tiles sit ABOVE the field — trees planted · visions written · total score.
+// It fetches its own plot data (profile + plantings) and computes the same
+// economy/stage the popup does. `totalScore` is passed in (the floored,
+// adjusted number the user sees everywhere) so it always matches the Habits
+// screen.
 // ============================================================================
 export function TreeFieldInline({
   userId,
@@ -1825,7 +1829,7 @@ export function TreeFieldInline({
   v2Total: number;
   totalScore: number;
 }) {
-  const { profile } = useCurrentProfile();
+  const { profile, refresh } = useCurrentProfile();
   const treesPlanted = profile?.trees_planted ?? 0;
   const treePlacements: TreePlacement[] = profile?.tree_placements ?? [];
   const cycleScoreFloor = profile?.cycle_score_floor ?? 0;
@@ -1852,6 +1856,57 @@ export function TreeFieldInline({
     };
   }, [userId]);
 
+  // How many visions the user has actually written (non-empty content).
+  const [visionCount, setVisionCount] = useState<number | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const n = await fetchWrittenVisionCount(userId);
+        if (!cancelled) setVisionCount(n);
+      } catch (err) {
+        console.error('[TreeFieldInline] vision count failed:', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  // The growing centre tree's position (offset from centre), draggable to any
+  // empty cell. Shared with the popup via the same per-user localStorage key.
+  const [growingPlacement, setGrowingPlacement] = useState<TreePlacement | null>(
+    () => (userId ? readGrowingPos(userId) : null),
+  );
+  useEffect(() => {
+    if (userId) setGrowingPlacement(readGrowingPos(userId));
+  }, [userId]);
+  const persistGrowing = (next: TreePlacement | null) => {
+    if (userId) writeGrowingPos(userId, next);
+    setGrowingPlacement(next);
+  };
+
+  // Persist a drag/swap of mature trees to Supabase, then refresh the profile
+  // so the field settles on the stored order. Returns true so IsometricField
+  // keeps its optimistic update (false → it reverts).
+  const persistPlacements = async (next: TreePlacement[]): Promise<boolean> => {
+    if (!userId) return false;
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ tree_placements: next })
+      .eq('id', userId)
+      .select()
+      .maybeSingle();
+    if (error) {
+      console.error('[TreeFieldInline] placement save failed:', error);
+      return false;
+    }
+    if (!data) return false; // RLS silently rejected
+    await refresh();
+    return true;
+  };
+
   const economy = computeTreeEconomy({
     v1Total,
     v2Total,
@@ -1860,65 +1915,49 @@ export function TreeFieldInline({
     plantings: plantings ?? [],
     today: new Date(),
   });
-  const monthCapped = economy.nextPrice === null;
   const cycleTarget = economy.nextPrice ?? TREE_PRICES[0];
   const stageThresholds = stageThresholdsFor(cycleTarget);
   const cycleScore = Math.round(economy.bank);
-  const isMature = !monthCapped && economy.bank >= cycleTarget;
   const stage = stageFor(Math.min(cycleScore, cycleTarget), stageThresholds);
-  const stageLabel = STAGE_LABELS[stage];
-  const progressPct = isMature
-    ? 100
-    : Math.round(Math.min(1, economy.bank / cycleTarget) * 100);
+
+  const tiles: { label: string; value: string }[] = [
+    { label: 'עצים שתולים', value: String(treesPlanted) },
+    {
+      label: 'חזונות שנכתבו',
+      value: visionCount == null ? '—' : String(visionCount),
+    },
+    { label: 'ניקוד כולל', value: String(displayPoints(totalScore)) },
+  ];
 
   return (
     <div dir="rtl">
-      {/* Isometric plot (read-only). */}
+      {/* Three stat tiles ABOVE the plot. */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {tiles.map((t) => (
+          <div
+            key={t.label}
+            className="rounded-xl bg-surface-raised px-1.5 py-2.5 text-center"
+          >
+            <div className="text-lg font-bold text-ink-100 tabular-nums leading-none">
+              {t.value}
+            </div>
+            <div className="mt-1 text-[11px] text-ink-300 leading-tight">
+              {t.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Isometric plot — editable: long-press a mature tree to drag / swap it,
+          persisting to profiles.tree_placements. */}
       <IsometricField
         treesPlanted={treesPlanted}
         currentStage={stage}
         placements={treePlacements}
+        onPlacementsChange={persistPlacements}
+        growingPlacement={growingPlacement}
+        onGrowingPlacementChange={persistGrowing}
       />
-
-      {/* Stats — trees planted · stage · progress · total score. */}
-      <div className="px-1 pt-1 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-baseline gap-1.5 text-ink-100">
-            <span className="text-xs text-ink-300">עצים שתולים:</span>
-            <span className="text-base font-bold tabular-nums">{treesPlanted}</span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xs font-semibold text-ink-100 tracking-wide">
-              {stageLabel}
-            </span>
-            {isMature ? (
-              <span className="text-[11px] font-bold text-forest-700 inline-flex items-center gap-1">
-                מוכן לשתילה! <Emoji emoji="🎉" size={12} />
-              </span>
-            ) : (
-              <span className="text-[11px] tabular-nums font-semibold text-ink-300">
-                {progressPct}%
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="relative h-2.5 rounded-full bg-surface-raised overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${
-              isMature ? 'bg-forest-400' : 'bg-forest-600'
-            }`}
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-
-        <div className="flex items-center justify-center gap-2 pt-0.5">
-          <span className="text-sm text-ink-300">ניקוד כולל:</span>
-          <span className="text-2xl font-bold text-ink-100 tabular-nums leading-none">
-            {displayPoints(totalScore)}
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

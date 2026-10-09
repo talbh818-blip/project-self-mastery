@@ -3,6 +3,7 @@
 // ============================================================================
 import { supabase } from '../../lib/supabase';
 import type { VisionScope } from './period';
+import { isVisionContentEmpty } from './content';
 
 export type VisionEntry = {
   id: string;
@@ -66,6 +67,23 @@ export async function fetchVisionEntriesForScope(
     .eq('scope', scope);
   if (error) throw error;
   return (data ?? []) as VisionRowMeta[];
+}
+
+/**
+ * Count how many visions the user has actually WRITTEN — i.e. rows whose
+ * content is non-empty (a row is created empty the moment a period is opened,
+ * so a plain row count would overstate it). Fetches just the content column for
+ * the user's rows and filters client-side with `isVisionContentEmpty`.
+ */
+export async function fetchWrittenVisionCount(userId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('vision_entries')
+    .select('content')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).filter(
+    (r) => !isVisionContentEmpty((r as { content: unknown }).content),
+  ).length;
 }
 
 export async function fetchVisionEntry(
