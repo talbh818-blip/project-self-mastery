@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import type { TreePlacement } from '../admin/types';
 import {
   computeTreeEconomy,
+  displayPoints,
   TREE_PRICES,
   type TreePlanting,
 } from '../habits/scoring2';
@@ -1802,5 +1803,122 @@ function TreeFieldModal({
       <BottomConfetti durationMs={PLANT_CELEBRATION_MS} />
     )}
     </>
+  );
+}
+
+// ============================================================================
+// TreeFieldInline — a READ-ONLY copy of the plot (the same isometric field +
+// stats as the "my plot" popup) for embedding elsewhere, e.g. above the habit
+// rings in the Vision rail. No planting flow, no close, no buttons; it fetches
+// its own plot data (profile + plantings) and computes the same economy/stage
+// the popup does. `totalScore` is passed in (the floored, adjusted number the
+// user sees everywhere) so it always matches the Habits screen.
+// ============================================================================
+export function TreeFieldInline({
+  userId,
+  v1Total,
+  v2Total,
+  totalScore,
+}: {
+  userId: string | null;
+  v1Total: number;
+  v2Total: number;
+  totalScore: number;
+}) {
+  const { profile } = useCurrentProfile();
+  const treesPlanted = profile?.trees_planted ?? 0;
+  const treePlacements: TreePlacement[] = profile?.tree_placements ?? [];
+  const cycleScoreFloor = profile?.cycle_score_floor ?? 0;
+
+  const [plantings, setPlantings] = useState<TreePlanting[] | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('tree_plantings')
+        .select('id,user_id,planted_at,price')
+        .eq('user_id', userId)
+        .order('planted_at', { ascending: true });
+      if (cancelled) return;
+      if (error) {
+        console.error('[TreeFieldInline] tree_plantings load failed:', error);
+        return;
+      }
+      setPlantings((data ?? []) as TreePlanting[]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const economy = computeTreeEconomy({
+    v1Total,
+    v2Total,
+    scoreAdjustment: profile?.score_adjustment ?? 0,
+    cycleScoreFloor,
+    plantings: plantings ?? [],
+    today: new Date(),
+  });
+  const monthCapped = economy.nextPrice === null;
+  const cycleTarget = economy.nextPrice ?? TREE_PRICES[0];
+  const stageThresholds = stageThresholdsFor(cycleTarget);
+  const cycleScore = Math.round(economy.bank);
+  const isMature = !monthCapped && economy.bank >= cycleTarget;
+  const stage = stageFor(Math.min(cycleScore, cycleTarget), stageThresholds);
+  const stageLabel = STAGE_LABELS[stage];
+  const progressPct = isMature
+    ? 100
+    : Math.round(Math.min(1, economy.bank / cycleTarget) * 100);
+
+  return (
+    <div dir="rtl">
+      {/* Isometric plot (read-only). */}
+      <IsometricField
+        treesPlanted={treesPlanted}
+        currentStage={stage}
+        placements={treePlacements}
+      />
+
+      {/* Stats — trees planted · stage · progress · total score. */}
+      <div className="px-1 pt-1 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline gap-1.5 text-ink-100">
+            <span className="text-xs text-ink-300">עצים שתולים:</span>
+            <span className="text-base font-bold tabular-nums">{treesPlanted}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs font-semibold text-ink-100 tracking-wide">
+              {stageLabel}
+            </span>
+            {isMature ? (
+              <span className="text-[11px] font-bold text-forest-700 inline-flex items-center gap-1">
+                מוכן לשתילה! <Emoji emoji="🎉" size={12} />
+              </span>
+            ) : (
+              <span className="text-[11px] tabular-nums font-semibold text-ink-300">
+                {progressPct}%
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="relative h-2.5 rounded-full bg-surface-raised overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-700 ${
+              isMature ? 'bg-forest-400' : 'bg-forest-600'
+            }`}
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
+        <div className="flex items-center justify-center gap-2 pt-0.5">
+          <span className="text-sm text-ink-300">ניקוד כולל:</span>
+          <span className="text-2xl font-bold text-ink-100 tabular-nums leading-none">
+            {displayPoints(totalScore)}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
