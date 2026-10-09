@@ -62,8 +62,10 @@ type Props = {
    *  top. Off = compact mode (future rows hidden, no inner scroll). */
   scrollable?: boolean;
   /** Columns in the scrollable month grid: 3 on mobile (6 months / 2 rows),
-   *  2 on desktop (4 months / 2 rows). */
+   *  2 on desktop (6 months / 3 rows). */
   columns?: number;
+  /** Visible rows before the scroller caps: 2 on mobile, 3 on desktop. */
+  rows?: number;
   /** Desktop sidebar: show the WHOLE year (future dimmed) like `scrollable`,
    *  but WITHOUT the internal 2-row height cap — the surrounding sidebar is the
    *  scroll container, so the month grid flows naturally to full height. */
@@ -108,6 +110,7 @@ export function VisionYearMap({
   onPickWeek,
   scrollable = false,
   columns = 3,
+  rows = 2,
   fillHeight = false,
   recentMonths = false,
   monthAnchor,
@@ -228,11 +231,11 @@ export function VisionYearMap({
     };
   }, [userId, allKeys]);
 
-  // Scrollable mode: cap the month grid to exactly 2 rows (6 months) and let
-  // the rest scroll. All month cards share one structure (heading row + a row
-  // of equal-size week squares), so they're the same height — measure the
-  // first card and the cap is `2·cardHeight + one row gap`. Re-measured on
-  // resize (square size, hence card height, follows the container width).
+  // Scrollable mode: cap the month grid to `rows` rows (2 on mobile, 3 on
+  // desktop) and let the rest scroll. All month cards share one structure
+  // (heading row + a row of equal-size week squares), so they're the same
+  // height — measure the first card and the cap is `rows·cardHeight + gaps`.
+  // Re-measured on resize (square size, hence card height, follows the width).
   const gridRef = useRef<HTMLDivElement | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const [maxH, setMaxH] = useState<number | null>(null);
@@ -247,13 +250,14 @@ export function VisionYearMap({
     if (!grid || !first) return;
     const measure = () => {
       const h = first.getBoundingClientRect().height;
-      if (h > 0) setMaxH(Math.round(h * 2 + 6)); // 2 rows + gap-1.5 (6px)
+      // `rows` cards + the gap-1.5 (6px) between them.
+      if (h > 0) setMaxH(Math.round(h * rows + 6 * (rows - 1)));
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(first);
     return () => ro.disconnect();
-  }, [scrollable, fillHeight, loading, visibleMonths.length]);
+  }, [scrollable, fillHeight, loading, visibleMonths.length, rows]);
 
   // On first paint of the scrollable "שנתי" view for the CURRENT year, scroll so
   // the current month's ROW sits at the TOP of the 2-row window. The browser
