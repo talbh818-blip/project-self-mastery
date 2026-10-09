@@ -73,16 +73,16 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
   // map doesn't move the vision currently open in the editor below it.
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
 
-  // Return to the yearly map from the feed; re-centre it on the open vision's
-  // year.
-  const pickYearly = useCallback(() => {
-    setFeedActive(false);
-    setMapYear(anchor.getFullYear());
-  }, [anchor]);
-
-  const pickFeed = useCallback(() => {
-    setFeedActive(true);
-  }, []);
+  // Single toggle: the free-scroll feed on/off. Turning it OFF returns to the
+  // yearly map, re-centred on the open vision's year.
+  const toggleFeed = useCallback(() => {
+    if (feedActive) {
+      setFeedActive(false);
+      setMapYear(anchor.getFullYear());
+    } else {
+      setFeedActive(true);
+    }
+  }, [feedActive, anchor]);
 
   // The DateBar title stepper also moves the MAP's year to match.
   const stepPeriod = (delta: number) => {
@@ -148,8 +148,7 @@ export function VisionMobile({ ctl }: { ctl: VisionController }) {
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((v) => !v)}
         view={view}
-        onPickYearly={pickYearly}
-        onPickFeed={pickFeed}
+        onToggleFeed={toggleFeed}
         onOpenHistory={() => setHistoryOpen(true)}
         searchQuery={feedQuery}
         onSearchChange={setFeedQuery}

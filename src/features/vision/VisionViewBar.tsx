@@ -3,15 +3,13 @@
 // ----------------------------------------------------------------------------
 // Layout (RTL, physical right→left):
 //
-//   [ שנתי ] [ ▤ feed ] ……… [ ↺ history ] [ ▾ collapse ]
+//   [ ▤ feed toggle ] ……… [ ↺ history ] [ ▾ collapse ]
 //
-//   • "שנתי" chip (physical RIGHT-most): the yearly map is the ONLY granularity
-//     on mobile — it already shows every month at a glance, so the monthly view
-//     was retired. The chip returns to the yearly map from the feed; it's
-//     tinted green while that map is active.
-//   • Free-scroll button: a SEPARATE control (its own chip, a gap away) that
-//     switches to the free-scroll feed. Together the two chips act as a plain
-//     yearly ⇄ feed toggle.
+//   • Free-scroll button (physical RIGHT-most): a single TOGGLE. The yearly map
+//     is the normal view; pressing this switches to the free-scroll feed, and
+//     pressing it again returns to the map. Tinted green while the feed is on.
+//     (The yearly map is the only granularity on mobile — it already shows every
+//     month at a glance — so there's no separate view picker.)
 //   • physical LEFT (yearly map only): version-history + collapse chevron.
 //     In the feed it's the search box.
 //
@@ -29,9 +27,8 @@ type Props = {
   onToggleLayers: () => void;
   /** The active view — 'yearly' (the map) or 'feed'. */
   view: VisionView;
-  /** Return to the yearly map (deactivate the feed). */
-  onPickYearly: () => void;
-  onPickFeed: () => void;
+  /** Toggle the free-scroll feed on/off (off = back to the yearly map). */
+  onToggleFeed: () => void;
   /** Open the version-history (restore) sheet for the open vision. */
   onOpenHistory: () => void;
   /** Feed-view search box. Only shown when `view === 'feed'`. */
@@ -43,58 +40,34 @@ export function VisionViewBar({
   layersOpen,
   onToggleLayers,
   view,
-  onPickYearly,
-  onPickFeed,
+  onToggleFeed,
   onOpenHistory,
   searchQuery,
   onSearchChange,
 }: Props) {
-  const onYearly = view === 'yearly';
+  const onFeed = view === 'feed';
 
   return (
     <div dir="rtl" className="flex items-center justify-between gap-2 mb-2">
-      {/* physical RIGHT: the yearly chip + the (separate) free-scroll chip —
-          a plain yearly ⇄ feed toggle. */}
-      <div className="flex items-center gap-2">
-        {/* ── Yearly map ── */}
-        <button
-          type="button"
-          onClick={onPickYearly}
-          aria-pressed={onYearly}
-          aria-label="מפה שנתית"
-          className={`
-            inline-flex items-center h-7 px-2.5 rounded-lg
-            text-[13px] font-semibold transition-colors
-            ${
-              onYearly
-                ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
-                : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
-            }
-          `}
-        >
-          שנתי
-        </button>
-
-        {/* ── Free-scroll — a SEPARATE chip (gap above). ── */}
-        <button
-          type="button"
-          onClick={onPickFeed}
-          aria-pressed={view === 'feed'}
-          aria-label="גלילה חופשית בין החזונות"
-          title="גלילה חופשית בין החזונות"
-          className={`
-            shrink-0 inline-flex items-center justify-center h-7 w-8 rounded-lg
-            transition-colors
-            ${
-              view === 'feed'
-                ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
-                : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
-            }
-          `}
-        >
-          <GalleryVertical size={16} />
-        </button>
-      </div>
+      {/* physical RIGHT: the free-scroll toggle (map ⇄ feed). */}
+      <button
+        type="button"
+        onClick={onToggleFeed}
+        aria-pressed={onFeed}
+        aria-label={onFeed ? 'חזרה למפה השנתית' : 'גלילה חופשית בין החזונות'}
+        title={onFeed ? 'חזרה למפה השנתית' : 'גלילה חופשית בין החזונות'}
+        className={`
+          shrink-0 inline-flex items-center justify-center h-7 w-8 rounded-lg
+          transition-colors
+          ${
+            onFeed
+              ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+              : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
+          }
+        `}
+      >
+        <GalleryVertical size={16} />
+      </button>
 
       {/* physical LEFT: search (feed) / history + collapse (yearly map). */}
       {view === 'feed' ? (
