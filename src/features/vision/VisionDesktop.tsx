@@ -6,21 +6,22 @@
 //   ┌──────────────────────────────┬─────────────────────────┐
 //   │  CENTRE — wide writing page  │  RIGHT — navigation rail │
 //   │  (Google-Docs style)         │  header (mirrors mobile):│
-//   │   ┌── sticky toolbar ──┐     │   [שנתי·חודשי·שבועי][feed]│
-//   │   │ B i U  H  • ...     │     │              [hist][▾]   │
-//   │   ├────────────────────┤     │  body: year map / month  │
-//   │   │ title · ‹ › · save │     │   cards / weekly soon /   │
-//   │   │  writing …          │     │   feed search             │
+//   │   ┌── sticky toolbar ──┐     │   [▤ feed] … [eye][hist][▾]│
+//   │   │ B i U  H  • ...     │     │  body: year map (2-col,  │
+//   │   ├────────────────────┤     │   capped 2 rows, scroll)  │
+//   │   │ title · ‹ › · save │     │   or feed search          │
+//   │   │  writing …          │     │                           │
 //   └──────────────────────────────┴─────────────────────────┘
 //
-// The rail header echoes the mobile VisionViewBar: a view switcher (שנתי /
-// חודשי / שבועי) + a free-scroll button on the RIGHT, and version-history + a
-// collapse chevron on the LEFT. The chevron folds the whole navigator away.
-// Clicking any month/week inside the map opens that period in the centre editor.
+// The rail header echoes the mobile VisionViewBar: a single free-scroll TOGGLE
+// on the RIGHT (map ⇄ feed), and look-back (eye) + version-history + a collapse
+// chevron on the LEFT. The yearly map is the only granularity — a 2-column
+// capped scroller (2 rows, auto-scrolled to the current month) — so there's no
+// view switcher. Clicking any month/week in the map opens it in the centre.
 //
 // The shared `ctl` controller owns which vision is open + its persistence; this
-// layout only owns its own navigator chrome (view, feed, the map year, the
-// monthly window, the collapse state).
+// layout only owns its own navigator chrome (feed on/off, the map year, the
+// collapse state).
 // ============================================================================
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -41,7 +42,7 @@ import { VisionIconPicker } from './VisionIconPicker';
 import { VisionHistorySheet } from './VisionHistorySheet';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { CompassLoader } from '../../components/CompassLoader';
-import type { VisionView, VisionLevelView } from './VisionViewBar';
+import type { VisionView } from './VisionViewBar';
 import {
   VISION_PLACEHOLDERS,
   type VisionController,
@@ -49,36 +50,9 @@ import {
 import {
   addAnchor,
   getPeriodKey,
-  isFuturePeriod,
   parsePeriodStart,
   type VisionScope,
 } from './period';
-
-// The level views, right→left in RTL (broad → fine). (The old "כתיבה יומית"
-// day-grid view was retired — daily writing now lives inside the weekly vision.)
-const LEVEL_OPTIONS: { value: VisionLevelView; label: string }[] = [
-  { value: 'yearly', label: 'שנתי' },
-  { value: 'monthly', label: 'חודשי' },
-];
-
-// The desktop's last-chosen LEVEL view is remembered per-user so reopening the
-// app lands on it (שנתי / חודשי / שבועי). The free-scroll feed is deliberately
-// NEVER persisted — it's never an entry default. A SEPARATE key from mobile's
-// `vision-view:` keeps the two layouts' preferences independent.
-const DESKTOP_VIEW_LS_PREFIX = 'vision-view-desktop:';
-
-function readSavedDesktopLevelView(userId: string | null): VisionLevelView {
-  if (!userId) return 'yearly';
-  try {
-    const saved = localStorage.getItem(`${DESKTOP_VIEW_LS_PREFIX}${userId}`);
-    if (saved === 'yearly' || saved === 'monthly' || saved === 'weekly') {
-      return saved;
-    }
-  } catch {
-    // ignore — fall through to default
-  }
-  return 'yearly';
-}
 
 // Whether the "look back" panel was last left open — remembered per-user so it
 // reopens (or stays closed) on the next visit.
@@ -122,21 +96,14 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     canStepNext,
   } = ctl;
 
-  // Rail chrome — independent of the mobile layout. The level view is restored
-  // from the saved default; the feed always starts OFF (never restored).
-  const [levelView, setLevelView] = useState<VisionLevelView>(() =>
-    readSavedDesktopLevelView(userId),
-  );
+  // Rail chrome — independent of the mobile layout. The yearly map is the only
+  // granularity (it already shows every month), so there's nothing to persist;
+  // the feed always starts OFF and the view is simply yearly ⇄ feed.
   const [feedActive, setFeedActive] = useState(false);
-  // The old day-grid view was retired; a stale 'weekly' preference falls back
-  // to the yearly map so it's never shown.
-  const safeLevelView: VisionLevelView =
-    levelView === 'weekly' ? 'yearly' : levelView;
-  const view: VisionView = feedActive ? 'feed' : safeLevelView;
+  const view: VisionView = feedActive ? 'feed' : 'yearly';
   const [feedQuery, setFeedQuery] = useState('');
   const [mapYear, setMapYear] = useState(() => today.getFullYear());
-  const [monthlyAnchor, setMonthlyAnchor] = useState<Date>(today);
-  // Whether the navigator body (map / months) is expanded.
+  // Whether the navigator body (the year map) is expanded.
   const [navOpen, setNavOpen] = useState(true);
   // The read-only "look back" panel on the LEFT, with a smooth slide in/out.
   //   • reminisceOpen     — the button's logical state.
@@ -179,56 +146,16 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     [userId],
   );
 
-  // Persist only the LEVEL view (never the feed), per-user.
-  const persistLevelView = useCallback(
-    (v: VisionLevelView) => {
-      if (!userId) return;
-      try {
-        localStorage.setItem(`${DESKTOP_VIEW_LS_PREFIX}${userId}`, v);
-      } catch {
-        // private-mode / quota — preference just won't persist.
-      }
-    },
-    [userId],
-  );
-
-  // Once auth resolves, apply this user's saved level-view default (the lazy
-  // initializer above may have run before userId was known). Feed stays off.
-  const viewLoadedForRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!userId || viewLoadedForRef.current === userId) return;
-    viewLoadedForRef.current = userId;
-    setLevelView(readSavedDesktopLevelView(userId));
-    setFeedActive(false);
-  }, [userId]);
-
-  const pickLevelView = (v: VisionLevelView) => {
-    setLevelView(v);
-    setFeedActive(false);
-    if (v === 'yearly') setMapYear(anchor.getFullYear());
-    else if (v === 'monthly' || v === 'weekly') {
-      // Both the monthly cards and the weekly day-grid are anchored to a single
-      // reference month — land on the current one when switching in.
-      setMonthlyAnchor(today);
-      setMapYear(today.getFullYear());
+  // Single toggle: the free-scroll feed on/off. Turning it OFF returns to the
+  // yearly map, re-centred on the open vision's year.
+  const toggleFeed = () => {
+    if (feedActive) {
+      setFeedActive(false);
+      setMapYear(anchor.getFullYear());
+    } else {
+      setFeedActive(true);
     }
-    persistLevelView(v);
   };
-
-  // Step the "חודשי" window a month back/forward; keep the year header in sync.
-  const stepMonthlyWindow = (delta: number) => {
-    const next = new Date(
-      monthlyAnchor.getFullYear(),
-      monthlyAnchor.getMonth() + delta,
-      1,
-    );
-    setMonthlyAnchor(next);
-    setMapYear(next.getFullYear());
-  };
-  const monthlyCanStepNext = !isFuturePeriod(
-    'monthly',
-    getPeriodKey('monthly', addAnchor('monthly', monthlyAnchor, 1)),
-  );
 
   // Editor period stepper (prev/next within the open level) — also nudges the
   // map's year so a year-crossing step repaints the rail.
@@ -247,7 +174,6 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       setAnchor(today);
       setLevel('weekly');
       setMapYear(today.getFullYear());
-      setMonthlyAnchor(today);
     },
   };
 
@@ -261,7 +187,6 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
     setLevel(targetLevel);
     setMapYear(targetAnchor.getFullYear());
     setFeedActive(false);
-    setLevelView('yearly');
   };
 
   const centre = locked ? (
@@ -297,53 +222,33 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
       <div className="flex items-start">
         {/* ── RIGHT RAIL — first child = rightmost in RTL, flush to the edge ── */}
         <aside className="vision-desktop-rail shrink-0 w-[440px] sticky top-3 self-start">
-          {/* Header — mirrors the mobile bar: views + feed on the RIGHT,
-              history + collapse on the LEFT. */}
+          {/* Header — mirrors the mobile bar: the free-scroll toggle on the
+              RIGHT, look-back + history + collapse on the LEFT. The yearly map
+              is the only granularity, so there's no view switcher. */}
           <div className="flex items-center justify-between gap-2 mb-3">
-            {/* RIGHT group (RTL start): level switch + free-scroll. */}
-            <div className="flex items-center gap-2">
-              <div className="inline-flex items-center p-0.5 rounded-xl bg-surface-raised ring-1 ring-surface-border">
-                {LEVEL_OPTIONS.map((opt) => {
-                  const active = view === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => pickLevelView(opt.value)}
-                      aria-pressed={active}
-                      className={`
-                        h-9 px-3 rounded-lg text-[13px] font-semibold transition-colors
-                        ${
-                          active
-                            ? 'bg-forest-700 text-on-accent shadow-sm'
-                            : 'text-ink-300 hover:text-ink-100'
-                        }
-                      `}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                type="button"
-                onClick={() => setFeedActive(true)}
-                aria-pressed={view === 'feed'}
-                aria-label="גלילה חופשית בין החזונות"
-                title="גלילה חופשית בין החזונות"
-                className={`
-                  shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
-                  transition-colors
-                  ${
-                    view === 'feed'
-                      ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
-                      : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
-                  }
-                `}
-              >
-                <GalleryVertical size={20} />
-              </button>
-            </div>
+            {/* RIGHT group (RTL start): free-scroll toggle (map ⇄ feed). */}
+            <button
+              type="button"
+              onClick={toggleFeed}
+              aria-pressed={view === 'feed'}
+              aria-label={
+                view === 'feed' ? 'חזרה למפה השנתית' : 'גלילה חופשית בין החזונות'
+              }
+              title={
+                view === 'feed' ? 'חזרה למפה השנתית' : 'גלילה חופשית בין החזונות'
+              }
+              className={`
+                shrink-0 inline-flex items-center justify-center h-10 w-10 rounded-xl
+                transition-colors
+                ${
+                  view === 'feed'
+                    ? 'bg-forest-700/25 text-ink-100 ring-1 ring-forest-700'
+                    : 'bg-surface-raised text-ink-300 ring-1 ring-surface-border hover:text-ink-100'
+                }
+              `}
+            >
+              <GalleryVertical size={20} />
+            </button>
 
             {/* LEFT group (RTL end): look-back (eye) · history · collapse.
                 The eye is the rightmost of the three (right of history). */}
@@ -455,11 +360,8 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                     today={today}
                     selectedLevel={level}
                     selectedKey={periodKey}
-                    fillHeight={view === 'yearly'}
-                    recentMonths={view === 'monthly'}
-                    monthAnchor={monthlyAnchor}
-                    onStepMonths={stepMonthlyWindow}
-                    canStepMonthsNext={monthlyCanStepNext}
+                    scrollable
+                    columns={2}
                     onStepYear={(delta) => setMapYear((y) => y + delta)}
                     onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
                     onPickMonth={(monthKey) =>

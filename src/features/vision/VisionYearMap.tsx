@@ -57,10 +57,13 @@ type Props = {
   onPickMonth: (monthKey: string) => void;
   onPickWeek: (weekKey: string) => void;
   /** "שנתי" view: show the WHOLE year (12 months, future dimmed) inside a
-   *  height-capped scroller — exactly 2 rows (6 months) visible, the rest
-   *  reachable via a scrollbar on the right. Off = compact mode (future rows
-   *  hidden, no inner scroll). */
+   *  height-capped scroller — exactly 2 ROWS visible, the rest reachable via a
+   *  scrollbar on the right, auto-scrolled so the current month's row sits on
+   *  top. Off = compact mode (future rows hidden, no inner scroll). */
   scrollable?: boolean;
+  /** Columns in the scrollable month grid: 3 on mobile (6 months / 2 rows),
+   *  2 on desktop (4 months / 2 rows). */
+  columns?: number;
   /** Desktop sidebar: show the WHOLE year (future dimmed) like `scrollable`,
    *  but WITHOUT the internal 2-row height cap — the surrounding sidebar is the
    *  scroll container, so the month grid flows naturally to full height. */
@@ -104,6 +107,7 @@ export function VisionYearMap({
   onPickMonth,
   onPickWeek,
   scrollable = false,
+  columns = 3,
   fillHeight = false,
   recentMonths = false,
   monthAnchor,
@@ -252,11 +256,10 @@ export function VisionYearMap({
   }, [scrollable, fillHeight, loading, visibleMonths.length]);
 
   // On first paint of the scrollable "שנתי" view for the CURRENT year, scroll so
-  // the current month's ROW (months are a 3-column grid) sits at the TOP of the
-  // 2-row window. The browser clamps scrollTop to the max, so the final quarter
-  // — whose row can't reach the top — simply shows the last two rows instead.
-  // Runs once per mount (after the height cap is in place); a manual scroll
-  // afterwards is never yanked back.
+  // the current month's ROW sits at the TOP of the 2-row window. The browser
+  // clamps scrollTop to the max, so the final rows — whose row can't reach the
+  // top — simply show the last two rows instead. Runs once per mount (after the
+  // height cap is in place); a manual scroll afterwards is never yanked back.
   const didInitialScrollRef = useRef(false);
   const curYear = today.getFullYear();
   const curMonth = today.getMonth();
@@ -268,7 +271,9 @@ export function VisionYearMap({
     const scroller = scrollerRef.current;
     const grid = gridRef.current;
     if (!scroller || !grid) return;
-    const rowStartIndex = Math.floor(curMonth / 3) * 3; // 0, 3, 6 or 9
+    // First card of the current month's row: index rounded down to the row
+    // start (columns per row — 3 on mobile, 2 on desktop).
+    const rowStartIndex = Math.floor(curMonth / columns) * columns;
     const target = grid.children[rowStartIndex] as HTMLElement | undefined;
     if (!target) return;
     scroller.scrollTop =
@@ -283,6 +288,7 @@ export function VisionYearMap({
     year,
     curYear,
     curMonth,
+    columns,
   ]);
 
   const currentMonthKey = getPeriodKey('monthly', today);
@@ -349,6 +355,7 @@ export function VisionYearMap({
         <MonthsLayout
           recentMonths={recentMonths}
           scrollable={scrollable}
+          columns={columns}
           fillHeight={fillHeight}
           maxH={maxH}
           gridRef={gridRef}
@@ -451,6 +458,7 @@ export function VisionYearMap({
 function MonthsLayout({
   recentMonths,
   scrollable,
+  columns,
   fillHeight,
   maxH,
   gridRef,
@@ -461,6 +469,7 @@ function MonthsLayout({
 }: {
   recentMonths: boolean;
   scrollable: boolean;
+  columns: number;
   fillHeight: boolean;
   maxH: number | null;
   gridRef: React.RefObject<HTMLDivElement | null>;
@@ -473,7 +482,7 @@ function MonthsLayout({
     <div
       ref={gridRef}
       className={`grid gap-1.5 items-start ${
-        recentMonths || fillHeight ? 'grid-cols-2' : 'grid-cols-3'
+        recentMonths || fillHeight || columns === 2 ? 'grid-cols-2' : 'grid-cols-3'
       }`}
     >
       {children}
