@@ -510,7 +510,9 @@ export function TreeCard({
 const FIELD_CELL_W = 30;
 const FIELD_CELL_H = 15;
 const FIELD_WALL_H = 20;
-const FIELD_PAD_TOP = 56; // headroom so the centre tree doesn't clip
+const FIELD_PAD_TOP = 42; // headroom so the centre tree doesn't clip (trimmed
+// from 56 — the tallest trees' tops still sit below the viewBox top across all
+// grid sizes, so this removes empty space above the plate without clipping)
 
 function plateW(grid: number) {
   return grid * FIELD_CELL_W * 2;
@@ -1932,20 +1934,27 @@ export function TreeFieldInline({
 
   return (
     <div dir="rtl">
-      {/* One compact stats line above the plot — no containers, an emoji per
-          stat (same language as the Habits "נתונים" cards). */}
-      <div className="flex items-center justify-between gap-1.5 px-0.5 mb-1.5 text-[11px] text-ink-300">
-        {stats.map((s) => (
-          <span
+      {/* A compact 3-up stat strip above the plot — emoji + number on top, a
+          small label beneath, thin dividers between (no boxed cards). Same emoji
+          language as the Habits "נתונים" cards. */}
+      <div className="flex items-stretch mb-1 text-center">
+        {stats.map((s, i) => (
+          <div
             key={s.label}
-            className="inline-flex items-center gap-1 whitespace-nowrap"
+            className={`flex-1 flex flex-col items-center gap-0.5 px-1 ${
+              i > 0 ? 'border-s border-surface-border/70' : ''
+            }`}
           >
-            <Emoji emoji={s.emoji} size={13} />
-            <b className="text-[13px] font-bold text-ink-100 tabular-nums">
-              {s.value}
-            </b>
-            {s.label}
-          </span>
+            <span className="inline-flex items-center gap-1 leading-none">
+              <Emoji emoji={s.emoji} size={14} />
+              <b className="text-[15px] font-extrabold text-ink-100 tabular-nums">
+                {s.value}
+              </b>
+            </span>
+            <span className="text-[10px] text-ink-300 leading-tight">
+              {s.label}
+            </span>
+          </div>
         ))}
       </div>
 

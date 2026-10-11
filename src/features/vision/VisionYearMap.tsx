@@ -64,11 +64,8 @@ type Props = {
   /** Columns in the scrollable month grid: 3 on mobile (6 months / 2 rows),
    *  2 on desktop (6 months / 3 rows). */
   columns?: number;
-  /** Visible rows before the scroller caps: 2 on mobile, 2.5 on desktop. */
+  /** Visible rows before the scroller caps (2 on both mobile and desktop). */
   rows?: number;
-  /** Auto-scroll so the current month's row is CENTERED in the window instead
-   *  of pinned to the top. Used by the desktop 2.5-row view. */
-  centerCurrent?: boolean;
   /** Desktop sidebar: show the WHOLE year (future dimmed) like `scrollable`,
    *  but WITHOUT the internal 2-row height cap — the surrounding sidebar is the
    *  scroll container, so the month grid flows naturally to full height. */
@@ -114,7 +111,6 @@ export function VisionYearMap({
   scrollable = false,
   columns = 3,
   rows = 2,
-  centerCurrent = false,
   fillHeight = false,
   recentMonths = false,
   monthAnchor,
@@ -284,15 +280,10 @@ export function VisionYearMap({
     const rowStartIndex = Math.floor(curMonth / columns) * columns;
     const target = grid.children[rowStartIndex] as HTMLElement | undefined;
     if (!target) return;
-    const rowOffset =
+    // Pin the current month's row to the top. The browser clamps scrollTop, so
+    // the final rows settle at the bottom instead of over-scrolling.
+    scroller.scrollTop =
       target.getBoundingClientRect().top - grid.getBoundingClientRect().top;
-    // Centre the current row in the window (desktop 2.5-row view) or pin it to
-    // the top (mobile). The browser clamps scrollTop, so the final rows still
-    // settle at the bottom instead of over-scrolling.
-    scroller.scrollTop = centerCurrent
-      ? rowOffset -
-        (scroller.clientHeight - target.getBoundingClientRect().height) / 2
-      : rowOffset;
     didInitialScrollRef.current = true;
   }, [
     scrollable,
@@ -304,7 +295,6 @@ export function VisionYearMap({
     curYear,
     curMonth,
     columns,
-    centerCurrent,
   ]);
 
   const currentMonthKey = getPeriodKey('monthly', today);

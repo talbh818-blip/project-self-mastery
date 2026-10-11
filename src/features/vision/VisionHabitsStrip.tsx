@@ -416,7 +416,7 @@ export function VisionHabitsStrip({
     return (
       <div
         dir="rtl"
-        className="mt-3 rounded-2xl bg-surface-base ring-1 ring-surface-border px-3.5 py-3"
+        className="mt-3 rounded-2xl bg-surface-base ring-1 ring-surface-border px-3.5 py-2.5"
       >
         <TreeFieldInline
           userId={userId}
@@ -425,7 +425,7 @@ export function VisionHabitsStrip({
           totalScore={totalScore}
         />
         {items.length > 0 && (
-          <div className="mt-3 pt-3 border-t border-surface-border">{ringsRow}</div>
+          <div className="mt-2 pt-2 border-t border-surface-border">{ringsRow}</div>
         )}
       </div>
     );

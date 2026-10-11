@@ -362,8 +362,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                     selectedKey={periodKey}
                     scrollable
                     columns={2}
-                    rows={2.5}
-                    centerCurrent
+                    rows={2}
                     onStepYear={(delta) => setMapYear((y) => y + delta)}
                     onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
                     onPickMonth={(monthKey) =>
