@@ -1920,31 +1920,32 @@ export function TreeFieldInline({
   const cycleScore = Math.round(economy.bank);
   const stage = stageFor(Math.min(cycleScore, cycleTarget), stageThresholds);
 
-  const tiles: { label: string; value: string }[] = [
-    { label: 'עצים שתולים', value: String(treesPlanted) },
+  const stats: { emoji: string; value: string; label: string }[] = [
+    { emoji: '🌳', value: String(treesPlanted), label: 'עצים שתולים' },
     {
-      label: 'חזונות שנכתבו',
+      emoji: '📖',
       value: visionCount == null ? '—' : String(visionCount),
+      label: 'חזונות שנכתבו',
     },
-    { label: 'ניקוד כולל', value: String(displayPoints(totalScore)) },
+    { emoji: '⭐', value: String(displayPoints(totalScore)), label: 'ניקוד' },
   ];
 
   return (
     <div dir="rtl">
-      {/* Three stat tiles ABOVE the plot. */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {tiles.map((t) => (
-          <div
-            key={t.label}
-            className="rounded-xl bg-surface-raised px-1.5 py-2.5 text-center"
+      {/* One compact stats line above the plot — no containers, an emoji per
+          stat (same language as the Habits "נתונים" cards). */}
+      <div className="flex items-center justify-between gap-1.5 px-0.5 mb-1.5 text-[11px] text-ink-300">
+        {stats.map((s) => (
+          <span
+            key={s.label}
+            className="inline-flex items-center gap-1 whitespace-nowrap"
           >
-            <div className="text-lg font-bold text-ink-100 tabular-nums leading-none">
-              {t.value}
-            </div>
-            <div className="mt-1 text-[11px] text-ink-300 leading-tight">
-              {t.label}
-            </div>
-          </div>
+            <Emoji emoji={s.emoji} size={13} />
+            <b className="text-[13px] font-bold text-ink-100 tabular-nums">
+              {s.value}
+            </b>
+            {s.label}
+          </span>
         ))}
       </div>
 

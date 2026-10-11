@@ -225,7 +225,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
           {/* Header — mirrors the mobile bar: the free-scroll toggle on the
               RIGHT, look-back + history + collapse on the LEFT. The yearly map
               is the only granularity, so there's no view switcher. */}
-          <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center justify-between gap-2 mb-2">
             {/* RIGHT group (RTL start): free-scroll toggle (map ⇄ feed). */}
             <button
               type="button"
@@ -316,7 +316,7 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
               {/* Background is the PAGE base (darker than the month cards) so
                   each month's surface-card reads as its own container — exactly
                   like the mobile year map. */}
-              <div className="vision-desktop-rail-body rounded-2xl bg-surface-base ring-1 ring-surface-border p-3 overflow-y-auto vision-feed-scroll">
+              <div className="vision-desktop-rail-body rounded-2xl bg-surface-base ring-1 ring-surface-border px-3 pt-2 pb-3 overflow-y-auto vision-feed-scroll">
                 {view === 'feed' ? (
                   <div>
                     {/* The icon/clear button are positioned against THIS wrapper
@@ -362,7 +362,8 @@ export function VisionDesktop({ ctl }: { ctl: VisionController }) {
                     selectedKey={periodKey}
                     scrollable
                     columns={2}
-                    rows={3}
+                    rows={2.5}
+                    centerCurrent
                     onStepYear={(delta) => setMapYear((y) => y + delta)}
                     onPickYear={() => goToPeriod('yearly', new Date(mapYear, 0, 1))}
                     onPickMonth={(monthKey) =>
